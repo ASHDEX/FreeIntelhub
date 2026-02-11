@@ -57,6 +57,11 @@ async function fetchFeeds() {
 
 fetchFeeds();
 
+app.get("/debug/fetch", async (req, res) => {
+  await fetchFeeds();
+  res.send("Fetched feeds. Refresh homepage in 10 seconds.");
+});
+
 // Homepage
 app.get("/", (req, res) => {
   db.all(`SELECT * FROM feeds ORDER BY published DESC LIMIT 30`, [], (err, feeds) => {
