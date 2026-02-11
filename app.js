@@ -3,9 +3,12 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { open } from "sqlite";
 import sqlite3 from "sqlite3";
+import dotenv from "dotenv";
 
 import pages from "./routes/pages.js";
 import { fetchFeeds } from "./services/rssFetcher.js";
+
+dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -13,9 +16,15 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// --- Database ---
+// --- Database (use writable path in production) ---
+const dbPath = process.env.DB_PATH
+  ? path.resolve(process.env.DB_PATH)
+  : path.join(process.cwd(), "db", "data.db");
+
+console.log("DB Path:", dbPath);
+
 const db = await open({
-  filename: path.join(__dirname, "db", "data.db"),
+  filename: dbPath,
   driver: sqlite3.Database
 });
 
@@ -58,7 +67,7 @@ app.set("views", path.join(__dirname, "views"));
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
 
-// Serve static files (CSS + JS)
+// Serve static files
 app.use(express.static(path.join(__dirname, "public")));
 
 // --- Routes ---
@@ -71,18 +80,18 @@ app.use("/", pages);
     await fetchFeeds(db);
     console.log("Initial feed fetch done.");
   } catch (err) {
-    console.error("Feed fetch failed on startup:", err.message);
+    console.error("Feed fetch failed on startup:", err);
   }
 })();
 
-// --- Periodic feed refresh (every 30 minutes) ---
+// --- Periodic feed refresh (30 minutes) ---
 setInterval(async () => {
   try {
     console.log("Refreshing feeds...");
     await fetchFeeds(db);
     console.log("Feed refresh complete.");
   } catch (err) {
-    console.error("Feed refresh failed:", err.message);
+    console.error("Feed refresh failed:", err);
   }
 }, 1000 * 60 * 30);
 
