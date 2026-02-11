@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>FreeIntel Hub – Your daily dose of cyber</title>
-  <link rel="stylesheet" href="/css/style.css"/>
+  <link rel="stylesheet" href="/style.css"/>
 </head>
 <body>
 
@@ -18,12 +18,12 @@
     </form>
   </section>
 
-  <!-- CVE Ticker -->
+  <!-- Moving CVE / Threat ticker -->
   <div class="ticker">
     <div class="ticker-track">
       <% feeds.slice(0, 10).forEach(f => { %>
         <div class="ticker-item">
-          🚨 <a href="<%= f.link %>" target="_blank"><%= f.title %></a>
+          🚨 <a href="<%= f.link %>" target="_blank" rel="noreferrer"><%= f.title %></a>
         </div>
       <% }) %>
     </div>
@@ -36,7 +36,7 @@
         <h3>Latest Cyber News</h3>
         <% feeds.slice(0, 12).forEach(f => { %>
           <div class="feed-item">
-            <a href="<%= f.link %>" target="_blank"><%= f.title %></a>
+            <a href="<%= f.link %>" target="_blank" rel="noreferrer"><%= f.title %></a>
             <div class="meta"><%= f.vendor %> · <%= f.published || "Recent" %></div>
           </div>
         <% }) %>
@@ -45,19 +45,27 @@
       <!-- Data Breaches -->
       <section class="card">
         <h3>Data Breaches</h3>
-        <% feeds.filter(f => /breach|leak|exposed|ransom|incident/i.test(f.title)).slice(0, 12).forEach(f => { %>
+        <% 
+          const breaches = feeds.filter(f => /breach|leak|exposed|ransom|incident|compromised/i.test(f.title));
+        %>
+
+        <% breaches.slice(0, 12).forEach(f => { %>
           <div class="feed-item">
-            <a href="<%= f.link %>" target="_blank"><%= f.title %></a>
+            <a href="<%= f.link %>" target="_blank" rel="noreferrer"><%= f.title %></a>
             <div class="meta"><%= f.vendor %> · <%= f.published || "Recent" %></div>
           </div>
         <% }) %>
 
-        <% if (!feeds.some(f => /breach|leak|exposed|ransom|incident/i.test(f.title))) { %>
+        <% if (breaches.length === 0) { %>
           <p style="color:#9aa4b2">No recent breach-related news detected yet.</p>
         <% } %>
       </section>
     </div>
   </main>
+
+  <footer class="container" style="text-align:center; color:#9aa4b2; margin-top:40px;">
+    All content belongs to respective publishers. We only link to original sources.
+  </footer>
 
 </body>
 </html>

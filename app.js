@@ -1,126 +1,179 @@
-const express = require("express");
-const path = require("path");
-const fs = require("fs");
-const sqlite3 = require("sqlite3").verbose();
-const Parser = require("rss-parser");
+const express = require('express');
+const Parser = require('rss-parser');
+const path = require('path');
+const NodeCache = require('node-cache');
+const rateLimit = require('express-rate-limit');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
-
-// Middleware
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use(express.static(path.join(__dirname, "public")));
-app.set("view engine", "ejs");
-app.set("views", path.join(__dirname, "views"));
-
-// Ensure DB folder exists
-const dbDir = path.join(__dirname, "db");
-if (!fs.existsSync(dbDir)) fs.mkdirSync(dbDir, { recursive: true });
-
-// Use DB_PATH from env if provided (Hostinger), else local
-const dbPath = process.env.DB_PATH || path.join(dbDir, "data.db");
-const db = new sqlite3.Database(dbPath);
-
-// Init DB
-db.serialize(() => {
-  db.run(`
-    CREATE TABLE IF NOT EXISTS feeds (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      title TEXT,
-      link TEXT UNIQUE,
-      vendor TEXT,
-      published TEXT
-    )
-  `);
-});
-
-// RSS sources
-const RSS_FEEDS = [
-  { name: "Cisco", url: "https://blog.talosintelligence.com/rss/" },
-  { name: "Microsoft", url: "https://www.microsoft.com/security/blog/feed/" },
-  { name: "CrowdStrike", url: "https://www.crowdstrike.com/blog/feed/" },
-  { name: "Palo Alto", url: "https://www.paloaltonetworks.com/blog/feed/" }
-];
-
 const parser = new Parser();
+const cache = new NodeCache({ stdTTL: 300 });
 
-async function fetchFeeds() {
-  for (const f of RSS_FEEDS) {
-    try {
-      const feed = await parser.parseURL(f.url);
-      feed.items.slice(0, 15).forEach(item => {
-        db.run(
-          `INSERT OR IGNORE INTO feeds (title, link, vendor, published)
-           VALUES (?, ?, ?, ?)`,
-          [item.title, item.link, f.name, item.pubDate || ""]
-        );
-      });
-    } catch (e) {
-      console.error("RSS error:", f.name, e.message);
+const vendors = require('./vendors.json');
+
+app.set('view engine', 'ejs');
+app.set('views', path.join(__dirname, 'views'));
+app.use(express.static(path.join(__dirname, 'public')));
+
+app.use(rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 300
+}));
+
+let articles = [];
+let cveTicker = [];
+
+// ----------------- Vendor Alias Detection -----------------
+function detectVendors(text) {
+  if (!text) return [];
+  const found = new Set();
+  const content = text.toLowerCase();
+
+  for (const [vendor, aliases] of Object.entries(vendors)) {
+    for (const alias of aliases) {
+      if (content.includes(alias.toLowerCase())) {
+        found.add(vendor.toLowerCase());
+        break;
+      }
     }
   }
+
+  return Array.from(found);
 }
 
-// Initial fetch
-fetchFeeds();
+// ----------------- RSS FEEDS -----------------
+const FEEDS = [
+  "https://www.bleepingcomputer.com/feed/",
+  "https://feeds.feedburner.com/TheHackersNews",
+  "https://www.darkreading.com/rss.xml",
+  "https://www.securityweek.com/feed",
+  "https://www.bleepingcomputer.com/tag/security/rss/",
+  "https://www.recordedfuture.com/rss",
+  "https://www.cisa.gov/cybersecurity-advisories/all.xml"
+];
 
-// Routes
+// ----------------- FETCH RSS -----------------
+async function fetchFeeds() {
+  let all = [];
 
-// Homepage
-app.get("/", (req, res) => {
-  db.all(`SELECT * FROM feeds ORDER BY published DESC LIMIT 50`, [], (err, feeds) => {
-    if (err) return res.status(500).send("DB error");
+  for (const url of FEEDS) {
+    try {
+      const feed = await parser.parseURL(url);
+      feed.items.forEach(item => {
+        const text = `${item.title || ''} ${item.contentSnippet || ''} ${item.content || ''}`;
+        all.push({
+          title: item.title || 'No title',
+          link: item.link,
+          summary: item.contentSnippet || '',
+          source: feed.title || url,
+          published: item.pubDate || item.isoDate || new Date().toISOString(),
+          vendors: detectVendors(text)
+        });
+      });
+    } catch (err) {
+      console.error(`RSS Error (${url})`, err.message);
+    }
+  }
 
-    const vendors = [...new Set(feeds.map(f => f.vendor))];
+  articles = all.sort((a, b) => new Date(b.published) - new Date(a.published));
+  console.log(`[+] RSS updated: ${articles.length} articles`);
+}
 
-    res.render("index", { feeds, vendors });
+// ----------------- CACHE WRAPPER -----------------
+async function getArticlesCached() {
+  const cached = cache.get("articles");
+  if (cached) return cached;
+
+  await fetchFeeds();
+  cache.set("articles", articles);
+  return articles;
+}
+
+// ----------------- VENDOR INDEX -----------------
+function buildVendorIndex(articles) {
+  const map = {};
+
+  for (const article of articles) {
+    for (const vendor of article.vendors) {
+      if (!map[vendor]) {
+        map[vendor] = {
+          vendor,
+          count: 0,
+          latest: new Date(article.published || 0)
+        };
+      }
+
+      map[vendor].count++;
+
+      const published = new Date(article.published || 0);
+      if (published > map[vendor].latest) {
+        map[vendor].latest = published;
+      }
+    }
+  }
+
+  return Object.values(map).sort((a, b) => b.latest - a.latest);
+}
+
+// ----------------- SEARCH -----------------
+function searchArticles(query, articles) {
+  const q = query.toLowerCase();
+
+  return articles
+    .map(a => {
+      let score = 0;
+      if (a.title.toLowerCase().includes(q)) score += 3;
+      if (a.vendors.includes(q)) score += 5;
+      if ((a.summary || '').toLowerCase().includes(q)) score += 1;
+      return { ...a, score };
+    })
+    .filter(a => a.score > 0)
+    .sort((a, b) => b.score - a.score);
+}
+
+// ----------------- ROUTES -----------------
+app.get('/', async (req, res) => {
+  const articles = await getArticlesCached();
+  const vendors = buildVendorIndex(articles);
+
+  res.render('index', {
+    news: articles.slice(0, 30),
+    vendors,
+    cveTicker
   });
 });
 
-// Vendor page
-app.get("/vendor/:name", (req, res) => {
-  const vendor = decodeURIComponent(req.params.name);
+app.get('/vendor/:vendor', async (req, res) => {
+  const vendor = req.params.vendor.toLowerCase();
+  const articles = await getArticlesCached();
+  const vendorNews = articles.filter(a => a.vendors.includes(vendor));
 
-  db.all(
-    `SELECT * FROM feeds WHERE vendor = ? ORDER BY published DESC LIMIT 50`,
-    [vendor],
-    (err, feeds) => {
-      if (err) return res.status(500).send("DB error");
-      res.render("vendor", { vendor, feeds });
-    }
-  );
+  res.render('vendor', {
+    vendor,
+    news: vendorNews
+  });
 });
 
-// 🔎 Fixed Search (title + vendor)
-app.get("/search", (req, res) => {
-  const q = (req.query.q || "").trim();
+app.get('/search', async (req, res) => {
+  const q = req.query.q || '';
+  const articles = await getArticlesCached();
+  const results = q ? searchArticles(q, articles) : [];
 
-  if (!q) {
-    return res.render("search", { feeds: [] });
-  }
-
-  const like = `%${q}%`;
-
-  db.all(
-    `
-    SELECT * FROM feeds 
-    WHERE title LIKE ? OR vendor LIKE ?
-    ORDER BY published DESC 
-    LIMIT 100
-    `,
-    [like, like],
-    (err, feeds) => {
-      if (err) {
-        console.error("Search DB error:", err);
-        return res.status(500).send("DB error");
-      }
-
-      res.render("search", { feeds });
-    }
-  );
+  res.render('search', {
+    query: q,
+    results
+  });
 });
 
+// ----------------- CVE TICKER STUB -----------------
+setInterval(() => {
+  cveTicker = []; // Later: replace with real CVE feed
+}, 60 * 60 * 1000);
+
+// ----------------- INIT -----------------
+fetchFeeds();
+setInterval(fetchFeeds, 10 * 60 * 1000);
+
+const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`FreeIntel Hub running on port ${PORT}`);
+  console.log(`🔥 FreeIntel Hub running on http://localhost:${PORT}`);
 });
