@@ -1,28 +1,23 @@
-<!DOCTYPE html>
-<html>
-<head>
-  <title>FreeIntel Hub</title>
-</head>
-<body>
-  <h1>Your daily dose of cyber 🛡️</h1>
+<h1>Your daily dose of cyber 🛡️</h1>
 
-  <form action="/search">
-    <input name="q" placeholder="Search threats..." />
-    <button type="submit">Search</button>
-  </form>
+<form action="/search">
+  <input name="q" placeholder="Search threats..." />
+  <button>Search</button>
+</form>
 
-  <h3>Vendors</h3>
-  <ul>
-    <li><a href="/vendor/Cisco">Cisco</a></li>
-    <li><a href="/vendor/Microsoft">Microsoft</a></li>
-    <li><a href="/vendor/CrowdStrike">CrowdStrike</a></li>
-    <li><a href="/vendor/Palo Alto">Palo Alto</a></li>
-  </ul>
+<h3>Vendors</h3>
+<ul>
+  <% vendors.forEach(v => { %>
+    <li><a href="/vendor/<%= encodeURIComponent(v) %>"><%= v %></a></li>
+  <% }) %>
+</ul>
 
-  <form action="/subscribe" method="POST">
-    <input name="email" placeholder="Email" required />
-    <input name="topic" placeholder="Vendor or keyword" />
-    <button type="submit">Subscribe</button>
-  </form>
-</body>
-</html>
+<h3>Latest</h3>
+<ul>
+  <% feeds.forEach(f => { %>
+    <li>
+      <a href="<%= f.link %>" target="_blank"><%= f.title %></a>
+      <small>(<%= f.vendor %>)</small>
+    </li>
+  <% }) %>
+</ul>
