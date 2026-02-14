@@ -1,0 +1,28 @@
+<% if (pages > 1) { %>
+<nav class="pagination">
+  <% if (page > 1) { %>
+    <a href="<%= baseUrl %><%= baseUrl.includes('?') ? '&' : '?' %>page=<%= page - 1 %>" class="page-btn">&laquo; Prev</a>
+  <% } %>
+  <%
+    var start = Math.max(1, page - 2);
+    var end = Math.min(pages, page + 2);
+    if (start > 1) { %>
+      <a href="<%= baseUrl %><%= baseUrl.includes('?') ? '&' : '?' %>page=1" class="page-num">1</a>
+      <% if (start > 2) { %><span class="page-dots">...</span><% } %>
+  <% }
+    for (var i = start; i <= end; i++) { %>
+      <% if (i === page) { %>
+        <span class="page-num active"><%= i %></span>
+      <% } else { %>
+        <a href="<%= baseUrl %><%= baseUrl.includes('?') ? '&' : '?' %>page=<%= i %>" class="page-num"><%= i %></a>
+      <% } %>
+  <% }
+    if (end < pages) { %>
+      <% if (end < pages - 1) { %><span class="page-dots">...</span><% } %>
+      <a href="<%= baseUrl %><%= baseUrl.includes('?') ? '&' : '?' %>page=<%= pages %>" class="page-num"><%= pages %></a>
+  <% } %>
+  <% if (page < pages) { %>
+    <a href="<%= baseUrl %><%= baseUrl.includes('?') ? '&' : '?' %>page=<%= page + 1 %>" class="page-btn">Next &raquo;</a>
+  <% } %>
+</nav>
+<% } %>

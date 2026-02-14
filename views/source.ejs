@@ -1,8 +1,9 @@
 <%- include('partials/head', { pageTitle: source }) %>
 
 <h1><%= source %></h1>
-<p><%= articles.length %> article<%= articles.length !== 1 ? 's' : '' %> found</p>
+<p><%= articles.length %> article<%= articles.length !== 1 ? 's' : '' %> shown</p>
 
 <%- include('partials/articleList', { articles }) %>
+<%- include('partials/pagination', { page, pages, baseUrl }) %>
 
 <%- include('partials/footer') %>
