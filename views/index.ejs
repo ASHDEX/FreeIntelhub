@@ -3,6 +3,16 @@
 <section class="hero">
   <h1>Cybersecurity Threat Intelligence</h1>
   <p>Real-time aggregated security news from <%= totalCount %> articles across trusted sources</p>
+  <div class="search-box">
+    <form action="/search" method="GET" autocomplete="off">
+      <div class="search-wrapper">
+        <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <input type="text" id="hero-search" name="q" placeholder="Search threats, vendors, CVEs..." value="">
+        <kbd class="search-hint">/</kbd>
+      </div>
+    </form>
+    <div class="suggestions" id="suggestions"></div>
+  </div>
 </section>
 
 <section class="stats-row">

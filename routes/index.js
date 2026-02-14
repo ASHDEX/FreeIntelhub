@@ -36,6 +36,11 @@ const stmts = {
   `),
   feedHealth: db.prepare(`SELECT * FROM feed_health ORDER BY source`),
   totalCount: db.prepare(`SELECT COUNT(*) as count FROM articles`),
+  suggestions: db.prepare(`
+    SELECT id, title, vendor, category, link FROM articles
+    WHERE title LIKE ? OR vendor LIKE ?
+    ORDER BY published_at DESC LIMIT 8
+  `),
 };
 
 // --- Routes ---
@@ -92,6 +97,15 @@ router.get('/sources', (req, res) => {
   const sources = stmts.sourceCounts.all();
   const health = stmts.feedHealth.all();
   res.render('sources', { sources, health });
+});
+
+// Search suggestions API (JSON)
+router.get('/api/suggest', (req, res) => {
+  const q = (req.query.q || '').trim();
+  if (q.length < 2) return res.json([]);
+  const like = `%${q}%`;
+  const results = stmts.suggestions.all(like, like);
+  res.json(results);
 });
 
 // Health check (JSON)
