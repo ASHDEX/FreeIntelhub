@@ -89,6 +89,20 @@ const stmts = {
     WHERE title LIKE ? OR vendor LIKE ?
     ORDER BY published_at DESC LIMIT 8
   `),
+  // Alert system
+  insertSubscriber: db.prepare(`
+    INSERT INTO subscribers (email, daily_newsletter, token)
+    VALUES (@email, @newsletter, @token)
+    ON CONFLICT(email) DO UPDATE SET daily_newsletter = @newsletter, token = @token
+  `),
+  getSubscriberByToken: db.prepare(`SELECT * FROM subscribers WHERE token = ?`),
+  insertAlertRule: db.prepare(`
+    INSERT OR IGNORE INTO alert_rules (subscriber_id, rule_type, rule_value)
+    VALUES (@subscriber_id, @rule_type, @rule_value)
+  `),
+  getAlertRules: db.prepare(`SELECT * FROM alert_rules WHERE subscriber_id = ?`),
+  deleteAlertRule: db.prepare(`DELETE FROM alert_rules WHERE id = ? AND subscriber_id = ?`),
+  deleteSubscriber: db.prepare(`DELETE FROM subscribers WHERE id = ?`),
 };
 
 // --- Inject nav data into all views ---
@@ -210,6 +224,94 @@ router.get('/sources', (req, res) => {
   const sources = stmts.sourceCounts.all();
   const health = stmts.feedHealth.all();
   res.render('sources', { sources, health, pageTitle: 'Sources' });
+});
+
+// --- Alerts ---
+function generateToken() {
+  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+  let t = '';
+  for (let i = 0; i < 32; i++) t += chars[Math.floor(Math.random() * chars.length)];
+  return t;
+}
+
+// Alerts signup page
+router.get('/alerts', (req, res) => {
+  const token = req.query.token;
+  let subscriber = null;
+  let rules = [];
+  if (token) {
+    subscriber = stmts.getSubscriberByToken.get(token);
+    if (subscriber) rules = stmts.getAlertRules.all(subscriber.id);
+  }
+  const allVendors = stmts.vendorCounts.all();
+  res.render('alerts', {
+    pageTitle: 'Alerts',
+    subscriber, rules, allVendors,
+    success: req.query.success, error: req.query.error,
+  });
+});
+
+// Alerts signup POST
+router.post('/alerts/subscribe', (req, res) => {
+  const email = (req.body.email || '').trim().toLowerCase();
+  if (!email || !email.includes('@')) {
+    return res.redirect('/alerts?error=invalid_email');
+  }
+
+  const newsletter = req.body.newsletter === 'on' ? 1 : 0;
+  const token = generateToken();
+
+  stmts.insertSubscriber.run({ email, newsletter, token });
+  const subscriber = stmts.getSubscriberByToken.get(token);
+
+  // Process alert rules from the form
+  const types = ['vendor', 'category', 'sector', 'keyword'];
+  for (const type of types) {
+    const values = req.body[type];
+    if (!values) continue;
+    const arr = Array.isArray(values) ? values : [values];
+    for (const val of arr) {
+      const v = val.trim();
+      if (v) stmts.insertAlertRule.run({ subscriber_id: subscriber.id, rule_type: type, rule_value: v });
+    }
+  }
+
+  res.redirect(`/alerts?token=${token}&success=subscribed`);
+});
+
+// Add alert rule
+router.post('/alerts/add-rule', (req, res) => {
+  const token = req.body.token;
+  const subscriber = token ? stmts.getSubscriberByToken.get(token) : null;
+  if (!subscriber) return res.redirect('/alerts?error=not_found');
+
+  const type = req.body.rule_type;
+  const value = (req.body.rule_value || '').trim();
+  if (type && value) {
+    stmts.insertAlertRule.run({ subscriber_id: subscriber.id, rule_type: type, rule_value: value });
+  }
+  res.redirect(`/alerts?token=${token}&success=rule_added`);
+});
+
+// Delete alert rule
+router.post('/alerts/delete-rule', (req, res) => {
+  const token = req.body.token;
+  const subscriber = token ? stmts.getSubscriberByToken.get(token) : null;
+  if (!subscriber) return res.redirect('/alerts?error=not_found');
+
+  stmts.deleteAlertRule.run(req.body.rule_id, subscriber.id);
+  res.redirect(`/alerts?token=${token}&success=rule_removed`);
+});
+
+// Unsubscribe
+router.post('/alerts/unsubscribe', (req, res) => {
+  const token = req.body.token;
+  const subscriber = token ? stmts.getSubscriberByToken.get(token) : null;
+  if (subscriber) {
+    db.prepare(`DELETE FROM alert_rules WHERE subscriber_id = ?`).run(subscriber.id);
+    stmts.deleteSubscriber.run(subscriber.id);
+  }
+  res.redirect('/alerts?success=unsubscribed');
 });
 
 // Search suggestions API (JSON)

@@ -12,6 +12,9 @@ const FETCH_INTERVAL = 15 * 60 * 1000; // 15 minutes
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
+// Body parsing
+app.use(express.urlencoded({ extended: false }));
+
 // Static files
 app.use(express.static(path.join(__dirname, 'public')));
 

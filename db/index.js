@@ -35,6 +35,28 @@ db.exec(`
 // Migration: add sector column if missing
 try { db.exec(`ALTER TABLE articles ADD COLUMN sector TEXT`); } catch (_) {}
 
+// Subscribers & alerts
+db.exec(`
+  CREATE TABLE IF NOT EXISTS subscribers (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    email TEXT UNIQUE NOT NULL,
+    daily_newsletter INTEGER DEFAULT 0,
+    verified INTEGER DEFAULT 0,
+    token TEXT,
+    created_at TEXT DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS alert_rules (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    subscriber_id INTEGER NOT NULL,
+    rule_type TEXT NOT NULL,
+    rule_value TEXT NOT NULL,
+    created_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (subscriber_id) REFERENCES subscribers(id) ON DELETE CASCADE,
+    UNIQUE(subscriber_id, rule_type, rule_value)
+  );
+`);
+
 // Indexes (after migrations so all columns exist)
 db.exec(`
   CREATE INDEX IF NOT EXISTS idx_articles_published ON articles(published_at DESC);
