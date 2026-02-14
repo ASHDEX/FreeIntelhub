@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= typeof pageTitle !== 'undefined' ? pageTitle + ' | ' : '' %>FreeIntelHub</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <nav class="navbar">
+    <div class="container nav-inner">
+      <a href="/" class="logo">FreeIntel<span>Hub</span></a>
+      <div class="nav-links">
+        <a href="/">Feed</a>
+        <a href="/vendors">Vendors</a>
+        <a href="/sources">Sources</a>
+        <form action="/search" method="GET" class="nav-search">
+          <input type="text" name="q" placeholder="Search threats..." value="<%= typeof query !== 'undefined' ? query : '' %>">
+        </form>
+      </div>
+      <button class="nav-toggle" onclick="document.querySelector('.nav-links').classList.toggle('open')">&#9776;</button>
+    </div>
+  </nav>
+  <main class="container">

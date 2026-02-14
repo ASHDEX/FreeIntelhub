@@ -1,0 +1,31 @@
+<%- include('partials/head', { pageTitle: 'Sources' }) %>
+
+<h1>Feed Sources</h1>
+<p>Status of all RSS feeds being monitored</p>
+
+<table class="data-table">
+  <thead>
+    <tr>
+      <th>Source</th>
+      <th>Articles</th>
+      <th>Status</th>
+      <th>Last Checked</th>
+    </tr>
+  </thead>
+  <tbody>
+    <% sources.forEach(function(s) {
+      const h = health.find(function(x) { return x.source === s.source; });
+    %>
+      <tr>
+        <td><a href="/source/<%= encodeURIComponent(s.source) %>"><%= s.source %></a></td>
+        <td><%= s.count %></td>
+        <td class="<%= h && h.last_status === 'ok' ? 'status-ok' : 'status-err' %>">
+          <%= h ? h.last_status : 'unknown' %>
+        </td>
+        <td><%= h && h.last_checked_at ? new Date(h.last_checked_at).toLocaleString() : '—' %></td>
+      </tr>
+    <% }); %>
+  </tbody>
+</table>
+
+<%- include('partials/footer') %>

@@ -1,0 +1,22 @@
+{
+  "name": "freeintelhub",
+  "version": "1.0.0",
+  "description": "Cybersecurity Threat Intelligence RSS Hub",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js",
+    "dev": "node --watch app.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": ["cybersecurity", "threat-intelligence", "rss"],
+  "license": "MIT",
+  "dependencies": {
+    "better-sqlite3": "^11.7.0",
+    "ejs": "^3.1.10",
+    "express": "^4.21.0",
+    "express-rate-limit": "^7.5.0",
+    "rss-parser": "^3.13.0"
+  }
+}

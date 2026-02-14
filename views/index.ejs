@@ -1,0 +1,33 @@
+<%- include('partials/head') %>
+
+<section class="hero">
+  <h1>Cybersecurity Threat Intelligence</h1>
+  <p>Real-time aggregated security news from <%= totalCount %> articles across trusted sources</p>
+</section>
+
+<section class="stats-row">
+  <% categories.slice(0, 6).forEach(function(c) { %>
+    <a href="/category/<%= encodeURIComponent(c.category) %>" class="stat-card">
+      <strong><%= c.count %></strong>
+      <span><%= c.category %></span>
+    </a>
+  <% }); %>
+</section>
+
+<% if (vendors.length > 0) { %>
+<section class="vendor-bar">
+  <h2>Trending Vendors</h2>
+  <div class="vendor-tags">
+    <% vendors.slice(0, 15).forEach(function(v) { %>
+      <a href="/vendor/<%= encodeURIComponent(v.vendor) %>" class="badge badge-vendor"><%= v.vendor %> (<%= v.count %>)</a>
+    <% }); %>
+  </div>
+</section>
+<% } %>
+
+<section>
+  <h2>Latest Articles</h2>
+  <%- include('partials/articleList', { articles }) %>
+</section>
+
+<%- include('partials/footer') %>

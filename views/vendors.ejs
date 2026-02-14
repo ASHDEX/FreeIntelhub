@@ -1,0 +1,19 @@
+<%- include('partials/head', { pageTitle: 'Vendors' }) %>
+
+<h1>Vendors</h1>
+<p>Browse articles by affected vendor or product</p>
+
+<% if (vendors.length === 0) { %>
+  <p class="empty">No vendor data yet. Articles are still being fetched.</p>
+<% } else { %>
+  <div class="vendor-grid">
+    <% vendors.forEach(function(v) { %>
+      <a href="/vendor/<%= encodeURIComponent(v.vendor) %>" class="vendor-card">
+        <strong><%= v.vendor %></strong>
+        <span><%= v.count %> article<%= v.count !== 1 ? 's' : '' %></span>
+      </a>
+    <% }); %>
+  </div>
+<% } %>
+
+<%- include('partials/footer') %>

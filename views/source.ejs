@@ -1,0 +1,8 @@
+<%- include('partials/head', { pageTitle: source }) %>
+
+<h1><%= source %></h1>
+<p><%= articles.length %> article<%= articles.length !== 1 ? 's' : '' %> found</p>
+
+<%- include('partials/articleList', { articles }) %>
+
+<%- include('partials/footer') %>
