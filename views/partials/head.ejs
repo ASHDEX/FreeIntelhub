@@ -11,15 +11,18 @@
   <nav class="navbar">
     <div class="container nav-inner">
       <a href="/" class="logo">FreeIntel<span>Hub</span></a>
-      <div class="nav-links">
-        <a href="/">Feed</a>
-        <a href="/vendors">Vendors</a>
-        <a href="/sources">Sources</a>
+      <div class="nav-tabs">
+        <a href="/" class="nav-tab<%= typeof pageTitle === 'undefined' ? ' active' : '' %>">Feed</a>
+        <a href="/vendors" class="nav-tab<%= typeof pageTitle !== 'undefined' && pageTitle === 'Vendors' ? ' active' : '' %>">Vendors</a>
+        <a href="/sources" class="nav-tab<%= typeof pageTitle !== 'undefined' && pageTitle === 'Sources' ? ' active' : '' %>">Sources</a>
+      </div>
+      <div class="nav-right">
         <form action="/search" method="GET" class="nav-search">
-          <input type="text" name="q" placeholder="Search threats..." value="<%= typeof query !== 'undefined' ? query : '' %>">
+          <svg class="nav-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <input type="text" name="q" placeholder="Search..." value="<%= typeof query !== 'undefined' ? query : '' %>">
         </form>
       </div>
-      <button class="nav-toggle" onclick="document.querySelector('.nav-links').classList.toggle('open')">&#9776;</button>
+      <button class="nav-toggle" onclick="document.querySelector('.nav-tabs').classList.toggle('open')">&#9776;</button>
     </div>
   </nav>
   <main class="container">
