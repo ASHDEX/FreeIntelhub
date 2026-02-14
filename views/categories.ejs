@@ -1,0 +1,19 @@
+<%- include('partials/head', { pageTitle: 'News Types' }) %>
+
+<h1>News Types</h1>
+<p>Browse articles by threat category</p>
+
+<% if (categories.length === 0) { %>
+  <p class="empty">No category data yet. Articles are still being fetched.</p>
+<% } else { %>
+  <div class="vendor-grid">
+    <% categories.forEach(function(c) { %>
+      <a href="/category/<%= encodeURIComponent(c.category) %>" class="vendor-card">
+        <strong><%= c.category %></strong>
+        <span><%= c.count %> article<%= c.count !== 1 ? 's' : '' %></span>
+      </a>
+    <% }); %>
+  </div>
+<% } %>
+
+<%- include('partials/footer') %>

@@ -1,6 +1,14 @@
 const express = require('express');
 const db = require('../db');
+const feeds = require('../config/feeds.json');
+const { CATEGORY_PATTERNS } = require('../services/categorizer');
+const sectorConfig = require('../config/sectors.json');
 const router = express.Router();
+
+// Static lists for navbar dropdowns
+const NAV_SOURCES = feeds.map(f => f.name);
+const NAV_CATEGORIES = Object.keys(CATEGORY_PATTERNS);
+const NAV_SECTORS = Object.keys(sectorConfig);
 
 const PER_PAGE = 20;
 
@@ -63,6 +71,17 @@ const stmts = {
     SELECT source, COUNT(*) as count FROM articles
     GROUP BY source ORDER BY count DESC
   `),
+  articlesBySector: db.prepare(`
+    SELECT * FROM articles WHERE sector = ? ORDER BY published_at DESC LIMIT ? OFFSET ?
+  `),
+  sectorCount: db.prepare(`
+    SELECT COUNT(*) as count FROM articles WHERE sector = ?
+  `),
+  sectorCounts: db.prepare(`
+    SELECT sector, COUNT(*) as count FROM articles
+    WHERE sector IS NOT NULL
+    GROUP BY sector ORDER BY count DESC
+  `),
   feedHealth: db.prepare(`SELECT * FROM feed_health ORDER BY source`),
   totalCount: db.prepare(`SELECT COUNT(*) as count FROM articles`),
   suggestions: db.prepare(`
@@ -71,6 +90,17 @@ const stmts = {
     ORDER BY published_at DESC LIMIT 8
   `),
 };
+
+// --- Inject nav data into all views ---
+router.use((req, res, next) => {
+  res.locals.navSources = NAV_SOURCES;
+  res.locals.navCategories = NAV_CATEGORIES;
+  res.locals.navSectors = NAV_SECTORS;
+  res.locals.currentPath = req.path;
+  // Top vendors for navbar dropdown (cached per request)
+  res.locals.vendors = stmts.vendorCounts.all().slice(0, 15);
+  next();
+});
 
 // --- Routes ---
 
@@ -147,17 +177,39 @@ router.get('/search', (req, res) => {
   res.render('search', { query: q, articles, page, pages, baseUrl: `/search?q=${encodeURIComponent(q)}` });
 });
 
+// Sector page
+router.get('/sector/:sector', (req, res) => {
+  const sector = req.params.sector;
+  const page = getPage(req);
+  const total = stmts.sectorCount.get(sector).count;
+  const articles = stmts.articlesBySector.all(sector, PER_PAGE, (page - 1) * PER_PAGE);
+  const pages = Math.ceil(total / PER_PAGE);
+  res.render('sector', { sector, articles, page, pages, baseUrl: `/sector/${encodeURIComponent(sector)}` });
+});
+
+// Sectors index
+router.get('/sectors', (req, res) => {
+  const sectors = stmts.sectorCounts.all();
+  res.render('sectors', { sectors, pageTitle: 'Sectors' });
+});
+
 // Vendors list
 router.get('/vendors', (req, res) => {
   const vendors = stmts.vendorCounts.all();
-  res.render('vendors', { vendors });
+  res.render('vendors', { vendors, pageTitle: 'Vendors' });
+});
+
+// Categories index
+router.get('/categories', (req, res) => {
+  const categories = stmts.categoryCounts.all();
+  res.render('categories', { categories, pageTitle: 'News Types' });
 });
 
 // Sources / feed health
 router.get('/sources', (req, res) => {
   const sources = stmts.sourceCounts.all();
   const health = stmts.feedHealth.all();
-  res.render('sources', { sources, health });
+  res.render('sources', { sources, health, pageTitle: 'Sources' });
 });
 
 // Search suggestions API (JSON)

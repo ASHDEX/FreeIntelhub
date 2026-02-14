@@ -11,18 +11,63 @@
   <nav class="navbar">
     <div class="container nav-inner">
       <a href="/" class="logo">FreeIntel<span>Hub</span></a>
-      <div class="nav-tabs">
-        <a href="/" class="nav-tab<%= typeof pageTitle === 'undefined' ? ' active' : '' %>">Feed</a>
-        <a href="/vendors" class="nav-tab<%= typeof pageTitle !== 'undefined' && pageTitle === 'Vendors' ? ' active' : '' %>">Vendors</a>
-        <a href="/sources" class="nav-tab<%= typeof pageTitle !== 'undefined' && pageTitle === 'Sources' ? ' active' : '' %>">Sources</a>
+
+      <div class="nav-tabs" id="nav-tabs">
+        <a href="/" class="nav-tab<%= currentPath === '/' ? ' active' : '' %>">Feed</a>
+
+        <div class="nav-dropdown">
+          <a href="/sources" class="nav-tab<%= currentPath === '/sources' || currentPath.startsWith('/source/') ? ' active' : '' %>">Sources <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></a>
+          <div class="dropdown-menu">
+            <% navSources.forEach(function(s) { %>
+              <a href="/source/<%= encodeURIComponent(s) %>" class="dropdown-item"><%= s %></a>
+            <% }); %>
+            <div class="dropdown-divider"></div>
+            <a href="/sources" class="dropdown-item dropdown-all">View all sources</a>
+          </div>
+        </div>
+
+        <div class="nav-dropdown">
+          <a href="/vendors" class="nav-tab<%= currentPath === '/vendors' || currentPath.startsWith('/vendor/') ? ' active' : '' %>">Vendors <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></a>
+          <div class="dropdown-menu dropdown-menu-scroll">
+            <% (typeof vendors !== 'undefined' ? vendors : []).slice(0, 15).forEach(function(v) { %>
+              <a href="/vendor/<%= encodeURIComponent(v.vendor) %>" class="dropdown-item"><%= v.vendor %></a>
+            <% }); %>
+            <div class="dropdown-divider"></div>
+            <a href="/vendors" class="dropdown-item dropdown-all">View all vendors</a>
+          </div>
+        </div>
+
+        <div class="nav-dropdown">
+          <a href="/categories" class="nav-tab<%= currentPath === '/categories' || currentPath.startsWith('/category/') ? ' active' : '' %>">News Type <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></a>
+          <div class="dropdown-menu">
+            <% navCategories.forEach(function(c) { %>
+              <a href="/category/<%= encodeURIComponent(c) %>" class="dropdown-item"><%= c %></a>
+            <% }); %>
+            <div class="dropdown-divider"></div>
+            <a href="/categories" class="dropdown-item dropdown-all">View all types</a>
+          </div>
+        </div>
+
+        <div class="nav-dropdown">
+          <a href="/sectors" class="nav-tab<%= currentPath === '/sectors' || currentPath.startsWith('/sector/') ? ' active' : '' %>">Sector <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></a>
+          <div class="dropdown-menu dropdown-menu-scroll">
+            <% navSectors.forEach(function(s) { %>
+              <a href="/sector/<%= encodeURIComponent(s) %>" class="dropdown-item"><%= s %></a>
+            <% }); %>
+            <div class="dropdown-divider"></div>
+            <a href="/sectors" class="dropdown-item dropdown-all">View all sectors</a>
+          </div>
+        </div>
       </div>
+
       <div class="nav-right">
         <form action="/search" method="GET" class="nav-search">
           <svg class="nav-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
           <input type="text" name="q" placeholder="Search..." value="<%= typeof query !== 'undefined' ? query : '' %>">
         </form>
       </div>
-      <button class="nav-toggle" onclick="document.querySelector('.nav-tabs').classList.toggle('open')">&#9776;</button>
+
+      <button class="nav-toggle" onclick="document.getElementById('nav-tabs').classList.toggle('open')">&#9776;</button>
     </div>
   </nav>
   <main class="container">

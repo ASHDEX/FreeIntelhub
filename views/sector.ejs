@@ -1,0 +1,9 @@
+<%- include('partials/head', { pageTitle: sector }) %>
+
+<h1><%= sector %></h1>
+<p><%= articles.length %> article<%= articles.length !== 1 ? 's' : '' %> shown</p>
+
+<%- include('partials/articleList', { articles }) %>
+<%- include('partials/pagination', { page, pages, baseUrl }) %>
+
+<%- include('partials/footer') %>

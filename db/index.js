@@ -22,11 +22,6 @@ db.exec(`
     created_at TEXT DEFAULT (datetime('now'))
   );
 
-  CREATE INDEX IF NOT EXISTS idx_articles_published ON articles(published_at DESC);
-  CREATE INDEX IF NOT EXISTS idx_articles_vendor ON articles(vendor);
-  CREATE INDEX IF NOT EXISTS idx_articles_category ON articles(category);
-  CREATE INDEX IF NOT EXISTS idx_articles_source ON articles(source);
-
   CREATE TABLE IF NOT EXISTS feed_health (
     source TEXT PRIMARY KEY,
     url TEXT NOT NULL,
@@ -35,6 +30,18 @@ db.exec(`
     success_count INTEGER DEFAULT 0,
     fail_count INTEGER DEFAULT 0
   );
+`);
+
+// Migration: add sector column if missing
+try { db.exec(`ALTER TABLE articles ADD COLUMN sector TEXT`); } catch (_) {}
+
+// Indexes (after migrations so all columns exist)
+db.exec(`
+  CREATE INDEX IF NOT EXISTS idx_articles_published ON articles(published_at DESC);
+  CREATE INDEX IF NOT EXISTS idx_articles_vendor ON articles(vendor);
+  CREATE INDEX IF NOT EXISTS idx_articles_category ON articles(category);
+  CREATE INDEX IF NOT EXISTS idx_articles_source ON articles(source);
+  CREATE INDEX IF NOT EXISTS idx_articles_sector ON articles(sector);
 `);
 
 module.exports = db;

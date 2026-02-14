@@ -18,8 +18,8 @@ function makeSafeSummary(text) {
 }
 
 const insertArticle = db.prepare(`
-  INSERT OR IGNORE INTO articles (title, link, summary, source, category, vendor, published_at)
-  VALUES (@title, @link, @summary, @source, @category, @vendor, @published_at)
+  INSERT OR IGNORE INTO articles (title, link, summary, source, category, vendor, sector, published_at)
+  VALUES (@title, @link, @summary, @source, @category, @vendor, @sector, @published_at)
 `);
 
 const upsertHealth = db.prepare(`
@@ -53,7 +53,7 @@ async function fetchFeed(feed) {
     const articles = newsItems.map((item) => {
       const rawText = stripHtml(item.contentSnippet || item.content || item.summary || '');
       const summary = makeSafeSummary(rawText);
-      const { vendor, category } = categorize(item.title || '', rawText);
+      const { vendor, category, sector } = categorize(item.title || '', rawText);
       return {
         title: (item.title || 'Untitled').slice(0, 300),
         link: item.link || '',
@@ -61,6 +61,7 @@ async function fetchFeed(feed) {
         source: feed.name,
         category,
         vendor,
+        sector,
         published_at: item.isoDate || item.pubDate || new Date().toISOString(),
       };
     });
