@@ -83,6 +83,8 @@ a:hover { text-decoration: underline; }
 .article-card h3 a { color: var(--text); }
 .article-card h3 a:hover { color: var(--accent); }
 .summary { font-size: 0.85rem; color: var(--text-muted); }
+.read-more { font-size: 0.75rem; color: var(--text-muted); margin-top: 0.4rem; }
+.read-more a { color: var(--accent); }
 
 /* === Vendor grid === */
 .vendor-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 0.75rem; }

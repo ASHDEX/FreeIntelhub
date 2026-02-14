@@ -11,7 +11,8 @@
           <time><%= a.published_at ? new Date(a.published_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '' %></time>
         </div>
         <h3><a href="<%= a.link %>" target="_blank" rel="noopener noreferrer"><%= a.title %></a></h3>
-        <% if (a.summary) { %><p class="summary"><%= a.summary.slice(0, 200) %><%= a.summary.length > 200 ? '...' : '' %></p><% } %>
+        <% if (a.summary) { %><p class="summary"><%= a.summary %></p><% } %>
+        <p class="read-more">Read full article at <a href="<%= a.link %>" target="_blank" rel="noopener noreferrer"><%= a.source %></a></p>
       </article>
     <% }); %>
   </div>
