@@ -111,6 +111,8 @@ section { margin-bottom: 2rem; }
 
 /* === Footer === */
 .footer { border-top: 1px solid var(--border); padding: 1.5rem 0; margin-top: 3rem; text-align: center; color: var(--text-muted); font-size: 0.8rem; }
+.footer-legal { margin-top: 0.6rem; font-size: 0.7rem; color: #666; line-height: 1.5; max-width: 600px; margin-left: auto; margin-right: auto; }
+.footer-legal a { color: var(--accent); }
 
 /* === Mobile === */
 @media (max-width: 640px) {
