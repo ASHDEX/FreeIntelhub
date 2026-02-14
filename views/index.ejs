@@ -35,38 +35,16 @@
 </section>
 <% } %>
 
-<div class="two-col">
-  <section class="col-main">
-    <h2>Latest News</h2>
-    <%- include('partials/articleList', { articles }) %>
-    <% if (newsPages > 1) { %>
-    <nav class="pagination">
-      <% if (newsPage > 1) { %><a href="/?news=<%= newsPage - 1 %><%= typeof breachPage !== 'undefined' && breachPage > 1 ? '&breaches=' + breachPage : '' %>" class="page-btn">&laquo; Prev</a><% } %>
-      <% for (var i = 1; i <= newsPages; i++) { %>
-        <% if (i === newsPage) { %><span class="page-num active"><%= i %></span>
-        <% } else if (i === 1 || i === newsPages || (i >= newsPage - 2 && i <= newsPage + 2)) { %><a href="/?news=<%= i %><%= typeof breachPage !== 'undefined' && breachPage > 1 ? '&breaches=' + breachPage : '' %>" class="page-num"><%= i %></a>
-        <% } else if (i === newsPage - 3 || i === newsPage + 3) { %><span class="page-dots">...</span><% } %>
-      <% } %>
-      <% if (newsPage < newsPages) { %><a href="/?news=<%= newsPage + 1 %><%= typeof breachPage !== 'undefined' && breachPage > 1 ? '&breaches=' + breachPage : '' %>" class="page-btn">Next &raquo;</a><% } %>
-    </nav>
-    <% } %>
-  </section>
+<section>
+  <h2>Latest News</h2>
+  <%- include('partials/articleList', { articles }) %>
+  <%- include('partials/pagination', { page: newsPage, pages: newsPages, baseUrl: '/?section=news' }) %>
+</section>
 
-  <section class="col-side">
-    <h2>Data Breaches</h2>
-    <%- include('partials/articleList', { articles: breachArticles }) %>
-    <% if (breachPages > 1) { %>
-    <nav class="pagination">
-      <% if (breachPage > 1) { %><a href="/?breaches=<%= breachPage - 1 %><%= typeof newsPage !== 'undefined' && newsPage > 1 ? '&news=' + newsPage : '' %>" class="page-btn">&laquo; Prev</a><% } %>
-      <% for (var i = 1; i <= breachPages; i++) { %>
-        <% if (i === breachPage) { %><span class="page-num active"><%= i %></span>
-        <% } else if (i === 1 || i === breachPages || (i >= breachPage - 2 && i <= breachPage + 2)) { %><a href="/?breaches=<%= i %><%= typeof newsPage !== 'undefined' && newsPage > 1 ? '&news=' + newsPage : '' %>" class="page-num"><%= i %></a>
-        <% } else if (i === breachPage - 3 || i === breachPage + 3) { %><span class="page-dots">...</span><% } %>
-      <% } %>
-      <% if (breachPage < breachPages) { %><a href="/?breaches=<%= breachPage + 1 %><%= typeof newsPage !== 'undefined' && newsPage > 1 ? '&news=' + newsPage : '' %>" class="page-btn">Next &raquo;</a><% } %>
-    </nav>
-    <% } %>
-  </section>
-</div>
+<section>
+  <h2>Data Breaches</h2>
+  <%- include('partials/articleList', { articles: breachArticles }) %>
+  <%- include('partials/pagination', { page: breachPage, pages: breachPages, baseUrl: '/?section=breaches' }) %>
+</section>
 
 <%- include('partials/footer') %>

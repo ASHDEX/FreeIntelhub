@@ -76,13 +76,17 @@ const stmts = {
 
 // Homepage
 router.get('/', (req, res) => {
-  const newsPage = getPage({ query: { page: req.query.news } });
-  const breachPage = getPage({ query: { page: req.query.breaches } });
+  const page = parseInt(req.query.page, 10) || 1;
+  const section = req.query.section;
 
+  // News pagination
+  const newsPage = section === 'news' ? page : 1;
   const newsTotal = stmts.latestCount.get().count;
   const articles = stmts.latestArticles.all(PER_PAGE, (newsPage - 1) * PER_PAGE);
   const newsPages = Math.ceil(newsTotal / PER_PAGE);
 
+  // Breach pagination
+  const breachPage = section === 'breaches' ? page : 1;
   const breachTotal = stmts.breachCount.get().count;
   const breachArticles = stmts.breachArticles.all(PER_PAGE, (breachPage - 1) * PER_PAGE);
   const breachPages = Math.ceil(breachTotal / PER_PAGE);

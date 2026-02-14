@@ -125,10 +125,6 @@ a:hover { text-decoration: underline; }
 .read-more { font-size: 0.75rem; color: var(--text-muted); margin-top: 0.4rem; }
 .read-more a { color: var(--accent); }
 
-/* === Two-column layout === */
-.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; }
-.col-main, .col-side { min-width: 0; }
-
 /* === Pagination === */
 .pagination { display: flex; align-items: center; justify-content: center; gap: 0.35rem; margin-top: 1.25rem; flex-wrap: wrap; }
 .page-btn, .page-num {
@@ -176,5 +172,4 @@ section { margin-bottom: 2rem; }
   .nav-search input { width: 100%; }
   .stats-row { justify-content: flex-start; }
   .hero h1 { font-size: 1.3rem; }
-  .two-col { grid-template-columns: 1fr; }
 }
