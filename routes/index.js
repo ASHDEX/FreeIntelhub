@@ -129,17 +129,19 @@ router.get('/', async (req, res) => {
   const page = parseInt(req.query.page, 10) || 1;
   const section = req.query.section;
 
+  const HOME_PER_PAGE = 8;
+
   // News pagination
   const newsPage = section === 'news' ? page : 1;
   const newsTotal = stmts.latestCount.get().count;
-  const articles = stmts.latestArticles.all(PER_PAGE, (newsPage - 1) * PER_PAGE);
-  const newsPages = Math.ceil(newsTotal / PER_PAGE);
+  const articles = stmts.latestArticles.all(HOME_PER_PAGE, (newsPage - 1) * HOME_PER_PAGE);
+  const newsPages = Math.ceil(newsTotal / HOME_PER_PAGE);
 
   // Breach pagination
   const breachPage = section === 'breaches' ? page : 1;
   const breachTotal = stmts.breachCount.get().count;
-  const breachArticles = stmts.breachArticles.all(PER_PAGE, (breachPage - 1) * PER_PAGE);
-  const breachPages = Math.ceil(breachTotal / PER_PAGE);
+  const breachArticles = stmts.breachArticles.all(HOME_PER_PAGE, (breachPage - 1) * HOME_PER_PAGE);
+  const breachPages = Math.ceil(breachTotal / HOME_PER_PAGE);
 
   const vendors = stmts.vendorCounts.all();
   const categories = stmts.categoryCounts.all();
