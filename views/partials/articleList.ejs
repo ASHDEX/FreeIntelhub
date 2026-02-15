@@ -23,6 +23,35 @@
         </div>
         <h3><a href="<%= a.link %>" target="_blank" rel="noopener noreferrer"><%= a.title %></a></h3>
         <% if (a.summary) { %><p class="summary"><%= a.summary %></p><% } %>
+        <%
+          var mitreList = [];
+          if (a.mitre_techniques) {
+            try { mitreList = JSON.parse(a.mitre_techniques); } catch(e) {}
+          }
+          var iocData = null;
+          if (a.iocs) {
+            try { iocData = JSON.parse(a.iocs); } catch(e) {}
+          }
+          var iocTotal = 0;
+          if (iocData) {
+            Object.keys(iocData).forEach(function(k) {
+              if (Array.isArray(iocData[k])) iocTotal += iocData[k].length;
+            });
+          }
+        %>
+        <% if (mitreList.length > 0 || iocTotal > 0) { %>
+          <div class="article-indicators">
+            <% mitreList.slice(0, 3).forEach(function(m) { %>
+              <a href="/mitre?technique=<%= encodeURIComponent(m.id) %>" class="badge badge-mitre" title="<%= m.name %> (<%= m.tactic %>)"><%= m.id %></a>
+            <% }); %>
+            <% if (mitreList.length > 3) { %>
+              <span class="badge badge-mitre-more">+<%= mitreList.length - 3 %></span>
+            <% } %>
+            <% if (iocTotal > 0) { %>
+              <a href="/iocs" class="badge badge-ioc"><%= iocTotal %> IOC<%= iocTotal > 1 ? 's' : '' %></a>
+            <% } %>
+          </div>
+        <% } %>
         <p class="read-more"><a href="<%= a.link %>" target="_blank" rel="noopener noreferrer"><%= a.source %> &rarr;</a></p>
       </article>
     <% }); %>

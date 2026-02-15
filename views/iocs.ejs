@@ -1,0 +1,73 @@
+<%- include('partials/head', { pageTitle: 'IOC Feed' }) %>
+
+<div class="page-header">
+  <h1>Indicators of Compromise</h1>
+  <p><%= total %> article<%= total !== 1 ? 's' : '' %> containing extracted IOCs (CVEs, IPs, hashes, domains, URLs, emails)</p>
+</div>
+
+<% if (articles.length === 0) { %>
+  <p class="empty">No articles with IOCs found yet.</p>
+<% } else { %>
+  <div class="article-list">
+    <% articles.forEach(function(a) { %>
+      <article class="article-card">
+        <div class="article-meta">
+          <span class="badge badge-source"><%= a.source %></span>
+          <% if (a.category) { %><span class="badge badge-category"><%= a.category %></span><% } %>
+          <time><%= a.published_at ? new Date(a.published_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '' %></time>
+        </div>
+        <h3><a href="<%= a.link %>" target="_blank" rel="noopener noreferrer"><%= a.title %></a></h3>
+        <% if (a.summary) { %><p class="summary"><%= a.summary %></p><% } %>
+        <%
+          var iocData = null;
+          try { iocData = JSON.parse(a.iocs); } catch(e) {}
+        %>
+        <% if (iocData) { %>
+          <div class="ioc-details">
+            <% if (iocData.cves && iocData.cves.length) { %>
+              <div class="ioc-group">
+                <span class="ioc-label">CVEs:</span>
+                <% iocData.cves.forEach(function(c) { %>
+                  <span class="badge badge-ioc-cve"><%= c %></span>
+                <% }); %>
+              </div>
+            <% } %>
+            <% if (iocData.ipv4 && iocData.ipv4.length) { %>
+              <div class="ioc-group">
+                <span class="ioc-label">IPs:</span>
+                <% iocData.ipv4.slice(0, 5).forEach(function(ip) { %>
+                  <span class="badge badge-ioc-ip"><%= ip %></span>
+                <% }); %>
+                <% if (iocData.ipv4.length > 5) { %><span class="badge badge-ioc-more">+<%= iocData.ipv4.length - 5 %></span><% } %>
+              </div>
+            <% } %>
+            <% if (iocData.hashes && iocData.hashes.length) { %>
+              <div class="ioc-group">
+                <span class="ioc-label">Hashes:</span>
+                <% iocData.hashes.slice(0, 3).forEach(function(h) { %>
+                  <span class="badge badge-ioc-hash" title="<%= h %>"><%= h.substring(0, 12) %>...</span>
+                <% }); %>
+                <% if (iocData.hashes.length > 3) { %><span class="badge badge-ioc-more">+<%= iocData.hashes.length - 3 %></span><% } %>
+              </div>
+            <% } %>
+            <% if (iocData.domains && iocData.domains.length) { %>
+              <div class="ioc-group">
+                <span class="ioc-label">Domains:</span>
+                <% iocData.domains.slice(0, 5).forEach(function(d) { %>
+                  <span class="badge badge-ioc-domain"><%= d %></span>
+                <% }); %>
+                <% if (iocData.domains.length > 5) { %><span class="badge badge-ioc-more">+<%= iocData.domains.length - 5 %></span><% } %>
+              </div>
+            <% } %>
+          </div>
+        <% } %>
+        <p class="read-more"><a href="<%= a.link %>" target="_blank" rel="noopener noreferrer"><%= a.source %> &rarr;</a></p>
+      </article>
+    <% }); %>
+  </div>
+  <% if (pages > 1) { %>
+    <%- include('partials/pagination', { page: page, pages: pages, baseUrl: baseUrl }) %>
+  <% } %>
+<% } %>
+
+<%- include('partials/footer') %>
