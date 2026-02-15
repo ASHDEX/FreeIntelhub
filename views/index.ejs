@@ -1,71 +1,54 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>FreeIntel Hub – Your daily dose of cyber</title>
-  <link rel="stylesheet" href="/style.css"/>
-</head>
-<body>
+<%- include('partials/head') %>
 
-  <section class="hero container">
-    <h1>Your daily dose of cyber</h1>
-    <p>Track the latest cybersecurity news, breaches, and critical vulnerabilities in one place.</p>
-
-    <form class="search-bar" action="/search" method="GET">
-      <input type="text" name="q" placeholder="Search CVEs, vendors, breaches..." />
-      <button type="submit">Search</button>
+<section class="hero">
+  <h1>Threat Intelligence Feed</h1>
+  <p>Aggregating <%= totalCount %> articles from trusted cybersecurity sources</p>
+  <div class="search-box">
+    <form action="/search" method="GET" autocomplete="off">
+      <div class="search-wrapper">
+        <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <input type="text" id="hero-search" name="q" placeholder="Search threats, vendors, CVEs..." value="">
+        <kbd class="search-hint">/</kbd>
+      </div>
     </form>
-  </section>
-
-  <!-- Moving CVE / Threat ticker -->
-  <div class="ticker">
-    <div class="ticker-track">
-      <% feeds.slice(0, 10).forEach(f => { %>
-        <div class="ticker-item">
-          🚨 <a href="<%= f.link %>" target="_blank" rel="noreferrer"><%= f.title %></a>
-        </div>
-      <% }) %>
-    </div>
+    <div class="suggestions" id="suggestions"></div>
   </div>
+</section>
 
-  <main class="container">
-    <div class="grid">
-      <!-- Latest Cyber News -->
-      <section class="card">
-        <h3>Latest Cyber News</h3>
-        <% feeds.slice(0, 12).forEach(f => { %>
-          <div class="feed-item">
-            <a href="<%= f.link %>" target="_blank" rel="noreferrer"><%= f.title %></a>
-            <div class="meta"><%= f.vendor %> · <%= f.published || "Recent" %></div>
-          </div>
-        <% }) %>
-      </section>
+<section class="stats-row">
+  <% categories.slice(0, 6).forEach(function(c) { %>
+    <a href="/category/<%= encodeURIComponent(c.category) %>" class="stat-card">
+      <strong><%= c.count %></strong>
+      <span><%= c.category %></span>
+    </a>
+  <% }); %>
+</section>
 
-      <!-- Data Breaches -->
-      <section class="card">
-        <h3>Data Breaches</h3>
-        <% 
-          const breaches = feeds.filter(f => /breach|leak|exposed|ransom|incident|compromised/i.test(f.title));
-        %>
+<% if (vendors.length > 0) { %>
+<section class="vendor-bar">
+  <h2>Trending Vendors</h2>
+  <div class="vendor-tags">
+    <% vendors.slice(0, 15).forEach(function(v) { %>
+      <a href="/vendor/<%= encodeURIComponent(v.vendor) %>" class="badge badge-vendor"><%= v.vendor %> (<%= v.count %>)</a>
+    <% }); %>
+  </div>
+</section>
+<% } %>
 
-        <% breaches.slice(0, 12).forEach(f => { %>
-          <div class="feed-item">
-            <a href="<%= f.link %>" target="_blank" rel="noreferrer"><%= f.title %></a>
-            <div class="meta"><%= f.vendor %> · <%= f.published || "Recent" %></div>
-          </div>
-        <% }) %>
+<section>
+  <div class="section-header">
+    <h2>Latest News</h2>
+  </div>
+  <%- include('partials/articleList', { articles }) %>
+  <%- include('partials/pagination', { page: newsPage, pages: newsPages, baseUrl: '/?section=news' }) %>
+</section>
 
-        <% if (breaches.length === 0) { %>
-          <p style="color:#9aa4b2">No recent breach-related news detected yet.</p>
-        <% } %>
-      </section>
-    </div>
-  </main>
+<section>
+  <div class="section-header">
+    <h2>Data Breaches</h2>
+  </div>
+  <%- include('partials/articleList', { articles: breachArticles }) %>
+  <%- include('partials/pagination', { page: breachPage, pages: breachPages, baseUrl: '/?section=breaches' }) %>
+</section>
 
-  <footer class="container" style="text-align:center; color:#9aa4b2; margin-top:40px;">
-    All content belongs to respective publishers. We only link to original sources.
-  </footer>
-
-</body>
-</html>
+<%- include('partials/footer') %>

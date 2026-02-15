@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= typeof pageTitle !== 'undefined' ? pageTitle + ' — ' : '' %>FreeIntelHub</title>
+  <link rel="stylesheet" href="/style.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <nav class="navbar">
+    <div class="container nav-inner">
+      <a href="/" class="logo">Free<span>Intel</span>Hub</a>
+
+      <div class="nav-tabs" id="nav-tabs">
+        <a href="/" class="nav-tab<%= currentPath === '/' ? ' active' : '' %>">Feed</a>
+
+        <div class="nav-dropdown">
+          <a href="/sources" class="nav-tab<%= currentPath === '/sources' || currentPath.startsWith('/source/') ? ' active' : '' %>">Sources <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></a>
+          <div class="dropdown-menu">
+            <% navSources.forEach(function(s) { %>
+              <a href="/source/<%= encodeURIComponent(s) %>" class="dropdown-item"><%= s %></a>
+            <% }); %>
+            <div class="dropdown-divider"></div>
+            <a href="/sources" class="dropdown-item dropdown-all">View all sources</a>
+          </div>
+        </div>
+
+        <div class="nav-dropdown">
+          <a href="/vendors" class="nav-tab<%= currentPath === '/vendors' || currentPath.startsWith('/vendor/') ? ' active' : '' %>">Vendors <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></a>
+          <div class="dropdown-menu dropdown-menu-scroll">
+            <% (typeof vendors !== 'undefined' ? vendors : []).slice(0, 15).forEach(function(v) { %>
+              <a href="/vendor/<%= encodeURIComponent(v.vendor) %>" class="dropdown-item"><%= v.vendor %></a>
+            <% }); %>
+            <div class="dropdown-divider"></div>
+            <a href="/vendors" class="dropdown-item dropdown-all">View all vendors</a>
+          </div>
+        </div>
+
+        <div class="nav-dropdown">
+          <a href="/categories" class="nav-tab<%= currentPath === '/categories' || currentPath.startsWith('/category/') ? ' active' : '' %>">Threats <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></a>
+          <div class="dropdown-menu">
+            <% navCategories.forEach(function(c) { %>
+              <a href="/category/<%= encodeURIComponent(c) %>" class="dropdown-item"><%= c %></a>
+            <% }); %>
+            <div class="dropdown-divider"></div>
+            <a href="/categories" class="dropdown-item dropdown-all">View all types</a>
+          </div>
+        </div>
+
+        <div class="nav-dropdown">
+          <a href="/sectors" class="nav-tab<%= currentPath === '/sectors' || currentPath.startsWith('/sector/') ? ' active' : '' %>">Sectors <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></a>
+          <div class="dropdown-menu dropdown-menu-scroll">
+            <% navSectors.forEach(function(s) { %>
+              <a href="/sector/<%= encodeURIComponent(s) %>" class="dropdown-item"><%= s %></a>
+            <% }); %>
+            <div class="dropdown-divider"></div>
+            <a href="/sectors" class="dropdown-item dropdown-all">View all sectors</a>
+          </div>
+        </div>
+
+        <a href="/alerts" class="nav-tab nav-tab-alert<%= currentPath === '/alerts' ? ' active' : '' %>">
+          <svg class="alert-bell" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          Alerts
+        </a>
+      </div>
+
+      <div class="nav-right">
+        <form action="/search" method="GET" class="nav-search">
+          <svg class="nav-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <input type="text" name="q" placeholder="Search..." value="<%= typeof query !== 'undefined' ? query : '' %>">
+        </form>
+      </div>
+
+      <button class="nav-toggle" onclick="document.getElementById('nav-tabs').classList.toggle('open')">&#9776;</button>
+    </div>
+  </nav>
+  <main class="container">

@@ -1,74 +1,113 @@
-import Parser from "rss-parser";
+const RSSParser = require('rss-parser');
+const db = require('../db');
+const feeds = require('../config/feeds.json');
+const { categorize } = require('./categorizer');
+const { isNewsArticle } = require('./contentFilter');
 
-const parser = new Parser({
-  timeout: 15000,
-  headers: {
-    "User-Agent":
-      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122.0 Safari/537.36",
-    Accept: "application/rss+xml, application/atom+xml, application/xml, text/xml"
-  }
-});
+const parser = new RSSParser({ timeout: 10000 });
 
-// ✅ Curated feeds that reliably work with rss-parser
-export const FEEDS = [
-  // General news
-  { name: "The Hacker News", url: "https://feeds.feedburner.com/TheHackersNews" },
-  { name: "BleepingComputer", url: "https://www.bleepingcomputer.com/feed/" },
-  { name: "Security Affairs", url: "https://securityaffairs.com/feed" },
-  { name: "Krebs on Security", url: "https://krebsonsecurity.com/feed/" },
-  { name: "SecurityWeek", url: "https://www.securityweek.com/feed/" },
-  { name: "Help Net Security", url: "https://helpnetsecurity.com/feed/" },
-  { name: "GBHackers", url: "https://gbhackers.com/feed/" },
-  { name: "HackRead", url: "https://hackread.com/feed/" },
-  { name: "WeLiveSecurity (ESET)", url: "https://welivesecurity.com/en/feed/" },
-  { name: "Information Security Buzz", url: "https://informationsecuritybuzz.com/feed/" },
-  { name: "CSO Online", url: "https://csoonline.com/feed/" },
+// DMCA-safe summary: max 2 sentences or 160 chars, whichever is shorter
+function makeSafeSummary(text) {
+  if (!text) return '';
+  // Grab first 2 sentences
+  const sentences = text.match(/[^.!?]*[.!?]/g);
+  const twoSentences = sentences ? sentences.slice(0, 2).join('').trim() : text;
+  // Cap at 160 chars
+  if (twoSentences.length <= 160) return twoSentences;
+  return twoSentences.slice(0, 157) + '...';
+}
 
-  // Research / threat intel
-  { name: "SANS ISC", url: "https://isc.sans.edu/rssfeed_full.xml" },
-  { name: "Graham Cluley", url: "https://grahamcluley.com/feed/" },
-  { name: "Google Security Blog", url: "https://security.googleblog.com/feeds/posts/default" },
+const insertArticle = db.prepare(`
+  INSERT OR IGNORE INTO articles (title, link, summary, source, category, vendor, sector, published_at)
+  VALUES (@title, @link, @summary, @source, @category, @vendor, @sector, @published_at)
+`);
 
-  // Vendors / advisories (these 2 are solid)
-  { name: "Cisco Advisories", url: "https://sec.cloudapps.cisco.com/security/center/psirtrss20/CiscoSecurityAdvisory.xml" },
-  { name: "Palo Alto Networks", url: "https://security.paloaltonetworks.com/rss.xml" }
-];
+const getArticleByLink = db.prepare(`SELECT * FROM articles WHERE link = ?`);
 
-export async function fetchFeeds(db) {
-  for (const feed of FEEDS) {
-    try {
-      const data = await parser.parseURL(feed.url);
-      console.log(`Fetched: ${feed.name}`);
+const upsertHealth = db.prepare(`
+  INSERT INTO feed_health (source, url, last_status, last_checked_at, success_count, fail_count)
+  VALUES (@source, @url, @status, datetime('now'), @success, @fail)
+  ON CONFLICT(source) DO UPDATE SET
+    last_status = @status,
+    last_checked_at = datetime('now'),
+    success_count = CASE WHEN @status = 'ok' THEN feed_health.success_count + 1 ELSE feed_health.success_count END,
+    fail_count = CASE WHEN @status != 'ok' THEN feed_health.fail_count + 1 ELSE feed_health.fail_count END
+`);
 
-      for (const item of data.items || []) {
-        const title = item.title?.trim();
-        const link = item.link || item.guid;
-        const summary =
-          item.contentSnippet ||
-          item.summary ||
-          (item.content ? item.content.replace(/<[^>]+>/g, "").slice(0, 400) : "");
+function stripHtml(html) {
+  if (!html) return '';
+  return html.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim().slice(0, 500);
+}
 
-        if (!title || !link) continue;
+async function fetchFeed(feed) {
+  try {
+    const data = await parser.parseURL(feed.url);
+    const items = data.items || [];
 
-        await db.run(
-          `
-          INSERT OR IGNORE INTO articles
-          (title, summary, link, source, category, vendor, published_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?)
-          `,
-          [
-            title,
-            summary || "",
-            link,
-            feed.name,
-            "NEWS",
-            "others",
-            item.isoDate || item.pubDate || new Date().toISOString()
-          ]
-        );
+    const newsItems = items.filter(isNewsArticle);
+
+    const articles = newsItems.map((item) => {
+      const rawText = stripHtml(item.contentSnippet || item.content || item.summary || '');
+      const summary = makeSafeSummary(rawText);
+      const { vendor, category, sector } = categorize(item.title || '', rawText);
+      return {
+        title: (item.title || 'Untitled').slice(0, 300),
+        link: item.link || '',
+        summary,
+        source: feed.name,
+        category,
+        vendor,
+        sector,
+        published_at: item.isoDate || item.pubDate || new Date().toISOString(),
+      };
+    });
+
+    // Insert and track which articles are newly added
+    const newlyInserted = [];
+    const insert = db.transaction((arts) => {
+      for (const article of arts) {
+        const result = insertArticle.run(article);
+        if (result.changes > 0) {
+          const row = getArticleByLink.get(article.link);
+          if (row) newlyInserted.push(row);
+        }
       }
+    });
+    insert(articles);
+
+    upsertHealth.run({ source: feed.name, url: feed.url, status: 'ok', success: 1, fail: 0 });
+    const filtered = items.length - newsItems.length;
+    console.log(`[RSS] ${feed.name}: ${articles.length} articles (${filtered} non-news filtered, ${newlyInserted.length} new)`);
+    return newlyInserted;
+  } catch (err) {
+    upsertHealth.run({ source: feed.name, url: feed.url, status: `error: ${err.message}`.slice(0, 200), success: 0, fail: 1 });
+    console.error(`[RSS] ${feed.name} failed: ${err.message}`);
+  }
+}
+
+async function fetchAllFeeds() {
+  console.log('[RSS] Fetching all feeds...');
+  const results = await Promise.allSettled(feeds.map(fetchFeed));
+
+  // Collect all newly inserted articles across feeds
+  const allNew = [];
+  for (const r of results) {
+    if (r.status === 'fulfilled' && Array.isArray(r.value)) {
+      allNew.push(...r.value);
+    }
+  }
+
+  console.log(`[RSS] Done. ${allNew.length} new article(s) total.`);
+
+  // Trigger alert matching for new articles
+  if (allNew.length > 0) {
+    try {
+      const { processNewArticles } = require('./alertMatcher');
+      await processNewArticles(allNew);
     } catch (err) {
-      console.error(`Feed error (skipped): ${feed.name}`, err.message);
+      console.error(`[Alerts] Error processing alerts: ${err.message}`);
     }
   }
 }
+
+module.exports = { fetchAllFeeds };

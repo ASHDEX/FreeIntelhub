@@ -1,0 +1,16 @@
+{
+  "Financial": ["bank", "banking", "financial", "fintech", "credit union", "insurance", "hedge fund", "stock exchange", "cryptocurrency", "crypto", "defi", "swift", "payment"],
+  "Healthcare": ["hospital", "healthcare", "health care", "medical", "pharmaceutical", "pharma", "clinic", "patient data", "hipaa", "nhs"],
+  "Defense": ["defense", "defence", "military", "armed forces", "nato", "pentagon", "dod", "intelligence agency", "espionage"],
+  "Government": ["government", "federal", "municipal", "state agency", "public sector", "election", "voting", "parliament", "senate"],
+  "Manufacturing": ["manufacturing", "factory", "industrial", "ics", "scada", "plc", "production line", "supply chain"],
+  "Energy": ["energy", "oil", "gas", "petroleum", "power grid", "electric utility", "nuclear", "solar", "wind farm", "pipeline"],
+  "Telecommunications": ["telecom", "telecommunications", "mobile carrier", "isp", "5g", "cellular", "broadband"],
+  "Retail": ["retail", "e-commerce", "ecommerce", "shopping", "point of sale", "pos system", "merchant"],
+  "Education": ["university", "education", "school", "college", "academic", "student", "campus"],
+  "Transportation": ["transportation", "airline", "aviation", "airport", "railway", "shipping", "logistics", "maritime", "port"],
+  "Food & Beverages": ["food", "beverage", "restaurant", "agriculture", "farming", "grocery", "food processing"],
+  "Technology": ["tech company", "software company", "saas", "cloud provider", "data center", "silicon valley"],
+  "Legal": ["law firm", "legal", "attorney", "court", "judiciary"],
+  "Media": ["media", "news outlet", "broadcasting", "journalism", "publisher", "entertainment"]
+}

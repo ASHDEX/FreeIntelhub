@@ -1,0 +1,16 @@
+<%- include('partials/head', { pageTitle: 'Unsubscribe' }) %>
+
+<div class="page-header">
+  <h1>Unsubscribe</h1>
+  <p>Are you sure you want to unsubscribe <strong><%= subscriber.email %></strong>?</p>
+</div>
+
+<p class="text-muted" style="margin-bottom:1.5rem">This will delete all your alert rules and stop all email notifications.</p>
+
+<form action="/alerts/unsubscribe" method="POST" style="display:flex;gap:0.75rem">
+  <input type="hidden" name="token" value="<%= subscriber.token %>">
+  <button type="submit" class="btn btn-danger">Yes, Unsubscribe</button>
+  <a href="/alerts?token=<%= subscriber.token %>" class="btn btn-accent">Cancel</a>
+</form>
+
+<%- include('partials/footer') %>

@@ -1,0 +1,21 @@
+<%- include('partials/head', { pageTitle: 'Sectors' }) %>
+
+<div class="page-header">
+  <h1>Sectors</h1>
+  <p>Browse articles by affected industry</p>
+</div>
+
+<% if (sectors.length === 0) { %>
+  <p class="empty">No sector data yet. Articles are still being fetched.</p>
+<% } else { %>
+  <div class="vendor-grid">
+    <% sectors.forEach(function(s) { %>
+      <a href="/sector/<%= encodeURIComponent(s.sector) %>" class="vendor-card">
+        <strong><%= s.sector %></strong>
+        <span><%= s.count %> article<%= s.count !== 1 ? 's' : '' %></span>
+      </a>
+    <% }); %>
+  </div>
+<% } %>
+
+<%- include('partials/footer') %>

@@ -1,0 +1,140 @@
+<%- include('partials/head', { pageTitle: 'Alerts' }) %>
+
+<div class="page-header">
+  <h1>Alerts</h1>
+  <p>Get notified about threats that matter to you</p>
+</div>
+
+<% if (typeof success !== 'undefined' && success) { %>
+  <div class="alert alert-ok">
+    <% if (success === 'subscribed') { %>You're subscribed! Bookmark this page to manage your alerts.
+    <% } else if (success === 'subscribed_verify') { %>Almost there! Check your email for a verification link to activate alerts.
+    <% } else if (success === 'verified') { %>Email verified! Your alerts are now active.
+    <% } else if (success === 'already_verified') { %>Your email is already verified.
+    <% } else if (success === 'verification_sent') { %>Verification email resent. Check your inbox.
+    <% } else if (success === 'rule_added') { %>Alert rule added.
+    <% } else if (success === 'rule_removed') { %>Alert rule removed.
+    <% } else if (success === 'unsubscribed') { %>You have been unsubscribed. All alert rules deleted.
+    <% } %>
+  </div>
+<% } %>
+<% if (typeof error !== 'undefined' && error) { %>
+  <div class="alert alert-err">
+    <% if (error === 'invalid_email') { %>Please enter a valid email address.
+    <% } else if (error === 'not_found') { %>Subscription not found. Please sign up again.
+    <% } else if (error === 'invalid_token') { %>Invalid or expired verification link.
+    <% } %>
+  </div>
+<% } %>
+
+<% if (!subscriber) { %>
+  <section>
+    <h2>Sign Up</h2>
+    <form action="/alerts/subscribe" method="POST" class="alerts-form">
+      <div class="form-group">
+        <label for="email">Email Address</label>
+        <input type="email" id="email" name="email" placeholder="you@example.com" required>
+      </div>
+
+      <div class="form-group">
+        <label>Vendors <span class="form-hint">Select vendors you want alerts for</span></label>
+        <div class="checkbox-grid">
+          <% allVendors.slice(0, 24).forEach(function(v) { %>
+            <label class="checkbox-label"><input type="checkbox" name="vendor" value="<%= v.vendor %>"> <%= v.vendor %></label>
+          <% }); %>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Threat Type <span class="form-hint">Select categories</span></label>
+        <div class="checkbox-grid">
+          <% navCategories.forEach(function(c) { %>
+            <label class="checkbox-label"><input type="checkbox" name="category" value="<%= c %>"> <%= c %></label>
+          <% }); %>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Sector <span class="form-hint">Select industries</span></label>
+        <div class="checkbox-grid">
+          <% navSectors.forEach(function(s) { %>
+            <label class="checkbox-label"><input type="checkbox" name="sector" value="<%= s %>"> <%= s %></label>
+          <% }); %>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="keyword">Custom Keywords <span class="form-hint">Comma-separated (e.g. CVE-2026, log4j, APT29)</span></label>
+        <input type="text" id="keyword" name="keyword" placeholder="CVE-2026, log4j, APT29">
+      </div>
+
+      <div class="form-group">
+        <label class="checkbox-label newsletter-toggle">
+          <input type="checkbox" name="newsletter" checked> Subscribe to Daily Newsletter
+          <span class="form-hint">A digest of the top stories every morning</span>
+        </label>
+      </div>
+
+      <button type="submit" class="btn btn-accent">Subscribe</button>
+    </form>
+  </section>
+
+<% } else { %>
+  <section>
+    <h2>Your Alerts</h2>
+    <p class="text-muted">Subscribed as <strong><%= subscriber.email %></strong>
+      &mdash; Daily newsletter: <strong><%= subscriber.daily_newsletter ? 'On' : 'Off' %></strong>
+      &mdash; Status: <strong class="<%= subscriber.verified ? 'status-ok' : 'status-pending' %>"><%= subscriber.verified ? 'Verified' : 'Pending verification' %></strong>
+    </p>
+
+    <% if (!subscriber.verified) { %>
+      <div class="alert alert-warn">
+        Your email is not yet verified. Please check your inbox for the verification link.
+        <form action="/alerts/resend-verify" method="POST" style="display:inline">
+          <input type="hidden" name="token" value="<%= subscriber.token %>">
+          <button type="submit" class="btn-link">Resend verification email</button>
+        </form>
+      </div>
+    <% } %>
+
+    <% if (rules.length > 0) { %>
+      <div class="rules-list">
+        <% rules.forEach(function(r) { %>
+          <div class="rule-card">
+            <span class="badge badge-category"><%= r.rule_type %></span>
+            <span class="rule-value"><%= r.rule_value %></span>
+            <form action="/alerts/delete-rule" method="POST" class="rule-delete">
+              <input type="hidden" name="token" value="<%= subscriber.token %>">
+              <input type="hidden" name="rule_id" value="<%= r.id %>">
+              <button type="submit" class="btn-icon" title="Remove">&times;</button>
+            </form>
+          </div>
+        <% }); %>
+      </div>
+    <% } else { %>
+      <p class="empty">No alert rules yet. Add one below.</p>
+    <% } %>
+
+    <h3>Add Alert Rule</h3>
+    <form action="/alerts/add-rule" method="POST" class="add-rule-form">
+      <input type="hidden" name="token" value="<%= subscriber.token %>">
+      <select name="rule_type" class="form-select">
+        <option value="vendor">Vendor</option>
+        <option value="category">Threat Type</option>
+        <option value="sector">Sector</option>
+        <option value="keyword">Keyword / CVE</option>
+      </select>
+      <input type="text" name="rule_value" placeholder="e.g. Microsoft, Zero-Day, CVE-2026-1234" required class="form-input">
+      <button type="submit" class="btn btn-accent">Add</button>
+    </form>
+
+    <div class="alerts-actions">
+      <form action="/alerts/unsubscribe" method="POST" onsubmit="return confirm('Are you sure? This will delete all your alerts.')">
+        <input type="hidden" name="token" value="<%= subscriber.token %>">
+        <button type="submit" class="btn btn-danger">Unsubscribe</button>
+      </form>
+    </div>
+  </section>
+<% } %>
+
+<%- include('partials/footer') %>

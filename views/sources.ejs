@@ -1,39 +1,33 @@
-<!doctype html>
-<html>
-<head>
-  <meta charset="utf-8"/>
-  <title>Sources Health – Free Intel Hub</title>
-  <link rel="stylesheet" href="/style.css"/>
-</head>
-<body>
-  <%- include("partials/navbar") %>
+<%- include('partials/head', { pageTitle: 'Sources' }) %>
 
-  <div class="container">
-    <div class="section-title">Source Health & Feed Uptime</div>
+<div class="page-header">
+  <h1>Feed Sources</h1>
+  <p>Status of all RSS feeds being monitored</p>
+</div>
 
-    <div class="grid">
-      <% sources.forEach(s => { 
-           const total = s.success_count + s.fail_count;
-           const uptime = total ? Math.round((s.success_count / total) * 100) : 0;
-      %>
-        <article class="card">
-          <h4><%= s.source %></h4>
-          <p>
-            Status: <b><%= s.last_status %></b><br/>
-            Last checked: <%= s.last_checked_at ? new Date(s.last_checked_at).toLocaleString() : "—" %><br/>
-            Items: <%= s.total_items %><br/>
-            Uptime: <%= uptime %>%
-          </p>
-          <div class="badges">
-            <a class="badge" href="/source/<%= encodeURIComponent(s.source) %>">View articles</a>
-            <a class="badge" href="<%= s.url %>" target="_blank">RSS</a>
-          </div>
-        </article>
-      <% }) %>
-    </div>
-  </div>
+<table class="data-table">
+  <thead>
+    <tr>
+      <th>Source</th>
+      <th>Articles</th>
+      <th>Status</th>
+      <th>Last Checked</th>
+    </tr>
+  </thead>
+  <tbody>
+    <% sources.forEach(function(s) {
+      const h = health.find(function(x) { return x.source === s.source; });
+    %>
+      <tr>
+        <td><a href="/source/<%= encodeURIComponent(s.source) %>"><%= s.source %></a></td>
+        <td><%= s.count %></td>
+        <td class="<%= h && h.last_status === 'ok' ? 'status-ok' : 'status-err' %>">
+          <%= h ? h.last_status : 'unknown' %>
+        </td>
+        <td><%= h && h.last_checked_at ? new Date(h.last_checked_at).toLocaleString() : '—' %></td>
+      </tr>
+    <% }); %>
+  </tbody>
+</table>
 
-  <script src="/app.js"></script>
-</body>
-</html>
-<%- include("partials/footer") %>
+<%- include('partials/footer') %>

@@ -1,7 +1,15 @@
-<h2>Search results</h2>
-<a href="/">← Back</a>
-<ul>
-  <% feeds.forEach(f => { %>
-    <li><a href="<%= f.link %>" target="_blank"><%= f.title %></a></li>
-  <% }) %>
-</ul>
+<%- include('partials/head', { pageTitle: 'Search' }) %>
+
+<div class="page-header">
+  <h1>Search Results</h1>
+  <% if (query) { %>
+    <p>Results for "<strong><%= query %></strong>" &mdash; <%= articles.length %> found</p>
+  <% } else { %>
+    <p>Enter a search term above.</p>
+  <% } %>
+</div>
+
+<%- include('partials/articleList', { articles }) %>
+<%- include('partials/pagination', { page, pages, baseUrl }) %>
+
+<%- include('partials/footer') %>
