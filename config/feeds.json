@@ -11,5 +11,12 @@
   { "name": "GBHackers", "url": "https://gbhackers.com/feed/", "category": "general" },
   { "name": "CSO Online", "url": "https://www.csoonline.com/feed/", "category": "enterprise" },
   { "name": "Cybersecurity Dive", "url": "https://www.cybersecuritydive.com/feeds/atom/", "category": "enterprise" },
-  { "name": "Information Security Buzz", "url": "https://www.informationsecuritybuzz.com/feed/", "category": "general" }
+  { "name": "Information Security Buzz", "url": "https://www.informationsecuritybuzz.com/feed/", "category": "general" },
+  { "name": "Security Affairs", "url": "https://securityaffairs.com/feed", "category": "general" },
+  { "name": "Graham Cluley", "url": "https://grahamcluley.com/feed/", "category": "general" },
+  { "name": "SANS ISC", "url": "https://isc.sans.edu/rssfeed.xml", "category": "advisories" },
+  { "name": "WeLiveSecurity", "url": "https://www.welivesecurity.com/en/feed/", "category": "research" },
+  { "name": "Google Security Blog", "url": "https://security.googleblog.com/feeds/posts/default?alt=rss", "category": "vendor" },
+  { "name": "Cisco Advisories", "url": "https://tools.cisco.com/security/center/psirtrss20/CiscoSecurityAdvisory.xml", "category": "advisories" },
+  { "name": "Palo Alto Networks", "url": "https://www.paloaltonetworks.com/blog/feed/", "category": "vendor" }
 ]
