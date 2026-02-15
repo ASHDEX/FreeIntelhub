@@ -1,8 +1,12 @@
 const Database = require('better-sqlite3');
+const fs = require('fs');
 const path = require('path');
 
 const DB_PATH = path.join(__dirname, 'freeintelhub.sqlite');
 const db = new Database(DB_PATH);
+
+// Set restrictive file permissions (owner read/write only)
+try { fs.chmodSync(DB_PATH, 0o600); } catch (_) {}
 
 // Performance settings
 db.pragma('journal_mode = WAL');

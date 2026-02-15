@@ -124,6 +124,13 @@ function esc(s) {
   return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
+// Mask email for logging (PII protection)
+function maskEmail(email) {
+  const [local, domain] = email.split('@');
+  if (!domain) return '***';
+  return local.slice(0, 2) + '***@' + domain;
+}
+
 // --- Send functions ---
 
 async function sendVerification(email, token) {
@@ -136,10 +143,10 @@ async function sendVerification(email, token) {
       subject: 'Verify your FreeIntelHub subscription',
       html: verificationEmail(token),
     });
-    console.log(`[Email] Verification sent to ${email}`);
+    console.log(`[Email] Verification sent to ${maskEmail(email)}`);
     return true;
   } catch (err) {
-    console.error(`[Email] Failed to send verification to ${email}: ${err.message}`);
+    console.error(`[Email] Failed to send verification: ${err.message}`);
     return false;
   }
 }
@@ -154,10 +161,10 @@ async function sendAlert(subscriber, articles) {
       subject: `FreeIntelHub Alert: ${articles.length} new article${articles.length !== 1 ? 's' : ''} matched`,
       html: alertEmail(subscriber, articles),
     });
-    console.log(`[Email] Alert sent to ${subscriber.email} (${articles.length} articles)`);
+    console.log(`[Email] Alert sent to ${maskEmail(subscriber.email)} (${articles.length} articles)`);
     return true;
   } catch (err) {
-    console.error(`[Email] Failed to send alert to ${subscriber.email}: ${err.message}`);
+    console.error(`[Email] Failed to send alert: ${err.message}`);
     return false;
   }
 }
@@ -172,10 +179,10 @@ async function sendNewsletter(subscriber, articlesBySection) {
       subject: `FreeIntelHub Daily Digest — ${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`,
       html: newsletterEmail(subscriber, articlesBySection),
     });
-    console.log(`[Email] Newsletter sent to ${subscriber.email}`);
+    console.log(`[Email] Newsletter sent to ${maskEmail(subscriber.email)}`);
     return true;
   } catch (err) {
-    console.error(`[Email] Failed to send newsletter to ${subscriber.email}: ${err.message}`);
+    console.error(`[Email] Failed to send newsletter: ${err.message}`);
     return false;
   }
 }

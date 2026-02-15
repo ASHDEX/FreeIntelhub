@@ -10,7 +10,7 @@
 <form action="/alerts/unsubscribe" method="POST" style="display:flex;gap:0.75rem">
   <input type="hidden" name="token" value="<%= subscriber.token %>">
   <button type="submit" class="btn btn-danger">Yes, Unsubscribe</button>
-  <a href="/alerts?token=<%= subscriber.token %>" class="btn btn-accent">Cancel</a>
+  <a href="/alerts?token=<%= encodeURIComponent(subscriber.token) %>" class="btn btn-accent">Cancel</a>
 </form>
 
 <%- include('partials/footer') %>

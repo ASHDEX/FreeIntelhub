@@ -24,13 +24,13 @@
   <div class="cve-ticker-wrapper">
     <div class="cve-ticker-track" id="cve-ticker">
       <% cves.forEach(function(cve) { %>
-        <a href="<%= cve.link %>" target="_blank" rel="noopener noreferrer" class="cve-ticker-item">
+        <a href="<%= safeHref(cve.link) %>" target="_blank" rel="noopener noreferrer" class="cve-ticker-item">
           <span class="cve-id<% if (cve.severity === 'CRITICAL') { %> cve-critical<% } else if (cve.severity === 'HIGH') { %> cve-high<% } else if (cve.severity === 'MEDIUM') { %> cve-medium<% } %>"><%= cve.id %></span>
           <span class="cve-desc"><%= cve.description %></span>
         </a>
       <% }); %>
       <% cves.forEach(function(cve) { %>
-        <a href="<%= cve.link %>" target="_blank" rel="noopener noreferrer" class="cve-ticker-item" aria-hidden="true">
+        <a href="<%= safeHref(cve.link) %>" target="_blank" rel="noopener noreferrer" class="cve-ticker-item" aria-hidden="true">
           <span class="cve-id<% if (cve.severity === 'CRITICAL') { %> cve-critical<% } else if (cve.severity === 'HIGH') { %> cve-high<% } else if (cve.severity === 'MEDIUM') { %> cve-medium<% } %>"><%= cve.id %></span>
           <span class="cve-desc"><%= cve.description %></span>
         </a>

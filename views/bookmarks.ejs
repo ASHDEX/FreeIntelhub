@@ -33,7 +33,7 @@
               <button type="submit" class="btn-icon" title="Remove bookmark">&times;</button>
             </form>
           </div>
-          <h3><a href="<%= a.link %>" target="_blank" rel="noopener noreferrer"><%= a.title %></a></h3>
+          <h3><a href="<%= safeHref(a.link) %>" target="_blank" rel="noopener noreferrer"><%= a.title %></a></h3>
           <% if (a.summary) { %><p class="summary"><%= a.summary %></p><% } %>
         </article>
       <% }); %>
