@@ -28,6 +28,24 @@ function detectVendor(text) {
   return null;
 }
 
+/**
+ * Detect ALL vendors mentioned in the text (multi-vendor tagging).
+ * Returns an array of vendor names, or null if none found.
+ */
+function detectAllVendors(text) {
+  const lower = text.toLowerCase();
+  const found = [];
+  for (const [vendor, keywords] of Object.entries(vendors)) {
+    for (const kw of keywords) {
+      if (lower.includes(kw)) {
+        found.push(vendor);
+        break;
+      }
+    }
+  }
+  return found.length > 0 ? found : null;
+}
+
 function detectCategory(text) {
   for (const [category, pattern] of Object.entries(CATEGORY_PATTERNS)) {
     if (pattern.test(text)) return category;
@@ -47,11 +65,13 @@ function detectSector(text) {
 
 function categorize(title, summary = '') {
   const text = `${title} ${summary}`;
+  const allVendors = detectAllVendors(text);
   return {
-    vendor: detectVendor(text),
+    vendor: allVendors ? allVendors[0] : null,
+    vendors_all: allVendors,
     category: detectCategory(text),
     sector: detectSector(text),
   };
 }
 
-module.exports = { categorize, detectVendor, detectCategory, detectSector, CATEGORY_PATTERNS };
+module.exports = { categorize, detectVendor, detectAllVendors, detectCategory, detectSector, CATEGORY_PATTERNS };

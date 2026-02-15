@@ -1,0 +1,110 @@
+<%- include('partials/head', { pageTitle: 'Trending' }) %>
+
+<div class="page-header">
+  <h1>Trending Topics</h1>
+  <p>What's hot in cybersecurity over the last <span id="trending-period-label">7 days</span></p>
+</div>
+
+<div class="trending-controls">
+  <button class="btn btn-accent trending-btn active" data-days="1">24h</button>
+  <button class="btn trending-btn" data-days="7">7 Days</button>
+  <button class="btn trending-btn" data-days="30">30 Days</button>
+</div>
+
+<div class="trending-grid">
+  <section class="trending-section">
+    <h2>Top Threat Types</h2>
+    <canvas id="chart-categories" height="280"></canvas>
+  </section>
+  <section class="trending-section">
+    <h2>Top Vendors</h2>
+    <canvas id="chart-vendors" height="280"></canvas>
+  </section>
+</div>
+
+<section class="trending-section">
+  <h2>Top Sources</h2>
+  <canvas id="chart-sources" height="200"></canvas>
+</section>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<script>
+(function() {
+  var catCtx = document.getElementById('chart-categories').getContext('2d');
+  var vendCtx = document.getElementById('chart-vendors').getContext('2d');
+  var srcCtx = document.getElementById('chart-sources').getContext('2d');
+
+  var chartColors = [
+    '#22d3ee','#a78bfa','#ef4444','#22c55e','#fbbf24',
+    '#60a5fa','#f472b6','#34d399','#fb923c','#818cf8'
+  ];
+
+  var catChart, vendChart, srcChart;
+
+  function createBarChart(ctx, labels, data, label) {
+    return new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: label,
+          data: data,
+          backgroundColor: chartColors.slice(0, labels.length),
+          borderRadius: 6,
+          borderSkipped: false,
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          y: { beginAtZero: true, ticks: { color: '#71717a' }, grid: { color: 'rgba(255,255,255,0.04)' } },
+          x: { ticks: { color: '#a1a1aa', maxRotation: 45 }, grid: { display: false } }
+        }
+      }
+    });
+  }
+
+  function loadTrending(days) {
+    fetch('/api/trending?days=' + days)
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (catChart) catChart.destroy();
+        if (vendChart) vendChart.destroy();
+        if (srcChart) srcChart.destroy();
+
+        catChart = createBarChart(catCtx,
+          d.categories.map(function(c) { return c.category; }),
+          d.categories.map(function(c) { return c.count; }),
+          'Articles'
+        );
+        vendChart = createBarChart(vendCtx,
+          d.vendors.map(function(v) { return v.vendor; }),
+          d.vendors.map(function(v) { return v.count; }),
+          'Articles'
+        );
+        srcChart = createBarChart(srcCtx,
+          d.sources.map(function(s) { return s.source; }),
+          d.sources.map(function(s) { return s.count; }),
+          'Articles'
+        );
+      });
+  }
+
+  document.querySelectorAll('.trending-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      document.querySelectorAll('.trending-btn').forEach(function(b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+      var days = btn.getAttribute('data-days');
+      var labels = { '1': '24 hours', '7': '7 days', '30': '30 days' };
+      document.getElementById('trending-period-label').textContent = labels[days];
+      loadTrending(days);
+    });
+  });
+
+  loadTrending(7);
+})();
+</script>
+
+<%- include('partials/footer') %>

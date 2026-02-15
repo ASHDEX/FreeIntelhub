@@ -2,8 +2,37 @@
 
 <div class="page-header">
   <h1>Feed Sources</h1>
-  <p>Status of all RSS feeds being monitored</p>
+  <p>Status of all <%= sources.length %> RSS feeds being monitored</p>
 </div>
+
+<%
+  var totalOk = 0, totalFail = 0;
+  health.forEach(function(h) {
+    totalOk += h.success_count || 0;
+    totalFail += h.fail_count || 0;
+  });
+  var totalChecks = totalOk + totalFail;
+  var overallUptime = totalChecks > 0 ? ((totalOk / totalChecks) * 100).toFixed(1) : '—';
+%>
+
+<section class="stats-row" style="margin-bottom:1.5rem">
+  <div class="stat-card">
+    <strong><%= sources.length %></strong>
+    <span>Total Feeds</span>
+  </div>
+  <div class="stat-card">
+    <strong><%= health.filter(function(h) { return h.last_status === 'ok'; }).length %></strong>
+    <span>Healthy</span>
+  </div>
+  <div class="stat-card">
+    <strong><%= health.filter(function(h) { return h.last_status !== 'ok'; }).length %></strong>
+    <span>Errors</span>
+  </div>
+  <div class="stat-card">
+    <strong><%= overallUptime %>%</strong>
+    <span>Overall Uptime</span>
+  </div>
+</section>
 
 <table class="data-table">
   <thead>
@@ -11,20 +40,36 @@
       <th>Source</th>
       <th>Articles</th>
       <th>Status</th>
+      <th>Uptime</th>
       <th>Last Checked</th>
     </tr>
   </thead>
   <tbody>
     <% sources.forEach(function(s) {
-      const h = health.find(function(x) { return x.source === s.source; });
+      var h = health.find(function(x) { return x.source === s.source; });
+      var ok = h ? (h.success_count || 0) : 0;
+      var fail = h ? (h.fail_count || 0) : 0;
+      var total = ok + fail;
+      var pct = total > 0 ? ((ok / total) * 100).toFixed(1) : '—';
+      var okWidth = total > 0 ? ((ok / total) * 100) : 0;
+      var failWidth = total > 0 ? ((fail / total) * 100) : 0;
     %>
       <tr>
         <td><a href="/source/<%= encodeURIComponent(s.source) %>"><%= s.source %></a></td>
         <td><%= s.count %></td>
         <td class="<%= h && h.last_status === 'ok' ? 'status-ok' : 'status-err' %>">
-          <%= h ? h.last_status : 'unknown' %>
+          <%= h ? (h.last_status === 'ok' ? 'ok' : 'error') : 'unknown' %>
         </td>
-        <td><%= h && h.last_checked_at ? new Date(h.last_checked_at).toLocaleString() : '—' %></td>
+        <td>
+          <div style="display:flex;align-items:center">
+            <div class="health-bar">
+              <div class="health-bar-ok" style="width:<%= okWidth %>%"></div>
+              <div class="health-bar-fail" style="width:<%= failWidth %>%"></div>
+            </div>
+            <span class="health-pct"><%= pct %>%</span>
+          </div>
+        </td>
+        <td><%= h && h.last_checked_at ? new Date(h.last_checked_at + 'Z').toLocaleString() : '—' %></td>
       </tr>
     <% }); %>
   </tbody>

@@ -14,6 +14,8 @@
     <% } else if (success === 'verification_sent') { %>Verification email resent. Check your inbox.
     <% } else if (success === 'rule_added') { %>Alert rule added.
     <% } else if (success === 'rule_removed') { %>Alert rule removed.
+    <% } else if (success === 'webhook_added') { %>Webhook integration added.
+    <% } else if (success === 'webhook_removed') { %>Webhook integration removed.
     <% } else if (success === 'unsubscribed') { %>You have been unsubscribed. All alert rules deleted.
     <% } %>
   </div>
@@ -125,6 +127,39 @@
         <option value="keyword">Keyword / CVE</option>
       </select>
       <input type="text" name="rule_value" placeholder="e.g. Microsoft, Zero-Day, CVE-2026-1234" required class="form-input">
+      <button type="submit" class="btn btn-accent">Add</button>
+    </form>
+
+    <h3>Webhook Integrations</h3>
+    <p class="text-muted">Get alerts delivered to Slack, Discord, Telegram, or a custom webhook URL.</p>
+
+    <% if (typeof webhooks !== 'undefined' && webhooks.length > 0) { %>
+      <div class="rules-list">
+        <% webhooks.forEach(function(wh) { %>
+          <div class="rule-card">
+            <span class="badge badge-vendor"><%= wh.webhook_type %></span>
+            <span class="rule-value" style="word-break:break-all"><%= wh.webhook_url.length > 60 ? wh.webhook_url.slice(0, 60) + '...' : wh.webhook_url %></span>
+            <form action="/alerts/delete-webhook" method="POST" class="rule-delete">
+              <input type="hidden" name="token" value="<%= subscriber.token %>">
+              <input type="hidden" name="webhook_id" value="<%= wh.id %>">
+              <button type="submit" class="btn-icon" title="Remove">&times;</button>
+            </form>
+          </div>
+        <% }); %>
+      </div>
+    <% } else { %>
+      <p class="empty">No webhook integrations yet. Add one below.</p>
+    <% } %>
+
+    <form action="/alerts/add-webhook" method="POST" class="add-rule-form">
+      <input type="hidden" name="token" value="<%= subscriber.token %>">
+      <select name="webhook_type" class="form-select">
+        <option value="slack">Slack</option>
+        <option value="discord">Discord</option>
+        <option value="telegram">Telegram</option>
+        <option value="webhook">Custom Webhook</option>
+      </select>
+      <input type="text" name="webhook_url" placeholder="Webhook URL (e.g. https://hooks.slack.com/...)" required class="form-input">
       <button type="submit" class="btn btn-accent">Add</button>
     </form>
 

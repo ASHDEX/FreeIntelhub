@@ -1,0 +1,44 @@
+<%- include('partials/head', { pageTitle: 'Bookmarks' }) %>
+
+<div class="page-header">
+  <h1>Saved Articles</h1>
+  <p>Your bookmarked articles for later reading</p>
+</div>
+
+<% if (!subscriber) { %>
+  <div class="alert alert-warn">
+    You need to be subscribed to use bookmarks. <a href="/alerts">Sign up for alerts</a> to get started, then use your management token to access bookmarks.
+  </div>
+  <form action="/bookmarks" method="GET" class="add-rule-form">
+    <input type="text" name="token" placeholder="Enter your subscriber token" class="form-input" required>
+    <button type="submit" class="btn btn-accent">View Bookmarks</button>
+  </form>
+<% } else { %>
+  <p class="text-muted">Subscribed as <strong><%= subscriber.email %></strong> &mdash; <%= bookmarks.length %> saved article<%= bookmarks.length !== 1 ? 's' : '' %></p>
+
+  <% if (bookmarks.length === 0) { %>
+    <p class="empty">No bookmarks yet. Browse articles and click the bookmark icon to save them.</p>
+  <% } else { %>
+    <div class="article-list">
+      <% bookmarks.forEach(function(a) { %>
+        <article class="article-card">
+          <div class="article-meta">
+            <span class="badge badge-source"><%= a.source %></span>
+            <% if (a.category) { %><span class="badge badge-category"><%= a.category %></span><% } %>
+            <% if (a.vendor) { %><a href="/vendor/<%= encodeURIComponent(a.vendor) %>" class="badge badge-vendor"><%= a.vendor %></a><% } %>
+            <time><%= a.published_at ? new Date(a.published_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '' %></time>
+            <form action="/bookmarks/remove" method="POST" style="margin-left:auto">
+              <input type="hidden" name="token" value="<%= subscriber.token %>">
+              <input type="hidden" name="article_id" value="<%= a.id %>">
+              <button type="submit" class="btn-icon" title="Remove bookmark">&times;</button>
+            </form>
+          </div>
+          <h3><a href="<%= a.link %>" target="_blank" rel="noopener noreferrer"><%= a.title %></a></h3>
+          <% if (a.summary) { %><p class="summary"><%= a.summary %></p><% } %>
+        </article>
+      <% }); %>
+    </div>
+  <% } %>
+<% } %>
+
+<%- include('partials/footer') %>

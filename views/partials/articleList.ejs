@@ -7,7 +7,18 @@
         <div class="article-meta">
           <span class="badge badge-source"><%= a.source %></span>
           <% if (a.category) { %><span class="badge badge-category"><%= a.category %></span><% } %>
-          <% if (a.vendor) { %><a href="/vendor/<%= encodeURIComponent(a.vendor) %>" class="badge badge-vendor"><%= a.vendor %></a><% } %>
+          <%
+            var vendorsList = [];
+            if (a.vendors_all) {
+              try { vendorsList = JSON.parse(a.vendors_all); } catch(e) {}
+            }
+            if (vendorsList.length > 0) {
+              vendorsList.forEach(function(v) { %>
+                <a href="/vendor/<%= encodeURIComponent(v) %>" class="badge badge-vendor"><%= v %></a>
+          <%  });
+            } else if (a.vendor) { %>
+              <a href="/vendor/<%= encodeURIComponent(a.vendor) %>" class="badge badge-vendor"><%= a.vendor %></a>
+          <% } %>
           <time><%= a.published_at ? new Date(a.published_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '' %></time>
         </div>
         <h3><a href="<%= a.link %>" target="_blank" rel="noopener noreferrer"><%= a.title %></a></h3>

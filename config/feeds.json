@@ -18,5 +18,15 @@
   { "name": "WeLiveSecurity", "url": "https://www.welivesecurity.com/en/feed/", "category": "research" },
   { "name": "Google Security Blog", "url": "https://security.googleblog.com/feeds/posts/default?alt=rss", "category": "vendor" },
   { "name": "Cisco Advisories", "url": "https://tools.cisco.com/security/center/psirtrss20/CiscoSecurityAdvisory.xml", "category": "advisories" },
-  { "name": "Palo Alto Networks", "url": "https://www.paloaltonetworks.com/blog/feed/", "category": "vendor" }
+  { "name": "Palo Alto Networks", "url": "https://www.paloaltonetworks.com/blog/feed/", "category": "vendor" },
+  { "name": "CISA Advisories", "url": "https://www.cisa.gov/cybersecurity-advisories/all.xml", "category": "advisories" },
+  { "name": "US-CERT Alerts", "url": "https://www.cisa.gov/uscert/ncas/alerts.xml", "category": "advisories" },
+  { "name": "Microsoft Security Blog", "url": "https://www.microsoft.com/en-us/security/blog/feed/", "category": "vendor" },
+  { "name": "Mandiant Blog", "url": "https://www.mandiant.com/resources/blog/rss.xml", "category": "research" },
+  { "name": "Recorded Future", "url": "https://www.recordedfuture.com/feed", "category": "research" },
+  { "name": "Talos Intelligence", "url": "https://blog.talosintelligence.com/feeds/posts/default?alt=rss", "category": "research" },
+  { "name": "Unit 42", "url": "https://unit42.paloaltonetworks.com/feed/", "category": "research" },
+  { "name": "SentinelOne Blog", "url": "https://www.sentinelone.com/blog/feed/", "category": "vendor" },
+  { "name": "CrowdStrike Blog", "url": "https://www.crowdstrike.com/blog/feed/", "category": "vendor" },
+  { "name": "Sophos News", "url": "https://news.sophos.com/en-us/feed/", "category": "vendor" }
 ]

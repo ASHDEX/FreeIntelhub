@@ -1,8 +1,11 @@
+const crypto = require('crypto');
 const RSSParser = require('rss-parser');
 const db = require('../db');
 const feeds = require('../config/feeds.json');
 const { categorize } = require('./categorizer');
 const { isNewsArticle } = require('./contentFilter');
+const { detectMitreTechniques } = require('./mitreMapper');
+const { extractIOCs } = require('./iocExtractor');
 
 const parser = new RSSParser({ timeout: 10000 });
 
@@ -18,9 +21,14 @@ function makeSafeSummary(text) {
 }
 
 const insertArticle = db.prepare(`
-  INSERT OR IGNORE INTO articles (title, link, summary, source, category, vendor, sector, published_at)
-  VALUES (@title, @link, @summary, @source, @category, @vendor, @sector, @published_at)
+  INSERT OR IGNORE INTO articles (title, link, summary, source, category, vendor, sector, mitre_techniques, iocs, vendors_all, dedup_hash, published_at)
+  VALUES (@title, @link, @summary, @source, @category, @vendor, @sector, @mitre_techniques, @iocs, @vendors_all, @dedup_hash, @published_at)
 `);
+
+function generateDedupHash(title) {
+  const normalized = title.toLowerCase().replace(/[^a-z0-9 ]/g, '').replace(/\s+/g, ' ').trim();
+  return crypto.createHash('md5').update(normalized).digest('hex').slice(0, 16);
+}
 
 const getArticleByLink = db.prepare(`SELECT * FROM articles WHERE link = ?`);
 
@@ -49,15 +57,23 @@ async function fetchFeed(feed) {
     const articles = newsItems.map((item) => {
       const rawText = stripHtml(item.contentSnippet || item.content || item.summary || '');
       const summary = makeSafeSummary(rawText);
-      const { vendor, category, sector } = categorize(item.title || '', rawText);
+      const fullText = `${item.title || ''} ${rawText}`;
+      const { vendor, vendors_all, category, sector } = categorize(item.title || '', rawText);
+      const mitre = detectMitreTechniques(fullText);
+      const iocs = extractIOCs(fullText);
+      const title = (item.title || 'Untitled').slice(0, 300);
       return {
-        title: (item.title || 'Untitled').slice(0, 300),
+        title,
         link: item.link || '',
         summary,
         source: feed.name,
         category,
         vendor,
         sector,
+        mitre_techniques: mitre ? JSON.stringify(mitre) : null,
+        iocs: iocs ? JSON.stringify(iocs) : null,
+        vendors_all: vendors_all ? JSON.stringify(vendors_all) : null,
+        dedup_hash: generateDedupHash(title),
         published_at: item.isoDate || item.pubDate || new Date().toISOString(),
       };
     });
