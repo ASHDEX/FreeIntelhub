@@ -547,8 +547,9 @@ section { margin-bottom: 2.5rem; }
 /* === MITRE Badges === */
 .badge-mitre {
   background: rgba(239, 68, 68, 0.1); color: var(--red);
-  font-size: 0.65rem; font-weight: 600; padding: 0.15rem 0.45rem;
+  font-size: 0.72rem; font-weight: 600; padding: 0.25rem 0.55rem;
   border-radius: 4px; text-decoration: none; transition: all var(--transition);
+  cursor: pointer; display: inline-flex; align-items: center; gap: 0.25rem;
 }
 .badge-mitre:hover { background: rgba(239, 68, 68, 0.2); text-decoration: none; }
 .badge-mitre-active { background: var(--red); color: #fff; }
@@ -577,6 +578,12 @@ section { margin-bottom: 2.5rem; }
 .mitre-tactic-group { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem 1.25rem; }
 .mitre-tactic-name { font-size: 0.8rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 0.65rem; }
 .mitre-technique-list { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+.mitre-active-filter { background: var(--bg-card); border: 1px solid var(--accent); border-radius: var(--radius); padding: 1.25rem; margin-bottom: 2rem; }
+.mitre-filter-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+.mitre-filter-header h2 { font-size: 1.1rem; margin: 0; color: var(--text); }
+.mitre-result-count { font-size: 0.85rem; color: var(--text-muted); margin: 0.35rem 0 1rem; }
+.btn-sm { font-size: 0.75rem; padding: 0.3rem 0.7rem; background: var(--bg-elevated); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-muted); text-decoration: none; transition: all var(--transition); }
+.btn-sm:hover { border-color: var(--accent); color: var(--accent); }
 
 /* === Light theme IOC/MITRE overrides === */
 [data-theme="light"] .badge-mitre { background: rgba(220, 38, 38, 0.08); color: #dc2626; }

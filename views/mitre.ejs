@@ -2,8 +2,22 @@
 
 <div class="page-header">
   <h1>MITRE ATT&CK Mapping</h1>
-  <p>Articles mapped to MITRE ATT&CK techniques</p>
+  <p>Articles mapped to MITRE ATT&CK techniques. Select a technique to view matching articles.</p>
 </div>
+
+<% if (technique) { %>
+  <div class="mitre-active-filter" id="mitre-results">
+    <div class="mitre-filter-header">
+      <h2><%= technique %> — <% var techInfo = mitreTechniques[technique]; if (techInfo) { %><%= techInfo.name %> (<%= techInfo.tactic %>)<% } %></h2>
+      <a href="/mitre" class="btn btn-sm">Clear filter</a>
+    </div>
+    <p class="mitre-result-count"><%= total %> article<%= total !== 1 ? 's' : '' %> found</p>
+    <%- include('partials/articleList', { articles: articles }) %>
+    <% if (pages > 1) { %>
+      <%- include('partials/pagination', { page: page, pages: pages, baseUrl: baseUrl }) %>
+    <% } %>
+  </div>
+<% } %>
 
 <% var tactics = {};
    Object.keys(mitreTechniques).forEach(function(id) {
@@ -25,15 +39,5 @@
     </div>
   <% }); %>
 </div>
-
-<% if (technique) { %>
-  <div class="section-header" style="margin-top: 2rem;">
-    <h2><%= technique %> — <%= total %> article<%= total !== 1 ? 's' : '' %></h2>
-  </div>
-  <%- include('partials/articleList', { articles: articles }) %>
-  <% if (pages > 1) { %>
-    <%- include('partials/pagination', { page: page, pages: pages, baseUrl: baseUrl }) %>
-  <% } %>
-<% } %>
 
 <%- include('partials/footer') %>
