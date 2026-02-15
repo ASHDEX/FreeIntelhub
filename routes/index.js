@@ -5,6 +5,7 @@ const feeds = require('../config/feeds.json');
 const { CATEGORY_PATTERNS } = require('../services/categorizer');
 const sectorConfig = require('../config/sectors.json');
 const { sendVerification, isConfigured: smtpConfigured } = require('../services/emailService');
+const { getLatestCVEs } = require('../services/cveFetcher');
 const router = express.Router();
 
 // Static lists for navbar dropdowns
@@ -124,30 +125,35 @@ router.use((req, res, next) => {
 // --- Routes ---
 
 // Homepage
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   const page = parseInt(req.query.page, 10) || 1;
   const section = req.query.section;
+
+  const HOME_PER_PAGE = 8;
 
   // News pagination
   const newsPage = section === 'news' ? page : 1;
   const newsTotal = stmts.latestCount.get().count;
-  const articles = stmts.latestArticles.all(PER_PAGE, (newsPage - 1) * PER_PAGE);
-  const newsPages = Math.ceil(newsTotal / PER_PAGE);
+  const articles = stmts.latestArticles.all(HOME_PER_PAGE, (newsPage - 1) * HOME_PER_PAGE);
+  const newsPages = Math.ceil(newsTotal / HOME_PER_PAGE);
 
   // Breach pagination
   const breachPage = section === 'breaches' ? page : 1;
   const breachTotal = stmts.breachCount.get().count;
-  const breachArticles = stmts.breachArticles.all(PER_PAGE, (breachPage - 1) * PER_PAGE);
-  const breachPages = Math.ceil(breachTotal / PER_PAGE);
+  const breachArticles = stmts.breachArticles.all(HOME_PER_PAGE, (breachPage - 1) * HOME_PER_PAGE);
+  const breachPages = Math.ceil(breachTotal / HOME_PER_PAGE);
 
   const vendors = stmts.vendorCounts.all();
   const categories = stmts.categoryCounts.all();
   const { count } = stmts.totalCount.get();
 
+  // Fetch latest CVEs for ticker
+  const cves = await getLatestCVEs();
+
   res.render('index', {
     articles, newsPage, newsPages,
     breachArticles, breachPage, breachPages,
-    vendors, categories, totalCount: count,
+    vendors, categories, totalCount: count, cves,
   });
 });
 
@@ -372,6 +378,12 @@ router.get('/api/suggest', (req, res) => {
   const like = `%${q}%`;
   const results = stmts.suggestions.all(like, like);
   res.json(results);
+});
+
+// CVE ticker API (JSON)
+router.get('/api/cves', async (req, res) => {
+  const cves = await getLatestCVEs();
+  res.json(cves);
 });
 
 // Health check (JSON)

@@ -84,9 +84,12 @@ a:hover { color: #67e8f9; }
   background: var(--bg-elevated);
   border: 1px solid var(--border-hover);
   border-radius: var(--radius);
-  padding: 0.4rem; margin-top: 0.5rem; z-index: 300;
+  padding: 0.4rem; padding-top: calc(0.4rem + 6px); margin-top: 0; z-index: 300;
   box-shadow: var(--shadow-lg);
   backdrop-filter: blur(20px);
+}
+.dropdown-menu::before {
+  content: ''; position: absolute; top: -6px; left: 0; right: 0; height: 6px;
 }
 .dropdown-menu-scroll { max-height: 320px; overflow-y: auto; }
 .dropdown-menu-scroll::-webkit-scrollbar { width: 4px; }
@@ -170,6 +173,56 @@ a:hover { color: #67e8f9; }
 .suggestion-title mark { background: none; color: var(--accent); font-weight: 600; }
 .suggestion-badges { display: flex; gap: 0.35rem; flex-shrink: 0; }
 .suggestion-empty { padding: 0.75rem 1rem; color: var(--text-muted); font-size: 0.85rem; text-align: center; }
+
+/* === CVE Ticker === */
+.cve-ticker-section {
+  display: flex; align-items: center; gap: 0;
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius); overflow: hidden;
+  margin-bottom: 2rem; position: relative;
+}
+.cve-ticker-label {
+  display: flex; align-items: center; gap: 0.4rem;
+  background: rgba(239, 68, 68, 0.1); border-right: 1px solid var(--border);
+  padding: 0.6rem 1rem; font-size: 0.65rem; font-weight: 700;
+  color: var(--red); white-space: nowrap; letter-spacing: 0.08em;
+  flex-shrink: 0; z-index: 2;
+}
+.cve-icon { width: 14px; height: 14px; color: var(--red); flex-shrink: 0; }
+.cve-ticker-wrapper {
+  flex: 1; overflow: hidden; position: relative;
+  mask-image: linear-gradient(90deg, transparent 0%, #000 3%, #000 97%, transparent 100%);
+  -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 3%, #000 97%, transparent 100%);
+}
+.cve-ticker-track {
+  display: flex; gap: 2rem; white-space: nowrap;
+  animation: cve-scroll 60s linear infinite;
+  width: max-content; padding: 0.6rem 0;
+}
+.cve-ticker-track:hover { animation-play-state: paused; }
+.cve-ticker-item {
+  display: inline-flex; align-items: center; gap: 0.5rem;
+  color: var(--text-secondary); font-size: 0.78rem;
+  text-decoration: none; transition: color var(--transition);
+  flex-shrink: 0;
+}
+.cve-ticker-item:hover { color: var(--text); }
+.cve-id {
+  font-weight: 600; font-size: 0.72rem; padding: 0.1rem 0.45rem;
+  border-radius: 4px; background: var(--accent-soft); color: var(--accent);
+  flex-shrink: 0;
+}
+.cve-id.cve-critical { background: rgba(239, 68, 68, 0.12); color: var(--red); }
+.cve-id.cve-high { background: rgba(251, 191, 36, 0.12); color: var(--amber); }
+.cve-id.cve-medium { background: rgba(167, 139, 250, 0.12); color: var(--purple); }
+.cve-desc {
+  max-width: 280px; overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap; font-size: 0.75rem; color: var(--text-muted);
+}
+@keyframes cve-scroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
 
 /* === Stats row === */
 .stats-row { display: flex; gap: 0.625rem; flex-wrap: wrap; margin-bottom: 2.5rem; justify-content: center; }
@@ -408,6 +461,9 @@ section { margin-bottom: 2.5rem; }
   .nav-dropdown .dropdown-menu { position: static; box-shadow: none; border: none; margin: 0; padding-left: 1rem; background: transparent; }
   .stats-row { justify-content: flex-start; }
   .hero { padding: 2.5rem 0 1.5rem; }
+  .cve-ticker-label { padding: 0.5rem 0.65rem; font-size: 0.6rem; }
+  .cve-ticker-label span { display: none; }
+  .cve-desc { max-width: 180px; }
   .hero h1 { font-size: 1.4rem; }
   .vendor-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
   .container { padding: 0 1rem; }
