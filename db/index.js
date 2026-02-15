@@ -34,7 +34,6 @@ db.exec(`
 
 // Migrations: add columns if missing
 try { db.exec(`ALTER TABLE articles ADD COLUMN sector TEXT`); } catch (_) {}
-try { db.exec(`ALTER TABLE subscribers ADD COLUMN verify_token TEXT`); } catch (_) {}
 
 // Subscribers & alerts
 db.exec(`
@@ -44,6 +43,7 @@ db.exec(`
     daily_newsletter INTEGER DEFAULT 0,
     verified INTEGER DEFAULT 0,
     token TEXT,
+    verify_token TEXT,
     created_at TEXT DEFAULT (datetime('now'))
   );
 
@@ -67,6 +67,9 @@ db.exec(`
     UNIQUE(subscriber_id, article_id)
   );
 `);
+
+// Migrations: add columns for existing DBs
+try { db.exec(`ALTER TABLE subscribers ADD COLUMN verify_token TEXT`); } catch (_) {}
 
 // Indexes (after migrations so all columns exist)
 db.exec(`
