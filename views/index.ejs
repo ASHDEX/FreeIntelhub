@@ -1,8 +1,8 @@
 <%- include('partials/head') %>
 
 <section class="hero">
-  <h1>Cybersecurity Threat Intelligence</h1>
-  <p>Real-time aggregated security news from <%= totalCount %> articles across trusted sources</p>
+  <h1>Threat Intelligence Feed</h1>
+  <p>Aggregating <%= totalCount %> articles from trusted cybersecurity sources</p>
   <div class="search-box">
     <form action="/search" method="GET" autocomplete="off">
       <div class="search-wrapper">
@@ -36,13 +36,17 @@
 <% } %>
 
 <section>
-  <h2>Latest News</h2>
+  <div class="section-header">
+    <h2>Latest News</h2>
+  </div>
   <%- include('partials/articleList', { articles }) %>
   <%- include('partials/pagination', { page: newsPage, pages: newsPages, baseUrl: '/?section=news' }) %>
 </section>
 
 <section>
-  <h2>Data Breaches</h2>
+  <div class="section-header">
+    <h2>Data Breaches</h2>
+  </div>
   <%- include('partials/articleList', { articles: breachArticles }) %>
   <%- include('partials/pagination', { page: breachPage, pages: breachPages, baseUrl: '/?section=breaches' }) %>
 </section>

@@ -1,11 +1,13 @@
 <%- include('partials/head', { pageTitle: 'Search' }) %>
 
-<h1>Search Results</h1>
-<% if (query) { %>
-  <p>Results for "<strong><%= query %></strong>" &mdash; <%= articles.length %> found</p>
-<% } else { %>
-  <p>Enter a search term above.</p>
-<% } %>
+<div class="page-header">
+  <h1>Search Results</h1>
+  <% if (query) { %>
+    <p>Results for "<strong><%= query %></strong>" &mdash; <%= articles.length %> found</p>
+  <% } else { %>
+    <p>Enter a search term above.</p>
+  <% } %>
+</div>
 
 <%- include('partials/articleList', { articles }) %>
 <%- include('partials/pagination', { page, pages, baseUrl }) %>

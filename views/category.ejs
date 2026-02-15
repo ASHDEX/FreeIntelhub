@@ -1,7 +1,9 @@
 <%- include('partials/head', { pageTitle: category }) %>
 
-<h1><%= category %></h1>
-<p><%= articles.length %> article<%= articles.length !== 1 ? 's' : '' %> shown</p>
+<div class="page-header">
+  <h1><%= category %></h1>
+  <p><%= articles.length %> article<%= articles.length !== 1 ? 's' : '' %></p>
+</div>
 
 <%- include('partials/articleList', { articles }) %>
 <%- include('partials/pagination', { page, pages, baseUrl }) %>

@@ -8,11 +8,11 @@
           <span class="badge badge-source"><%= a.source %></span>
           <% if (a.category) { %><span class="badge badge-category"><%= a.category %></span><% } %>
           <% if (a.vendor) { %><a href="/vendor/<%= encodeURIComponent(a.vendor) %>" class="badge badge-vendor"><%= a.vendor %></a><% } %>
-          <time><%= a.published_at ? new Date(a.published_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '' %></time>
+          <time><%= a.published_at ? new Date(a.published_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '' %></time>
         </div>
         <h3><a href="<%= a.link %>" target="_blank" rel="noopener noreferrer"><%= a.title %></a></h3>
         <% if (a.summary) { %><p class="summary"><%= a.summary %></p><% } %>
-        <p class="read-more">Read full article at <a href="<%= a.link %>" target="_blank" rel="noopener noreferrer"><%= a.source %></a></p>
+        <p class="read-more"><a href="<%= a.link %>" target="_blank" rel="noopener noreferrer"><%= a.source %> &rarr;</a></p>
       </article>
     <% }); %>
   </div>

@@ -1,7 +1,9 @@
 <%- include('partials/head', { pageTitle: 'Sectors' }) %>
 
-<h1>Sectors</h1>
-<p>Browse articles by affected industry sector</p>
+<div class="page-header">
+  <h1>Sectors</h1>
+  <p>Browse articles by affected industry</p>
+</div>
 
 <% if (sectors.length === 0) { %>
   <p class="empty">No sector data yet. Articles are still being fetched.</p>

@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title><%= typeof pageTitle !== 'undefined' ? pageTitle + ' | ' : '' %>FreeIntelHub</title>
+  <title><%= typeof pageTitle !== 'undefined' ? pageTitle + ' — ' : '' %>FreeIntelHub</title>
   <link rel="stylesheet" href="/style.css">
   <script src="/app.js" defer></script>
 </head>
 <body>
   <nav class="navbar">
     <div class="container nav-inner">
-      <a href="/" class="logo">FreeIntel<span>Hub</span></a>
+      <a href="/" class="logo">Free<span>Intel</span>Hub</a>
 
       <div class="nav-tabs" id="nav-tabs">
         <a href="/" class="nav-tab<%= currentPath === '/' ? ' active' : '' %>">Feed</a>
@@ -38,7 +38,7 @@
         </div>
 
         <div class="nav-dropdown">
-          <a href="/categories" class="nav-tab<%= currentPath === '/categories' || currentPath.startsWith('/category/') ? ' active' : '' %>">News Type <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></a>
+          <a href="/categories" class="nav-tab<%= currentPath === '/categories' || currentPath.startsWith('/category/') ? ' active' : '' %>">Threats <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></a>
           <div class="dropdown-menu">
             <% navCategories.forEach(function(c) { %>
               <a href="/category/<%= encodeURIComponent(c) %>" class="dropdown-item"><%= c %></a>
@@ -49,7 +49,7 @@
         </div>
 
         <div class="nav-dropdown">
-          <a href="/sectors" class="nav-tab<%= currentPath === '/sectors' || currentPath.startsWith('/sector/') ? ' active' : '' %>">Sector <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></a>
+          <a href="/sectors" class="nav-tab<%= currentPath === '/sectors' || currentPath.startsWith('/sector/') ? ' active' : '' %>">Sectors <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></a>
           <div class="dropdown-menu dropdown-menu-scroll">
             <% navSectors.forEach(function(s) { %>
               <a href="/sector/<%= encodeURIComponent(s) %>" class="dropdown-item"><%= s %></a>
