@@ -10,13 +10,19 @@
   "engines": {
     "node": ">=18.0.0"
   },
-  "keywords": ["cybersecurity", "threat-intelligence", "rss"],
+  "keywords": [
+    "cybersecurity",
+    "threat-intelligence",
+    "rss"
+  ],
   "license": "MIT",
   "dependencies": {
     "better-sqlite3": "^11.7.0",
     "ejs": "^3.1.10",
     "express": "^4.21.0",
     "express-rate-limit": "^7.5.0",
+    "node-cron": "^4.2.1",
+    "nodemailer": "^8.0.1",
     "rss-parser": "^3.13.0"
   }
 }

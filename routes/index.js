@@ -1,8 +1,10 @@
 const express = require('express');
+const crypto = require('crypto');
 const db = require('../db');
 const feeds = require('../config/feeds.json');
 const { CATEGORY_PATTERNS } = require('../services/categorizer');
 const sectorConfig = require('../config/sectors.json');
+const { sendVerification, isConfigured: smtpConfigured } = require('../services/emailService');
 const router = express.Router();
 
 // Static lists for navbar dropdowns
@@ -91,11 +93,14 @@ const stmts = {
   `),
   // Alert system
   insertSubscriber: db.prepare(`
-    INSERT INTO subscribers (email, daily_newsletter, token)
-    VALUES (@email, @newsletter, @token)
-    ON CONFLICT(email) DO UPDATE SET daily_newsletter = @newsletter, token = @token
+    INSERT INTO subscribers (email, daily_newsletter, token, verified, verify_token)
+    VALUES (@email, @newsletter, @token, @verified, @verify_token)
+    ON CONFLICT(email) DO UPDATE SET daily_newsletter = @newsletter, token = @token, verify_token = @verify_token
   `),
   getSubscriberByToken: db.prepare(`SELECT * FROM subscribers WHERE token = ?`),
+  getSubscriberByVerifyToken: db.prepare(`SELECT * FROM subscribers WHERE verify_token = ?`),
+  verifySubscriber: db.prepare(`UPDATE subscribers SET verified = 1, verify_token = NULL WHERE id = ?`),
+  resendVerification: db.prepare(`UPDATE subscribers SET verify_token = @verify_token WHERE id = ?`),
   insertAlertRule: db.prepare(`
     INSERT OR IGNORE INTO alert_rules (subscriber_id, rule_type, rule_value)
     VALUES (@subscriber_id, @rule_type, @rule_value)
@@ -228,10 +233,7 @@ router.get('/sources', (req, res) => {
 
 // --- Alerts ---
 function generateToken() {
-  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
-  let t = '';
-  for (let i = 0; i < 32; i++) t += chars[Math.floor(Math.random() * chars.length)];
-  return t;
+  return crypto.randomBytes(16).toString('hex');
 }
 
 // Alerts signup page
@@ -252,7 +254,7 @@ router.get('/alerts', (req, res) => {
 });
 
 // Alerts signup POST
-router.post('/alerts/subscribe', (req, res) => {
+router.post('/alerts/subscribe', async (req, res) => {
   const email = (req.body.email || '').trim().toLowerCase();
   if (!email || !email.includes('@')) {
     return res.redirect('/alerts?error=invalid_email');
@@ -260,8 +262,12 @@ router.post('/alerts/subscribe', (req, res) => {
 
   const newsletter = req.body.newsletter === 'on' ? 1 : 0;
   const token = generateToken();
+  const verifyToken = generateToken();
 
-  stmts.insertSubscriber.run({ email, newsletter, token });
+  // If SMTP is configured, require verification; otherwise auto-verify
+  const verified = smtpConfigured() ? 0 : 1;
+
+  stmts.insertSubscriber.run({ email, newsletter, token, verified, verify_token: verifyToken });
   const subscriber = stmts.getSubscriberByToken.get(token);
 
   // Process alert rules from the form
@@ -276,7 +282,13 @@ router.post('/alerts/subscribe', (req, res) => {
     }
   }
 
-  res.redirect(`/alerts?token=${token}&success=subscribed`);
+  // Send verification email
+  if (smtpConfigured()) {
+    await sendVerification(email, verifyToken);
+    res.redirect(`/alerts?token=${token}&success=subscribed_verify`);
+  } else {
+    res.redirect(`/alerts?token=${token}&success=subscribed`);
+  }
 });
 
 // Add alert rule
@@ -303,7 +315,46 @@ router.post('/alerts/delete-rule', (req, res) => {
   res.redirect(`/alerts?token=${token}&success=rule_removed`);
 });
 
-// Unsubscribe
+// Verify email
+router.get('/alerts/verify', (req, res) => {
+  const verifyToken = req.query.token;
+  if (!verifyToken) return res.redirect('/alerts?error=invalid_token');
+
+  const subscriber = stmts.getSubscriberByVerifyToken.get(verifyToken);
+  if (!subscriber) return res.redirect('/alerts?error=invalid_token');
+
+  stmts.verifySubscriber.run(subscriber.id);
+  res.redirect(`/alerts?token=${subscriber.token}&success=verified`);
+});
+
+// Resend verification email
+router.post('/alerts/resend-verify', async (req, res) => {
+  const token = req.body.token;
+  const subscriber = token ? stmts.getSubscriberByToken.get(token) : null;
+  if (!subscriber) return res.redirect('/alerts?error=not_found');
+
+  if (subscriber.verified) {
+    return res.redirect(`/alerts?token=${token}&success=already_verified`);
+  }
+
+  const newVerifyToken = generateToken();
+  stmts.resendVerification.run({ verify_token: newVerifyToken }, subscriber.id);
+  await sendVerification(subscriber.email, newVerifyToken);
+  res.redirect(`/alerts?token=${token}&success=verification_sent`);
+});
+
+// Unsubscribe (supports both POST and GET for email links)
+router.get('/alerts/unsubscribe', (req, res) => {
+  const token = req.query.token;
+  if (!token) return res.redirect('/alerts');
+  const subscriber = stmts.getSubscriberByToken.get(token);
+  if (subscriber) {
+    res.render('unsubscribe', { pageTitle: 'Unsubscribe', subscriber });
+  } else {
+    res.redirect('/alerts?success=unsubscribed');
+  }
+});
+
 router.post('/alerts/unsubscribe', (req, res) => {
   const token = req.body.token;
   const subscriber = token ? stmts.getSubscriberByToken.get(token) : null;

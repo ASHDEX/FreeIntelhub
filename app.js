@@ -3,6 +3,7 @@ const path = require('path');
 const rateLimit = require('express-rate-limit');
 const routes = require('./routes');
 const { fetchAllFeeds } = require('./services/rssFetcher');
+const { startNewsletterCron } = require('./services/newsletter');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -36,4 +37,7 @@ app.listen(PORT, '0.0.0.0', () => {
   // Initial fetch after 2s, then every 15 min
   setTimeout(fetchAllFeeds, 2000);
   setInterval(fetchAllFeeds, FETCH_INTERVAL);
+
+  // Start daily newsletter cron
+  startNewsletterCron();
 });

@@ -8,6 +8,10 @@
 <% if (typeof success !== 'undefined' && success) { %>
   <div class="alert alert-ok">
     <% if (success === 'subscribed') { %>You're subscribed! Bookmark this page to manage your alerts.
+    <% } else if (success === 'subscribed_verify') { %>Almost there! Check your email for a verification link to activate alerts.
+    <% } else if (success === 'verified') { %>Email verified! Your alerts are now active.
+    <% } else if (success === 'already_verified') { %>Your email is already verified.
+    <% } else if (success === 'verification_sent') { %>Verification email resent. Check your inbox.
     <% } else if (success === 'rule_added') { %>Alert rule added.
     <% } else if (success === 'rule_removed') { %>Alert rule removed.
     <% } else if (success === 'unsubscribed') { %>You have been unsubscribed. All alert rules deleted.
@@ -18,6 +22,7 @@
   <div class="alert alert-err">
     <% if (error === 'invalid_email') { %>Please enter a valid email address.
     <% } else if (error === 'not_found') { %>Subscription not found. Please sign up again.
+    <% } else if (error === 'invalid_token') { %>Invalid or expired verification link.
     <% } %>
   </div>
 <% } %>
@@ -79,7 +84,18 @@
     <h2>Your Alerts</h2>
     <p class="text-muted">Subscribed as <strong><%= subscriber.email %></strong>
       &mdash; Daily newsletter: <strong><%= subscriber.daily_newsletter ? 'On' : 'Off' %></strong>
+      &mdash; Status: <strong class="<%= subscriber.verified ? 'status-ok' : 'status-pending' %>"><%= subscriber.verified ? 'Verified' : 'Pending verification' %></strong>
     </p>
+
+    <% if (!subscriber.verified) { %>
+      <div class="alert alert-warn">
+        Your email is not yet verified. Please check your inbox for the verification link.
+        <form action="/alerts/resend-verify" method="POST" style="display:inline">
+          <input type="hidden" name="token" value="<%= subscriber.token %>">
+          <button type="submit" class="btn-link">Resend verification email</button>
+        </form>
+      </div>
+    <% } %>
 
     <% if (rules.length > 0) { %>
       <div class="rules-list">

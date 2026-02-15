@@ -32,8 +32,9 @@ db.exec(`
   );
 `);
 
-// Migration: add sector column if missing
+// Migrations: add columns if missing
 try { db.exec(`ALTER TABLE articles ADD COLUMN sector TEXT`); } catch (_) {}
+try { db.exec(`ALTER TABLE subscribers ADD COLUMN verify_token TEXT`); } catch (_) {}
 
 // Subscribers & alerts
 db.exec(`
@@ -54,6 +55,16 @@ db.exec(`
     created_at TEXT DEFAULT (datetime('now')),
     FOREIGN KEY (subscriber_id) REFERENCES subscribers(id) ON DELETE CASCADE,
     UNIQUE(subscriber_id, rule_type, rule_value)
+  );
+
+  CREATE TABLE IF NOT EXISTS sent_alerts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    subscriber_id INTEGER NOT NULL,
+    article_id INTEGER NOT NULL,
+    sent_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (subscriber_id) REFERENCES subscribers(id) ON DELETE CASCADE,
+    FOREIGN KEY (article_id) REFERENCES articles(id) ON DELETE CASCADE,
+    UNIQUE(subscriber_id, article_id)
   );
 `);
 

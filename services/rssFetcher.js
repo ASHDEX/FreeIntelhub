@@ -22,6 +22,8 @@ const insertArticle = db.prepare(`
   VALUES (@title, @link, @summary, @source, @category, @vendor, @sector, @published_at)
 `);
 
+const getArticleByLink = db.prepare(`SELECT * FROM articles WHERE link = ?`);
+
 const upsertHealth = db.prepare(`
   INSERT INTO feed_health (source, url, last_status, last_checked_at, success_count, fail_count)
   VALUES (@source, @url, @status, datetime('now'), @success, @fail)
@@ -42,12 +44,6 @@ async function fetchFeed(feed) {
     const data = await parser.parseURL(feed.url);
     const items = data.items || [];
 
-    const insert = db.transaction((articles) => {
-      for (const article of articles) {
-        insertArticle.run(article);
-      }
-    });
-
     const newsItems = items.filter(isNewsArticle);
 
     const articles = newsItems.map((item) => {
@@ -66,10 +62,23 @@ async function fetchFeed(feed) {
       };
     });
 
+    // Insert and track which articles are newly added
+    const newlyInserted = [];
+    const insert = db.transaction((arts) => {
+      for (const article of arts) {
+        const result = insertArticle.run(article);
+        if (result.changes > 0) {
+          const row = getArticleByLink.get(article.link);
+          if (row) newlyInserted.push(row);
+        }
+      }
+    });
     insert(articles);
+
     upsertHealth.run({ source: feed.name, url: feed.url, status: 'ok', success: 1, fail: 0 });
     const filtered = items.length - newsItems.length;
-    console.log(`[RSS] ${feed.name}: ${articles.length} articles (${filtered} non-news filtered)`);
+    console.log(`[RSS] ${feed.name}: ${articles.length} articles (${filtered} non-news filtered, ${newlyInserted.length} new)`);
+    return newlyInserted;
   } catch (err) {
     upsertHealth.run({ source: feed.name, url: feed.url, status: `error: ${err.message}`.slice(0, 200), success: 0, fail: 1 });
     console.error(`[RSS] ${feed.name} failed: ${err.message}`);
@@ -78,8 +87,27 @@ async function fetchFeed(feed) {
 
 async function fetchAllFeeds() {
   console.log('[RSS] Fetching all feeds...');
-  await Promise.allSettled(feeds.map(fetchFeed));
-  console.log('[RSS] Done.');
+  const results = await Promise.allSettled(feeds.map(fetchFeed));
+
+  // Collect all newly inserted articles across feeds
+  const allNew = [];
+  for (const r of results) {
+    if (r.status === 'fulfilled' && Array.isArray(r.value)) {
+      allNew.push(...r.value);
+    }
+  }
+
+  console.log(`[RSS] Done. ${allNew.length} new article(s) total.`);
+
+  // Trigger alert matching for new articles
+  if (allNew.length > 0) {
+    try {
+      const { processNewArticles } = require('./alertMatcher');
+      await processNewArticles(allNew);
+    } catch (err) {
+      console.error(`[Alerts] Error processing alerts: ${err.message}`);
+    }
+  }
 }
 
 module.exports = { fetchAllFeeds };
