@@ -1,5 +1,6 @@
 const db = require('../db');
 const { sendAlert } = require('./emailService');
+const { sendWebhook } = require('./webhookService');
 
 // Prepared statements
 const getVerifiedSubscribersWithRules = db.prepare(`
@@ -10,6 +11,10 @@ const getVerifiedSubscribersWithRules = db.prepare(`
 
 const getRulesForSubscriber = db.prepare(`
   SELECT rule_type, rule_value FROM alert_rules WHERE subscriber_id = ?
+`);
+
+const getWebhooksForSubscriber = db.prepare(`
+  SELECT webhook_type, webhook_url FROM webhooks WHERE subscriber_id = ?
 `);
 
 const insertSentAlert = db.prepare(`
@@ -51,7 +56,7 @@ function articleMatchesRules(article, rules) {
 
 /**
  * Process newly inserted articles against all subscriber rules.
- * Batches matched articles per subscriber and sends one email per subscriber.
+ * Batches matched articles per subscriber and sends email + webhook notifications.
  */
 async function processNewArticles(articles) {
   if (!articles || articles.length === 0) return;
@@ -59,7 +64,8 @@ async function processNewArticles(articles) {
   const subscribers = getVerifiedSubscribersWithRules.all();
   if (subscribers.length === 0) return;
 
-  let totalSent = 0;
+  let totalEmailSent = 0;
+  let totalWebhookSent = 0;
 
   for (const subscriber of subscribers) {
     const rules = getRulesForSubscriber.all(subscriber.id);
@@ -84,12 +90,27 @@ async function processNewArticles(articles) {
     });
     markSent();
 
+    // Send email alert
     const sent = await sendAlert(subscriber, matched);
-    if (sent) totalSent++;
+    if (sent) totalEmailSent++;
+
+    // Send webhook alerts
+    const webhooks = getWebhooksForSubscriber.all(subscriber.id);
+    for (const wh of webhooks) {
+      try {
+        await sendWebhook(wh.webhook_type, wh.webhook_url, matched);
+        totalWebhookSent++;
+      } catch (err) {
+        console.error(`[Webhook] Failed ${wh.webhook_type} for subscriber ${subscriber.id}: ${err.message}`);
+      }
+    }
   }
 
-  if (totalSent > 0) {
-    console.log(`[Alerts] Sent alert emails to ${totalSent} subscriber(s)`);
+  if (totalEmailSent > 0) {
+    console.log(`[Alerts] Sent alert emails to ${totalEmailSent} subscriber(s)`);
+  }
+  if (totalWebhookSent > 0) {
+    console.log(`[Alerts] Sent ${totalWebhookSent} webhook notification(s)`);
   }
 }
 

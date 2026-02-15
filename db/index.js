@@ -34,6 +34,8 @@ db.exec(`
 
 // Migrations: add columns if missing
 try { db.exec(`ALTER TABLE articles ADD COLUMN sector TEXT`); } catch (_) {}
+try { db.exec(`ALTER TABLE articles ADD COLUMN mitre_techniques TEXT`); } catch (_) {}
+try { db.exec(`ALTER TABLE articles ADD COLUMN iocs TEXT`); } catch (_) {}
 
 // Subscribers & alerts
 db.exec(`
@@ -70,6 +72,19 @@ db.exec(`
 
 // Migrations: add columns for existing DBs
 try { db.exec(`ALTER TABLE subscribers ADD COLUMN verify_token TEXT`); } catch (_) {}
+
+// Webhooks table for Slack/Discord/Telegram/custom integrations
+db.exec(`
+  CREATE TABLE IF NOT EXISTS webhooks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    subscriber_id INTEGER NOT NULL,
+    webhook_type TEXT NOT NULL,
+    webhook_url TEXT NOT NULL,
+    created_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (subscriber_id) REFERENCES subscribers(id) ON DELETE CASCADE,
+    UNIQUE(subscriber_id, webhook_type, webhook_url)
+  );
+`);
 
 // Indexes (after migrations so all columns exist)
 db.exec(`

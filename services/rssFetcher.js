@@ -3,6 +3,8 @@ const db = require('../db');
 const feeds = require('../config/feeds.json');
 const { categorize } = require('./categorizer');
 const { isNewsArticle } = require('./contentFilter');
+const { detectMitreTechniques } = require('./mitreMapper');
+const { extractIOCs } = require('./iocExtractor');
 
 const parser = new RSSParser({ timeout: 10000 });
 
@@ -18,8 +20,8 @@ function makeSafeSummary(text) {
 }
 
 const insertArticle = db.prepare(`
-  INSERT OR IGNORE INTO articles (title, link, summary, source, category, vendor, sector, published_at)
-  VALUES (@title, @link, @summary, @source, @category, @vendor, @sector, @published_at)
+  INSERT OR IGNORE INTO articles (title, link, summary, source, category, vendor, sector, mitre_techniques, iocs, published_at)
+  VALUES (@title, @link, @summary, @source, @category, @vendor, @sector, @mitre_techniques, @iocs, @published_at)
 `);
 
 const getArticleByLink = db.prepare(`SELECT * FROM articles WHERE link = ?`);
@@ -49,7 +51,10 @@ async function fetchFeed(feed) {
     const articles = newsItems.map((item) => {
       const rawText = stripHtml(item.contentSnippet || item.content || item.summary || '');
       const summary = makeSafeSummary(rawText);
+      const fullText = `${item.title || ''} ${rawText}`;
       const { vendor, category, sector } = categorize(item.title || '', rawText);
+      const mitre = detectMitreTechniques(fullText);
+      const iocs = extractIOCs(fullText);
       return {
         title: (item.title || 'Untitled').slice(0, 300),
         link: item.link || '',
@@ -58,6 +63,8 @@ async function fetchFeed(feed) {
         category,
         vendor,
         sector,
+        mitre_techniques: mitre ? JSON.stringify(mitre) : null,
+        iocs: iocs ? JSON.stringify(iocs) : null,
         published_at: item.isoDate || item.pubDate || new Date().toISOString(),
       };
     });

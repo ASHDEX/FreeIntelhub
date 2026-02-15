@@ -6,7 +6,10 @@ const { CATEGORY_PATTERNS } = require('../services/categorizer');
 const sectorConfig = require('../config/sectors.json');
 const { sendVerification, isConfigured: smtpConfigured } = require('../services/emailService');
 const { getLatestCVEs } = require('../services/cveFetcher');
+const { generateRSS } = require('../services/feedGenerator');
 const router = express.Router();
+
+const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
 
 // Static lists for navbar dropdowns
 const NAV_SOURCES = feeds.map(f => f.name);
@@ -18,6 +21,23 @@ const PER_PAGE = 20;
 function getPage(req) {
   const p = parseInt(req.query.page, 10);
   return (p > 0) ? p : 1;
+}
+
+function getApiLimit(req) {
+  const l = parseInt(req.query.limit, 10);
+  return (l > 0 && l <= 100) ? l : 20;
+}
+
+// Parse JSON fields for API responses
+function enrichArticle(a) {
+  const obj = { ...a };
+  if (obj.mitre_techniques) {
+    try { obj.mitre_techniques = JSON.parse(obj.mitre_techniques); } catch (_) {}
+  }
+  if (obj.iocs) {
+    try { obj.iocs = JSON.parse(obj.iocs); } catch (_) {}
+  }
+  return obj;
 }
 
 // --- Queries ---
@@ -92,6 +112,19 @@ const stmts = {
     WHERE title LIKE ? OR vendor LIKE ?
     ORDER BY published_at DESC LIMIT 8
   `),
+  articleById: db.prepare(`SELECT * FROM articles WHERE id = ?`),
+  articlesByMitre: db.prepare(`
+    SELECT * FROM articles WHERE mitre_techniques LIKE ? ORDER BY published_at DESC LIMIT ? OFFSET ?
+  `),
+  mitreCount: db.prepare(`
+    SELECT COUNT(*) as count FROM articles WHERE mitre_techniques LIKE ?
+  `),
+  articlesWithIOCs: db.prepare(`
+    SELECT * FROM articles WHERE iocs IS NOT NULL ORDER BY published_at DESC LIMIT ? OFFSET ?
+  `),
+  iocCount: db.prepare(`
+    SELECT COUNT(*) as count FROM articles WHERE iocs IS NOT NULL
+  `),
   // Alert system
   insertSubscriber: db.prepare(`
     INSERT INTO subscribers (email, daily_newsletter, token, verified, verify_token)
@@ -109,6 +142,13 @@ const stmts = {
   getAlertRules: db.prepare(`SELECT * FROM alert_rules WHERE subscriber_id = ?`),
   deleteAlertRule: db.prepare(`DELETE FROM alert_rules WHERE id = ? AND subscriber_id = ?`),
   deleteSubscriber: db.prepare(`DELETE FROM subscribers WHERE id = ?`),
+  // Webhooks
+  insertWebhook: db.prepare(`
+    INSERT OR IGNORE INTO webhooks (subscriber_id, webhook_type, webhook_url)
+    VALUES (@subscriber_id, @webhook_type, @webhook_url)
+  `),
+  getWebhooks: db.prepare(`SELECT * FROM webhooks WHERE subscriber_id = ?`),
+  deleteWebhook: db.prepare(`DELETE FROM webhooks WHERE id = ? AND subscriber_id = ?`),
 };
 
 // --- Inject nav data into all views ---
@@ -122,7 +162,9 @@ router.use((req, res, next) => {
   next();
 });
 
-// --- Routes ---
+// =============================================
+// Page Routes
+// =============================================
 
 // Homepage
 router.get('/', async (req, res) => {
@@ -237,7 +279,10 @@ router.get('/sources', (req, res) => {
   res.render('sources', { sources, health, pageTitle: 'Sources' });
 });
 
-// --- Alerts ---
+// =============================================
+// Alerts & Webhooks
+// =============================================
+
 function generateToken() {
   return crypto.randomBytes(16).toString('hex');
 }
@@ -247,14 +292,18 @@ router.get('/alerts', (req, res) => {
   const token = req.query.token;
   let subscriber = null;
   let rules = [];
+  let webhooks = [];
   if (token) {
     subscriber = stmts.getSubscriberByToken.get(token);
-    if (subscriber) rules = stmts.getAlertRules.all(subscriber.id);
+    if (subscriber) {
+      rules = stmts.getAlertRules.all(subscriber.id);
+      webhooks = stmts.getWebhooks.all(subscriber.id);
+    }
   }
   const allVendors = stmts.vendorCounts.all();
   res.render('alerts', {
     pageTitle: 'Alerts',
-    subscriber, rules, allVendors,
+    subscriber, rules, webhooks, allVendors,
     success: req.query.success, error: req.query.error,
   });
 });
@@ -321,6 +370,32 @@ router.post('/alerts/delete-rule', (req, res) => {
   res.redirect(`/alerts?token=${token}&success=rule_removed`);
 });
 
+// Add webhook
+router.post('/alerts/add-webhook', (req, res) => {
+  const token = req.body.token;
+  const subscriber = token ? stmts.getSubscriberByToken.get(token) : null;
+  if (!subscriber) return res.redirect('/alerts?error=not_found');
+
+  const webhookType = req.body.webhook_type;
+  const webhookUrl = (req.body.webhook_url || '').trim();
+  const validTypes = ['slack', 'discord', 'telegram', 'webhook'];
+
+  if (validTypes.includes(webhookType) && webhookUrl) {
+    stmts.insertWebhook.run({ subscriber_id: subscriber.id, webhook_type: webhookType, webhook_url: webhookUrl });
+  }
+  res.redirect(`/alerts?token=${token}&success=webhook_added`);
+});
+
+// Delete webhook
+router.post('/alerts/delete-webhook', (req, res) => {
+  const token = req.body.token;
+  const subscriber = token ? stmts.getSubscriberByToken.get(token) : null;
+  if (!subscriber) return res.redirect('/alerts?error=not_found');
+
+  stmts.deleteWebhook.run(req.body.webhook_id, subscriber.id);
+  res.redirect(`/alerts?token=${token}&success=webhook_removed`);
+});
+
 // Verify email
 router.get('/alerts/verify', (req, res) => {
   const verifyToken = req.query.token;
@@ -366,9 +441,130 @@ router.post('/alerts/unsubscribe', (req, res) => {
   const subscriber = token ? stmts.getSubscriberByToken.get(token) : null;
   if (subscriber) {
     db.prepare(`DELETE FROM alert_rules WHERE subscriber_id = ?`).run(subscriber.id);
+    db.prepare(`DELETE FROM webhooks WHERE subscriber_id = ?`).run(subscriber.id);
     stmts.deleteSubscriber.run(subscriber.id);
   }
   res.redirect('/alerts?success=unsubscribed');
+});
+
+// =============================================
+// REST API — JSON Endpoints
+// =============================================
+
+// GET /api/articles — List articles with filters
+router.get('/api/articles', (req, res) => {
+  const limit = getApiLimit(req);
+  const page = getPage(req);
+  const offset = (page - 1) * limit;
+
+  const vendor = req.query.vendor;
+  const category = req.query.category;
+  const sector = req.query.sector;
+  const source = req.query.source;
+  const q = (req.query.q || '').trim();
+  const mitre = req.query.mitre;
+  const iocsOnly = req.query.iocs === '1';
+
+  let articles, total;
+
+  if (vendor) {
+    total = stmts.vendorCount.get(vendor).count;
+    articles = stmts.articlesByVendor.all(vendor, limit, offset);
+  } else if (category) {
+    total = stmts.categoryCount.get(category).count;
+    articles = stmts.articlesByCategory.all(category, limit, offset);
+  } else if (sector) {
+    total = stmts.sectorCount.get(sector).count;
+    articles = stmts.articlesBySector.all(sector, limit, offset);
+  } else if (source) {
+    total = stmts.sourceCount.get(source).count;
+    articles = stmts.articlesBySource.all(source, limit, offset);
+  } else if (q) {
+    const like = `%${q}%`;
+    total = stmts.searchCount.get(like, like, like).count;
+    articles = stmts.searchArticles.all(like, like, like, limit, offset);
+  } else if (mitre) {
+    const like = `%${mitre}%`;
+    total = stmts.mitreCount.get(like).count;
+    articles = stmts.articlesByMitre.all(like, limit, offset);
+  } else if (iocsOnly) {
+    total = stmts.iocCount.get().count;
+    articles = stmts.articlesWithIOCs.all(limit, offset);
+  } else {
+    total = stmts.latestCount.get().count;
+    articles = stmts.latestArticles.all(limit, offset);
+  }
+
+  res.json({
+    data: articles.map(enrichArticle),
+    pagination: { page, limit, total, pages: Math.ceil(total / limit) },
+  });
+});
+
+// GET /api/articles/:id — Single article
+router.get('/api/articles/:id', (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const article = stmts.articleById.get(id);
+  if (!article) return res.status(404).json({ error: 'Article not found' });
+  res.json({ data: enrichArticle(article) });
+});
+
+// GET /api/vendors — Vendor list with counts
+router.get('/api/vendors', (req, res) => {
+  res.json({ data: stmts.vendorCounts.all() });
+});
+
+// GET /api/categories — Category list with counts
+router.get('/api/categories', (req, res) => {
+  res.json({ data: stmts.categoryCounts.all() });
+});
+
+// GET /api/sectors — Sector list with counts
+router.get('/api/sectors', (req, res) => {
+  res.json({ data: stmts.sectorCounts.all() });
+});
+
+// GET /api/sources — Source list with health data
+router.get('/api/sources', (req, res) => {
+  const sources = stmts.sourceCounts.all();
+  const health = stmts.feedHealth.all();
+  const healthMap = {};
+  for (const h of health) healthMap[h.source] = h;
+  const data = sources.map(s => ({ ...s, health: healthMap[s.source] || null }));
+  res.json({ data });
+});
+
+// GET /api/iocs — Articles containing IOCs
+router.get('/api/iocs', (req, res) => {
+  const limit = getApiLimit(req);
+  const page = getPage(req);
+  const offset = (page - 1) * limit;
+  const total = stmts.iocCount.get().count;
+  const articles = stmts.articlesWithIOCs.all(limit, offset);
+  res.json({
+    data: articles.map(enrichArticle),
+    pagination: { page, limit, total, pages: Math.ceil(total / limit) },
+  });
+});
+
+// GET /api/mitre — Articles by MITRE ATT&CK technique
+router.get('/api/mitre', (req, res) => {
+  const technique = (req.query.technique || '').trim();
+  const limit = getApiLimit(req);
+  const page = getPage(req);
+  const offset = (page - 1) * limit;
+
+  if (!technique) {
+    return res.json({ data: [], pagination: { page, limit, total: 0, pages: 0 } });
+  }
+
+  const like = `%${technique}%`;
+  const total = stmts.mitreCount.get(like).count;
+  const articles = stmts.articlesByMitre.all(like, limit, offset);
+  res.json({
+    data: articles.map(enrichArticle),
+    pagination: { page, limit, total, pages: Math.ceil(total / limit) },
+  });
 });
 
 // Search suggestions API (JSON)
@@ -390,6 +586,86 @@ router.get('/api/cves', async (req, res) => {
 router.get('/health', (req, res) => {
   const { count } = stmts.totalCount.get();
   res.json({ status: 'ok', articles: count });
+});
+
+// =============================================
+// RSS Feed Endpoints
+// =============================================
+
+// GET /feed/all.xml — All articles
+router.get('/feed/all.xml', (req, res) => {
+  const articles = stmts.latestArticles.all(50, 0);
+  res.set('Content-Type', 'application/rss+xml');
+  res.send(generateRSS(
+    'FreeIntelHub — All Articles',
+    'Latest cybersecurity threat intelligence articles',
+    `${BASE_URL}/feed/all.xml`,
+    articles
+  ));
+});
+
+// GET /feed/vendor/:vendor.xml
+router.get('/feed/vendor/:vendor.xml', (req, res) => {
+  const vendor = req.params.vendor;
+  const articles = stmts.articlesByVendor.all(vendor, 50, 0);
+  res.set('Content-Type', 'application/rss+xml');
+  res.send(generateRSS(
+    `FreeIntelHub — ${vendor}`,
+    `Latest cybersecurity articles about ${vendor}`,
+    `${BASE_URL}/feed/vendor/${encodeURIComponent(vendor)}.xml`,
+    articles
+  ));
+});
+
+// GET /feed/category/:category.xml
+router.get('/feed/category/:category.xml', (req, res) => {
+  const category = req.params.category;
+  const articles = stmts.articlesByCategory.all(category, 50, 0);
+  res.set('Content-Type', 'application/rss+xml');
+  res.send(generateRSS(
+    `FreeIntelHub — ${category}`,
+    `Latest ${category} articles`,
+    `${BASE_URL}/feed/category/${encodeURIComponent(category)}.xml`,
+    articles
+  ));
+});
+
+// GET /feed/sector/:sector.xml
+router.get('/feed/sector/:sector.xml', (req, res) => {
+  const sector = req.params.sector;
+  const articles = stmts.articlesBySector.all(sector, 50, 0);
+  res.set('Content-Type', 'application/rss+xml');
+  res.send(generateRSS(
+    `FreeIntelHub — ${sector}`,
+    `Latest cybersecurity articles for the ${sector} sector`,
+    `${BASE_URL}/feed/sector/${encodeURIComponent(sector)}.xml`,
+    articles
+  ));
+});
+
+// GET /feed/source/:source.xml
+router.get('/feed/source/:source.xml', (req, res) => {
+  const source = req.params.source;
+  const articles = stmts.articlesBySource.all(source, 50, 0);
+  res.set('Content-Type', 'application/rss+xml');
+  res.send(generateRSS(
+    `FreeIntelHub — ${source}`,
+    `Articles from ${source}`,
+    `${BASE_URL}/feed/source/${encodeURIComponent(source)}.xml`,
+    articles
+  ));
+});
+
+// GET /feed/iocs.xml — Articles with IOCs
+router.get('/feed/iocs.xml', (req, res) => {
+  const articles = stmts.articlesWithIOCs.all(50, 0);
+  res.set('Content-Type', 'application/rss+xml');
+  res.send(generateRSS(
+    'FreeIntelHub — IOC Feed',
+    'Articles containing Indicators of Compromise',
+    `${BASE_URL}/feed/iocs.xml`,
+    articles
+  ));
 });
 
 module.exports = router;
