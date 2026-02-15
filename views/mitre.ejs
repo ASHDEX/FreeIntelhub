@@ -1,0 +1,39 @@
+<%- include('partials/head', { pageTitle: 'MITRE ATT&CK' }) %>
+
+<div class="page-header">
+  <h1>MITRE ATT&CK Mapping</h1>
+  <p>Articles mapped to MITRE ATT&CK techniques</p>
+</div>
+
+<% var tactics = {};
+   Object.keys(mitreTechniques).forEach(function(id) {
+     var t = mitreTechniques[id];
+     if (!tactics[t.tactic]) tactics[t.tactic] = [];
+     tactics[t.tactic].push({ id: id, name: t.name });
+   });
+%>
+
+<div class="mitre-tactics">
+  <% Object.keys(tactics).forEach(function(tactic) { %>
+    <div class="mitre-tactic-group">
+      <h3 class="mitre-tactic-name"><%= tactic %></h3>
+      <div class="mitre-technique-list">
+        <% tactics[tactic].forEach(function(tech) { %>
+          <a href="/mitre?technique=<%= encodeURIComponent(tech.id) %>" class="badge badge-mitre<%= technique === tech.id ? ' badge-mitre-active' : '' %>"><%= tech.id %> <span class="mitre-tech-name"><%= tech.name %></span></a>
+        <% }); %>
+      </div>
+    </div>
+  <% }); %>
+</div>
+
+<% if (technique) { %>
+  <div class="section-header" style="margin-top: 2rem;">
+    <h2><%= technique %> — <%= total %> article<%= total !== 1 ? 's' : '' %></h2>
+  </div>
+  <%- include('partials/articleList', { articles: articles }) %>
+  <% if (pages > 1) { %>
+    <%- include('partials/pagination', { page: page, pages: pages, baseUrl: baseUrl }) %>
+  <% } %>
+<% } %>
+
+<%- include('partials/footer') %>

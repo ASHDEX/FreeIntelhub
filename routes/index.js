@@ -317,6 +317,43 @@ router.get('/sources', (req, res) => {
   res.render('sources', { sources, health, pageTitle: 'Sources' });
 });
 
+// MITRE ATT&CK page
+router.get('/mitre', (req, res) => {
+  const technique = (req.query.technique || '').trim();
+  const page = getPage(req);
+  let articles = [];
+  let total = 0;
+  let pages = 0;
+
+  if (technique) {
+    const like = `%${technique}%`;
+    total = stmts.mitreCount.get(like).count;
+    articles = stmts.articlesByMitre.all(like, PER_PAGE, (page - 1) * PER_PAGE);
+    pages = Math.ceil(total / PER_PAGE);
+  }
+
+  const mitreTechniques = require('../config/mitre.json');
+  res.render('mitre', {
+    pageTitle: 'MITRE ATT&CK',
+    technique, articles, page, pages, total,
+    mitreTechniques,
+    baseUrl: technique ? `/mitre?technique=${encodeURIComponent(technique)}` : '/mitre',
+  });
+});
+
+// IOCs page
+router.get('/iocs', (req, res) => {
+  const page = getPage(req);
+  const total = stmts.iocCount.get().count;
+  const articles = stmts.articlesWithIOCs.all(PER_PAGE, (page - 1) * PER_PAGE);
+  const pages = Math.ceil(total / PER_PAGE);
+  res.render('iocs', {
+    pageTitle: 'IOC Feed',
+    articles, page, pages, total,
+    baseUrl: '/iocs',
+  });
+});
+
 // Trending page
 router.get('/trending', (req, res) => {
   res.render('trending', { pageTitle: 'Trending' });
