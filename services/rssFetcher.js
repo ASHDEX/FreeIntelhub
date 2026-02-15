@@ -27,7 +27,7 @@ const insertArticle = db.prepare(`
 
 function generateDedupHash(title) {
   const normalized = title.toLowerCase().replace(/[^a-z0-9 ]/g, '').replace(/\s+/g, ' ').trim();
-  return crypto.createHash('md5').update(normalized).digest('hex').slice(0, 16);
+  return crypto.createHash('sha256').update(normalized).digest('hex').slice(0, 16);
 }
 
 const getArticleByLink = db.prepare(`SELECT * FROM articles WHERE link = ?`);
@@ -96,8 +96,10 @@ async function fetchFeed(feed) {
     console.log(`[RSS] ${feed.name}: ${articles.length} articles (${filtered} non-news filtered, ${newlyInserted.length} new)`);
     return newlyInserted;
   } catch (err) {
-    upsertHealth.run({ source: feed.name, url: feed.url, status: `error: ${err.message}`.slice(0, 200), success: 0, fail: 1 });
-    console.error(`[RSS] ${feed.name} failed: ${err.message}`);
+    // Sanitize error message — strip paths and internal details
+    const safeMsg = (err.message || 'unknown error').replace(/\/[^\s:]+/g, '[path]').slice(0, 100);
+    upsertHealth.run({ source: feed.name, url: feed.url, status: `error: ${safeMsg}`, success: 0, fail: 1 });
+    console.error(`[RSS] ${feed.name} failed: ${safeMsg}`);
   }
 }
 

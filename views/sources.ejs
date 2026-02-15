@@ -51,14 +51,14 @@
       var fail = h ? (h.fail_count || 0) : 0;
       var total = ok + fail;
       var pct = total > 0 ? ((ok / total) * 100).toFixed(1) : '—';
-      var okWidth = total > 0 ? ((ok / total) * 100) : 0;
-      var failWidth = total > 0 ? ((fail / total) * 100) : 0;
+      var okWidth = total > 0 ? Math.min(parseFloat(((ok / total) * 100).toFixed(1)), 100) : 0;
+      var failWidth = total > 0 ? Math.min(parseFloat(((fail / total) * 100).toFixed(1)), 100) : 0;
     %>
       <tr>
         <td><a href="/source/<%= encodeURIComponent(s.source) %>"><%= s.source %></a></td>
         <td><%= s.count %></td>
         <td class="<%= h && h.last_status === 'ok' ? 'status-ok' : 'status-err' %>">
-          <%= h ? (h.last_status === 'ok' ? 'ok' : 'error') : 'unknown' %>
+          <%= h ? (h.last_status === 'ok' ? 'ok' : 'error') : 'pending' %>
         </td>
         <td>
           <div style="display:flex;align-items:center">

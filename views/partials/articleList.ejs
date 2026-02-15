@@ -21,7 +21,7 @@
           <% } %>
           <time><%= a.published_at ? new Date(a.published_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '' %></time>
         </div>
-        <h3><a href="<%= a.link %>" target="_blank" rel="noopener noreferrer"><%= a.title %></a></h3>
+        <h3><a href="<%= safeHref(a.link) %>" target="_blank" rel="noopener noreferrer"><%= a.title %></a></h3>
         <% if (a.summary) { %><p class="summary"><%= a.summary %></p><% } %>
         <%
           var mitreList = [];
@@ -52,7 +52,7 @@
             <% } %>
           </div>
         <% } %>
-        <p class="read-more"><a href="<%= a.link %>" target="_blank" rel="noopener noreferrer"><%= a.source %> &rarr;</a></p>
+        <p class="read-more"><a href="<%= safeHref(a.link) %>" target="_blank" rel="noopener noreferrer"><%= a.source %> &rarr;</a></p>
       </article>
     <% }); %>
   </div>

@@ -1,5 +1,6 @@
 const express = require('express');
 const crypto = require('crypto');
+const rateLimit = require('express-rate-limit');
 const db = require('../db');
 const feeds = require('../config/feeds.json');
 const { CATEGORY_PATTERNS } = require('../services/categorizer');
@@ -10,6 +11,69 @@ const { generateRSS } = require('../services/feedGenerator');
 const router = express.Router();
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
+
+// --- Security helpers ---
+
+// Sanitize URL for safe use in href attributes (prevent javascript: protocol XSS)
+function safeHref(url) {
+  if (!url) return '#';
+  const trimmed = url.trim();
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  if (/^\/[^\/]/.test(trimmed)) return trimmed;
+  return '#';
+}
+
+// Validate webhook URLs — block SSRF to internal/private networks
+function isValidWebhookUrl(urlStr) {
+  try {
+    const parsed = new URL(urlStr);
+    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return false;
+    const hostname = parsed.hostname.toLowerCase();
+    if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]') return false;
+    if (hostname === '0.0.0.0' || hostname === '169.254.169.254') return false;
+    if (/^10\./.test(hostname)) return false;
+    if (/^172\.(1[6-9]|2\d|3[01])\./.test(hostname)) return false;
+    if (/^192\.168\./.test(hostname)) return false;
+    if (/^(metadata|internal|consul|vault|etcd|kubernetes)/i.test(hostname)) return false;
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+// Validate email format
+const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+function isValidEmail(email) {
+  if (!email || email.length > 254) return false;
+  if (!EMAIL_REGEX.test(email)) return false;
+  if (/[\r\n]/.test(email)) return false;
+  return true;
+}
+
+// Mask email for logging (PII protection)
+function maskEmail(email) {
+  const [local, domain] = email.split('@');
+  if (!domain) return '***';
+  return local.slice(0, 2) + '***@' + domain;
+}
+
+// API-specific rate limit
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many API requests, try again later' },
+});
+
+// Email operations rate limit
+const emailLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: 'Too many email requests, try again later',
+});
 
 // Static lists for navbar dropdowns
 const NAV_SOURCES = feeds.map(f => f.name);
@@ -189,12 +253,13 @@ const stmts = {
   deleteWebhook: db.prepare(`DELETE FROM webhooks WHERE id = ? AND subscriber_id = ?`),
 };
 
-// --- Inject nav data into all views ---
+// --- Inject nav data and helpers into all views ---
 router.use((req, res, next) => {
   res.locals.navSources = NAV_SOURCES;
   res.locals.navCategories = NAV_CATEGORIES;
   res.locals.navSectors = NAV_SECTORS;
   res.locals.currentPath = req.path;
+  res.locals.safeHref = safeHref;
   // Top vendors for navbar dropdown (cached per request)
   res.locals.vendors = stmts.vendorCounts.all().slice(0, 15);
   next();
@@ -209,7 +274,7 @@ router.get('/', async (req, res) => {
   const page = parseInt(req.query.page, 10) || 1;
   const section = req.query.section;
 
-  const HOME_PER_PAGE = parseInt(req.query.per_page, 10) || 12;
+  const HOME_PER_PAGE = Math.min(parseInt(req.query.per_page, 10) || 12, 50);
 
   // News pagination
   const newsPage = section === 'news' ? page : 1;
@@ -400,23 +465,26 @@ router.get('/sitemap.xml', (req, res) => {
   const categoryList = stmts.categoryCounts.all();
   const sectorList = stmts.sectorCounts.all();
 
+  const escXml = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  const safeBase = escXml(BASE_URL);
+
   let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
   xml += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n';
-  xml += `  <url><loc>${BASE_URL}/</loc><changefreq>hourly</changefreq><priority>1.0</priority></url>\n`;
-  xml += `  <url><loc>${BASE_URL}/trending</loc><changefreq>hourly</changefreq><priority>0.8</priority></url>\n`;
-  xml += `  <url><loc>${BASE_URL}/vendors</loc><changefreq>daily</changefreq><priority>0.7</priority></url>\n`;
-  xml += `  <url><loc>${BASE_URL}/categories</loc><changefreq>daily</changefreq><priority>0.7</priority></url>\n`;
-  xml += `  <url><loc>${BASE_URL}/sectors</loc><changefreq>daily</changefreq><priority>0.7</priority></url>\n`;
-  xml += `  <url><loc>${BASE_URL}/sources</loc><changefreq>daily</changefreq><priority>0.7</priority></url>\n`;
+  xml += `  <url><loc>${safeBase}/</loc><changefreq>hourly</changefreq><priority>1.0</priority></url>\n`;
+  xml += `  <url><loc>${safeBase}/trending</loc><changefreq>hourly</changefreq><priority>0.8</priority></url>\n`;
+  xml += `  <url><loc>${safeBase}/vendors</loc><changefreq>daily</changefreq><priority>0.7</priority></url>\n`;
+  xml += `  <url><loc>${safeBase}/categories</loc><changefreq>daily</changefreq><priority>0.7</priority></url>\n`;
+  xml += `  <url><loc>${safeBase}/sectors</loc><changefreq>daily</changefreq><priority>0.7</priority></url>\n`;
+  xml += `  <url><loc>${safeBase}/sources</loc><changefreq>daily</changefreq><priority>0.7</priority></url>\n`;
 
   for (const v of vendorList) {
-    xml += `  <url><loc>${BASE_URL}/vendor/${encodeURIComponent(v.vendor)}</loc><changefreq>daily</changefreq><priority>0.6</priority></url>\n`;
+    xml += `  <url><loc>${safeBase}/vendor/${encodeURIComponent(v.vendor)}</loc><changefreq>daily</changefreq><priority>0.6</priority></url>\n`;
   }
   for (const c of categoryList) {
-    xml += `  <url><loc>${BASE_URL}/category/${encodeURIComponent(c.category)}</loc><changefreq>daily</changefreq><priority>0.6</priority></url>\n`;
+    xml += `  <url><loc>${safeBase}/category/${encodeURIComponent(c.category)}</loc><changefreq>daily</changefreq><priority>0.6</priority></url>\n`;
   }
   for (const s of sectorList) {
-    xml += `  <url><loc>${BASE_URL}/sector/${encodeURIComponent(s.sector)}</loc><changefreq>daily</changefreq><priority>0.6</priority></url>\n`;
+    xml += `  <url><loc>${safeBase}/sector/${encodeURIComponent(s.sector)}</loc><changefreq>daily</changefreq><priority>0.6</priority></url>\n`;
   }
 
   xml += '</urlset>';
@@ -454,9 +522,9 @@ router.get('/alerts', (req, res) => {
 });
 
 // Alerts signup POST
-router.post('/alerts/subscribe', async (req, res) => {
+router.post('/alerts/subscribe', emailLimiter, async (req, res) => {
   const email = (req.body.email || '').trim().toLowerCase();
-  if (!email || !email.includes('@')) {
+  if (!isValidEmail(email)) {
     return res.redirect('/alerts?error=invalid_email');
   }
 
@@ -477,7 +545,7 @@ router.post('/alerts/subscribe', async (req, res) => {
     if (!values) continue;
     const arr = Array.isArray(values) ? values : [values];
     for (const val of arr) {
-      const v = val.trim();
+      const v = val.trim().slice(0, 200);
       if (v) stmts.insertAlertRule.run({ subscriber_id: subscriber.id, rule_type: type, rule_value: v });
     }
   }
@@ -498,8 +566,9 @@ router.post('/alerts/add-rule', (req, res) => {
   if (!subscriber) return res.redirect('/alerts?error=not_found');
 
   const type = req.body.rule_type;
-  const value = (req.body.rule_value || '').trim();
-  if (type && value) {
+  const validRuleTypes = ['vendor', 'category', 'sector', 'keyword'];
+  const value = (req.body.rule_value || '').trim().slice(0, 200);
+  if (validRuleTypes.includes(type) && value) {
     stmts.insertAlertRule.run({ subscriber_id: subscriber.id, rule_type: type, rule_value: value });
   }
   res.redirect(`/alerts?token=${token}&success=rule_added`);
@@ -522,12 +591,18 @@ router.post('/alerts/add-webhook', (req, res) => {
   if (!subscriber) return res.redirect('/alerts?error=not_found');
 
   const webhookType = req.body.webhook_type;
-  const webhookUrl = (req.body.webhook_url || '').trim();
+  const webhookUrl = (req.body.webhook_url || '').trim().slice(0, 500);
   const validTypes = ['slack', 'discord', 'telegram', 'webhook'];
 
-  if (validTypes.includes(webhookType) && webhookUrl) {
-    stmts.insertWebhook.run({ subscriber_id: subscriber.id, webhook_type: webhookType, webhook_url: webhookUrl });
+  if (!validTypes.includes(webhookType) || !webhookUrl) {
+    return res.redirect(`/alerts?token=${token}&error=invalid_webhook`);
   }
+  // Telegram allows tg:// shorthand, otherwise require valid external URL
+  const isTgShorthand = webhookType === 'telegram' && webhookUrl.startsWith('tg://');
+  if (!isTgShorthand && !isValidWebhookUrl(webhookUrl)) {
+    return res.redirect(`/alerts?token=${token}&error=invalid_webhook`);
+  }
+  stmts.insertWebhook.run({ subscriber_id: subscriber.id, webhook_type: webhookType, webhook_url: webhookUrl });
   res.redirect(`/alerts?token=${token}&success=webhook_added`);
 });
 
@@ -554,7 +629,7 @@ router.get('/alerts/verify', (req, res) => {
 });
 
 // Resend verification email
-router.post('/alerts/resend-verify', async (req, res) => {
+router.post('/alerts/resend-verify', emailLimiter, async (req, res) => {
   const token = req.body.token;
   const subscriber = token ? stmts.getSubscriberByToken.get(token) : null;
   if (!subscriber) return res.redirect('/alerts?error=not_found');
@@ -595,6 +670,9 @@ router.post('/alerts/unsubscribe', (req, res) => {
 // =============================================
 // REST API — JSON Endpoints
 // =============================================
+
+// Apply stricter rate limits to all API routes
+router.use('/api', apiLimiter);
 
 // GET /api/articles — List articles with filters
 router.get('/api/articles', (req, res) => {
