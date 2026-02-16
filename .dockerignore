@@ -1,0 +1,8 @@
+node_modules
+npm-debug.log
+.env
+db/*.sqlite
+db/*.sqlite-shm
+db/*.sqlite-wal
+.git
+.gitignore
