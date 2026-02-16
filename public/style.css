@@ -138,7 +138,7 @@ a:hover { color: #67e8f9; }
 .dropdown-all { color: var(--accent); font-weight: 500; }
 
 /* Nav search */
-.nav-right { margin-left: auto; flex-shrink: 0; }
+.nav-right { display: flex; align-items: center; margin-left: auto; flex-shrink: 0; }
 .nav-search {
   display: flex; align-items: center; gap: 0.4rem;
   background: var(--bg-elevated); border: 1px solid var(--border);
@@ -489,7 +489,7 @@ section { margin-bottom: 2.5rem; }
   }
   .nav-tabs.open { display: flex; }
   .nav-toggle { display: block; }
-  .nav-right { margin-left: auto; }
+  .nav-right { display: flex; align-items: center; margin-left: auto; }
   .nav-search input { width: 100px; }
   .nav-dropdown .dropdown-menu { position: static; box-shadow: none; border: none; margin: 0; padding-left: 1rem; background: transparent; }
   .stats-row { justify-content: flex-start; }
