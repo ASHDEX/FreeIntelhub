@@ -455,7 +455,7 @@ router.post('/bookmarks/remove', (req, res) => {
   const subscriber = token ? stmts.getSubscriberByToken.get(token) : null;
   if (!subscriber) return res.redirect('/bookmarks');
   stmts.deleteBookmark.run(subscriber.id, articleId);
-  res.redirect(`/bookmarks?token=${token}`);
+  res.redirect(`/bookmarks?token=${encodeURIComponent(token)}`);
 });
 
 // Sitemap.xml
@@ -553,9 +553,9 @@ router.post('/alerts/subscribe', emailLimiter, async (req, res) => {
   // Send verification email
   if (smtpConfigured()) {
     await sendVerification(email, verifyToken);
-    res.redirect(`/alerts?token=${token}&success=subscribed_verify`);
+    res.redirect(`/alerts?token=${encodeURIComponent(token)}&success=subscribed_verify`);
   } else {
-    res.redirect(`/alerts?token=${token}&success=subscribed`);
+    res.redirect(`/alerts?token=${encodeURIComponent(token)}&success=subscribed`);
   }
 });
 
@@ -571,7 +571,7 @@ router.post('/alerts/add-rule', (req, res) => {
   if (validRuleTypes.includes(type) && value) {
     stmts.insertAlertRule.run({ subscriber_id: subscriber.id, rule_type: type, rule_value: value });
   }
-  res.redirect(`/alerts?token=${token}&success=rule_added`);
+  res.redirect(`/alerts?token=${encodeURIComponent(token)}&success=rule_added`);
 });
 
 // Delete alert rule
@@ -581,7 +581,7 @@ router.post('/alerts/delete-rule', (req, res) => {
   if (!subscriber) return res.redirect('/alerts?error=not_found');
 
   stmts.deleteAlertRule.run(req.body.rule_id, subscriber.id);
-  res.redirect(`/alerts?token=${token}&success=rule_removed`);
+  res.redirect(`/alerts?token=${encodeURIComponent(token)}&success=rule_removed`);
 });
 
 // Add webhook
@@ -595,15 +595,15 @@ router.post('/alerts/add-webhook', (req, res) => {
   const validTypes = ['slack', 'discord', 'telegram', 'webhook'];
 
   if (!validTypes.includes(webhookType) || !webhookUrl) {
-    return res.redirect(`/alerts?token=${token}&error=invalid_webhook`);
+    return res.redirect(`/alerts?token=${encodeURIComponent(token)}&error=invalid_webhook`);
   }
   // Telegram allows tg:// shorthand, otherwise require valid external URL
   const isTgShorthand = webhookType === 'telegram' && webhookUrl.startsWith('tg://');
   if (!isTgShorthand && !isValidWebhookUrl(webhookUrl)) {
-    return res.redirect(`/alerts?token=${token}&error=invalid_webhook`);
+    return res.redirect(`/alerts?token=${encodeURIComponent(token)}&error=invalid_webhook`);
   }
   stmts.insertWebhook.run({ subscriber_id: subscriber.id, webhook_type: webhookType, webhook_url: webhookUrl });
-  res.redirect(`/alerts?token=${token}&success=webhook_added`);
+  res.redirect(`/alerts?token=${encodeURIComponent(token)}&success=webhook_added`);
 });
 
 // Delete webhook
@@ -613,7 +613,7 @@ router.post('/alerts/delete-webhook', (req, res) => {
   if (!subscriber) return res.redirect('/alerts?error=not_found');
 
   stmts.deleteWebhook.run(req.body.webhook_id, subscriber.id);
-  res.redirect(`/alerts?token=${token}&success=webhook_removed`);
+  res.redirect(`/alerts?token=${encodeURIComponent(token)}&success=webhook_removed`);
 });
 
 // Verify email
@@ -625,7 +625,7 @@ router.get('/alerts/verify', (req, res) => {
   if (!subscriber) return res.redirect('/alerts?error=invalid_token');
 
   stmts.verifySubscriber.run(subscriber.id);
-  res.redirect(`/alerts?token=${subscriber.token}&success=verified`);
+  res.redirect(`/alerts?token=${encodeURIComponent(subscriber.token)}&success=verified`);
 });
 
 // Resend verification email
@@ -635,13 +635,13 @@ router.post('/alerts/resend-verify', emailLimiter, async (req, res) => {
   if (!subscriber) return res.redirect('/alerts?error=not_found');
 
   if (subscriber.verified) {
-    return res.redirect(`/alerts?token=${token}&success=already_verified`);
+    return res.redirect(`/alerts?token=${encodeURIComponent(token)}&success=already_verified`);
   }
 
   const newVerifyToken = generateToken();
   stmts.resendVerification.run({ verify_token: newVerifyToken }, subscriber.id);
   await sendVerification(subscriber.email, newVerifyToken);
-  res.redirect(`/alerts?token=${token}&success=verification_sent`);
+  res.redirect(`/alerts?token=${encodeURIComponent(token)}&success=verification_sent`);
 });
 
 // Unsubscribe (supports both POST and GET for email links)
