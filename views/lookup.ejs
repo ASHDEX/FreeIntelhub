@@ -2,14 +2,14 @@
 
 <div class="page-header">
   <h1>IOC Lookup</h1>
-  <p>Look up IPs, domains, hashes, and URLs against threat intelligence providers. API keys are ephemeral &mdash; they exist only in your current browser tab and are never stored anywhere.</p>
+  <p>Look up IPs, domains, hashes, and URLs against threat intelligence providers. API keys are ephemeral by default &mdash; optionally save them in a browser cookie.</p>
 </div>
 
 <!-- API Keys Configuration -->
 <details class="lookup-keys-panel" id="keys-panel">
   <summary class="lookup-keys-toggle">API Keys <span class="keys-status" id="keys-status">Enter keys below</span></summary>
   <div class="lookup-keys-body">
-    <div class="alert alert-warn" style="margin-bottom: 1rem;">Keys are ephemeral. They live only in this tab's memory, are sent over HTTPS with each lookup, and are immediately discarded by the server. Refreshing or closing this page erases them.</div>
+    <div class="alert alert-warn" style="margin-bottom: 1rem;">Keys are sent over HTTPS with each lookup and immediately discarded by the server. By default they exist only in this tab &mdash; refreshing erases them.</div>
     <div class="lookup-keys-grid">
       <div class="lookup-key-field">
         <label>VirusTotal</label>
@@ -28,6 +28,15 @@
       <div class="lookup-key-field">
         <label>MalwareBazaar</label>
         <span class="badge badge-source" style="font-size:0.65rem;">No key needed</span>
+      </div>
+    </div>
+    <div class="lookup-keys-actions">
+      <label class="checkbox-label" id="remember-label">
+        <input type="checkbox" id="remember-keys"> Remember keys in this browser (cookie, 30 days)
+      </label>
+      <div class="lookup-keys-btns">
+        <button class="btn btn-accent" onclick="saveKeysCookie()">Save to cookie</button>
+        <button class="btn" style="background:var(--bg-elevated);border:1px solid var(--border);color:var(--text-muted);" onclick="forgetKeys()">Forget saved keys</button>
       </div>
     </div>
   </div>
@@ -68,8 +77,35 @@
 <div id="lookup-results" style="display:none;"></div>
 
 <script>
-// --- Ephemeral key reading (from form fields only, never stored) ---
+var COOKIE_NAME = 'fih_ti_keys';
 
+// --- Cookie helpers ---
+function setCookie(name, value, days) {
+  var expires = '';
+  if (days) {
+    var d = new Date();
+    d.setTime(d.getTime() + days * 86400000);
+    expires = '; expires=' + d.toUTCString();
+  }
+  // SameSite=Strict prevents the cookie from being sent on cross-site requests
+  document.cookie = name + '=' + encodeURIComponent(value) + expires + '; path=/lookup; SameSite=Strict';
+}
+
+function getCookie(name) {
+  var prefix = name + '=';
+  var parts = document.cookie.split(';');
+  for (var i = 0; i < parts.length; i++) {
+    var c = parts[i].trim();
+    if (c.indexOf(prefix) === 0) return decodeURIComponent(c.substring(prefix.length));
+  }
+  return null;
+}
+
+function deleteCookie(name) {
+  document.cookie = name + '=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/lookup; SameSite=Strict';
+}
+
+// --- Read keys from the form fields (always the live source of truth) ---
 function getKeys() {
   var keys = {};
   var vt = document.getElementById('key-virustotal').value.trim();
@@ -79,12 +115,43 @@ function getKeys() {
   return keys;
 }
 
+// --- Save / Forget cookie ---
+function saveKeysCookie() {
+  var keys = getKeys();
+  if (!Object.keys(keys).length) return;
+  setCookie(COOKIE_NAME, btoa(JSON.stringify(keys)), 30);
+  document.getElementById('remember-keys').checked = true;
+  updateKeysStatus();
+}
+
+function forgetKeys() {
+  deleteCookie(COOKIE_NAME);
+  document.getElementById('key-virustotal').value = '';
+  document.getElementById('key-abuseipdb').value = '';
+  document.getElementById('remember-keys').checked = false;
+  updateKeysStatus();
+}
+
+// --- Load saved keys from cookie on page load ---
+function loadFromCookie() {
+  var raw = getCookie(COOKIE_NAME);
+  if (!raw) return;
+  try {
+    var keys = JSON.parse(atob(raw));
+    if (keys.virustotal) document.getElementById('key-virustotal').value = keys.virustotal;
+    if (keys.abuseipdb) document.getElementById('key-abuseipdb').value = keys.abuseipdb;
+    document.getElementById('remember-keys').checked = true;
+  } catch (_) {}
+}
+
+// --- Status badge ---
 function updateKeysStatus() {
   var keys = getKeys();
   var count = Object.keys(keys).length;
+  var saved = !!getCookie(COOKIE_NAME);
   var el = document.getElementById('keys-status');
   if (count > 0) {
-    el.textContent = count + ' key' + (count > 1 ? 's' : '') + ' entered';
+    el.textContent = count + ' key' + (count > 1 ? 's' : '') + (saved ? ' (saved)' : ' (session only)');
     el.className = 'keys-status keys-status-ok';
   } else {
     el.textContent = 'Enter keys below';
@@ -92,9 +159,25 @@ function updateKeysStatus() {
   }
 }
 
+// When the remember checkbox is toggled, save or delete the cookie
+document.getElementById('remember-keys').addEventListener('change', function() {
+  if (this.checked) {
+    saveKeysCookie();
+  } else {
+    deleteCookie(COOKIE_NAME);
+    updateKeysStatus();
+  }
+});
+
 // Update status badge as user types keys
-document.getElementById('key-virustotal').addEventListener('input', updateKeysStatus);
-document.getElementById('key-abuseipdb').addEventListener('input', updateKeysStatus);
+document.getElementById('key-virustotal').addEventListener('input', function() {
+  updateKeysStatus();
+  if (document.getElementById('remember-keys').checked) saveKeysCookie();
+});
+document.getElementById('key-abuseipdb').addEventListener('input', function() {
+  updateKeysStatus();
+  if (document.getElementById('remember-keys').checked) saveKeysCookie();
+});
 
 // --- IOC type detection (client-side for instant feedback) ---
 function detectType(val) {
@@ -276,6 +359,10 @@ function formatBytes(b) {
   if (b < 1048576) return (b / 1024).toFixed(1) + ' KB';
   return (b / 1048576).toFixed(1) + ' MB';
 }
+
+// --- Init: load saved cookie keys, then wire up live detection ---
+loadFromCookie();
+updateKeysStatus();
 
 // Live type detection
 document.getElementById('lookup-ioc').addEventListener('input', function() {
