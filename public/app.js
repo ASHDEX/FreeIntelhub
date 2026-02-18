@@ -14,6 +14,57 @@
   }
 })();
 
+// Sidebar toggle
+(function() {
+  var sidebar = document.getElementById('sidebar');
+  var overlay = document.getElementById('sidebar-overlay');
+  var openBtn = document.getElementById('sidebar-toggle');
+  var closeBtn = document.getElementById('sidebar-close');
+
+  if (!sidebar || !overlay) return;
+
+  function openSidebar() {
+    sidebar.classList.add('open');
+    overlay.classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+  function closeSidebar() {
+    sidebar.classList.remove('open');
+    overlay.classList.remove('open');
+    document.body.style.overflow = '';
+  }
+
+  if (openBtn) openBtn.addEventListener('click', openSidebar);
+  if (closeBtn) closeBtn.addEventListener('click', closeSidebar);
+  overlay.addEventListener('click', closeSidebar);
+
+  // Close on Escape
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && sidebar.classList.contains('open')) closeSidebar();
+  });
+
+  // On mobile: make sidebar dropdowns toggle on click instead of hover
+  var isMobile = window.matchMedia('(max-width: 768px)');
+  var dropdowns = sidebar.querySelectorAll('.sidebar-dropdown');
+  dropdowns.forEach(function(dd) {
+    var btn = dd.querySelector('.sidebar-link');
+    if (!btn) return;
+    btn.addEventListener('click', function(e) {
+      if (isMobile.matches) {
+        e.preventDefault();
+        dd.classList.toggle('open');
+      }
+    });
+  });
+
+  // Close sidebar when a link is clicked (navigate away)
+  sidebar.querySelectorAll('a[href]').forEach(function(link) {
+    link.addEventListener('click', function() {
+      closeSidebar();
+    });
+  });
+})();
+
 // Search suggestions
 (function () {
   const input = document.getElementById('hero-search');
