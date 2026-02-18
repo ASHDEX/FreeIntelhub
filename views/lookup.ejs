@@ -2,23 +2,23 @@
 
 <div class="page-header">
   <h1>IOC Lookup</h1>
-  <p>Look up IPs, domains, hashes, and URLs against threat intelligence providers. Your API keys are stored locally in your browser and never saved on the server.</p>
+  <p>Look up IPs, domains, hashes, and URLs against threat intelligence providers. API keys are ephemeral &mdash; they exist only in your current browser tab and are never stored anywhere.</p>
 </div>
 
 <!-- API Keys Configuration -->
 <details class="lookup-keys-panel" id="keys-panel">
-  <summary class="lookup-keys-toggle">API Keys <span class="keys-status" id="keys-status"></span></summary>
+  <summary class="lookup-keys-toggle">API Keys <span class="keys-status" id="keys-status">Enter keys below</span></summary>
   <div class="lookup-keys-body">
-    <p class="form-hint" style="margin-bottom: 1rem;">Keys are stored in your browser's localStorage. They are sent with each lookup and immediately discarded by the server.</p>
+    <div class="alert alert-warn" style="margin-bottom: 1rem;">Keys are ephemeral. They live only in this tab's memory, are sent over HTTPS with each lookup, and are immediately discarded by the server. Refreshing or closing this page erases them.</div>
     <div class="lookup-keys-grid">
       <div class="lookup-key-field">
         <label>VirusTotal</label>
-        <input type="password" id="key-virustotal" placeholder="Enter API key" autocomplete="off" spellcheck="false">
+        <input type="password" id="key-virustotal" placeholder="Paste API key" autocomplete="off" spellcheck="false">
         <span class="form-hint">Free tier: 4 lookups/min &mdash; <a href="https://www.virustotal.com/gui/my-apikey" target="_blank" rel="noopener noreferrer">Get key</a></span>
       </div>
       <div class="lookup-key-field">
         <label>AbuseIPDB</label>
-        <input type="password" id="key-abuseipdb" placeholder="Enter API key" autocomplete="off" spellcheck="false">
+        <input type="password" id="key-abuseipdb" placeholder="Paste API key" autocomplete="off" spellcheck="false">
         <span class="form-hint">Free tier: 1000 lookups/day &mdash; <a href="https://www.abuseipdb.com/account/api" target="_blank" rel="noopener noreferrer">Get key</a></span>
       </div>
       <div class="lookup-key-field">
@@ -29,10 +29,6 @@
         <label>MalwareBazaar</label>
         <span class="badge badge-source" style="font-size:0.65rem;">No key needed</span>
       </div>
-    </div>
-    <div style="margin-top: 1rem; display: flex; gap: 0.5rem;">
-      <button class="btn btn-accent" onclick="saveKeys()">Save Keys</button>
-      <button class="btn" style="background:var(--bg-elevated);border:1px solid var(--border);color:var(--text-muted);" onclick="clearKeys()">Clear All Keys</button>
     </div>
   </div>
 </details>
@@ -72,50 +68,33 @@
 <div id="lookup-results" style="display:none;"></div>
 
 <script>
-// --- Key Management (localStorage only) ---
-var KEY_STORAGE = 'fih_ti_keys';
+// --- Ephemeral key reading (from form fields only, never stored) ---
 
-function getStoredKeys() {
-  try { return JSON.parse(localStorage.getItem(KEY_STORAGE)) || {}; } catch(_) { return {}; }
-}
-
-function saveKeys() {
-  var keys = {
-    virustotal: document.getElementById('key-virustotal').value.trim(),
-    abuseipdb: document.getElementById('key-abuseipdb').value.trim(),
-  };
-  // Remove empty keys
-  Object.keys(keys).forEach(function(k) { if (!keys[k]) delete keys[k]; });
-  localStorage.setItem(KEY_STORAGE, JSON.stringify(keys));
-  updateKeysStatus();
-}
-
-function clearKeys() {
-  localStorage.removeItem(KEY_STORAGE);
-  document.getElementById('key-virustotal').value = '';
-  document.getElementById('key-abuseipdb').value = '';
-  updateKeysStatus();
-}
-
-function loadKeys() {
-  var keys = getStoredKeys();
-  if (keys.virustotal) document.getElementById('key-virustotal').value = keys.virustotal;
-  if (keys.abuseipdb) document.getElementById('key-abuseipdb').value = keys.abuseipdb;
-  updateKeysStatus();
+function getKeys() {
+  var keys = {};
+  var vt = document.getElementById('key-virustotal').value.trim();
+  var ab = document.getElementById('key-abuseipdb').value.trim();
+  if (vt) keys.virustotal = vt;
+  if (ab) keys.abuseipdb = ab;
+  return keys;
 }
 
 function updateKeysStatus() {
-  var keys = getStoredKeys();
+  var keys = getKeys();
   var count = Object.keys(keys).length;
   var el = document.getElementById('keys-status');
   if (count > 0) {
-    el.textContent = count + ' key' + (count > 1 ? 's' : '') + ' saved';
+    el.textContent = count + ' key' + (count > 1 ? 's' : '') + ' entered';
     el.className = 'keys-status keys-status-ok';
   } else {
-    el.textContent = 'No keys configured';
+    el.textContent = 'Enter keys below';
     el.className = 'keys-status';
   }
 }
+
+// Update status badge as user types keys
+document.getElementById('key-virustotal').addEventListener('input', updateKeysStatus);
+document.getElementById('key-abuseipdb').addEventListener('input', updateKeysStatus);
 
 // --- IOC type detection (client-side for instant feedback) ---
 function detectType(val) {
@@ -134,7 +113,7 @@ function doLookup(e) {
   var ioc = document.getElementById('lookup-ioc').value.trim();
   if (!ioc) return false;
 
-  var keys = getStoredKeys();
+  var keys = getKeys();
   var providers = [];
   if (document.getElementById('prov-virustotal').checked) providers.push('virustotal');
   if (document.getElementById('prov-abuseipdb').checked) providers.push('abuseipdb');
@@ -297,9 +276,6 @@ function formatBytes(b) {
   if (b < 1048576) return (b / 1024).toFixed(1) + ' KB';
   return (b / 1048576).toFixed(1) + ' MB';
 }
-
-// --- Init ---
-loadKeys();
 
 // Live type detection
 document.getElementById('lookup-ioc').addEventListener('input', function() {
