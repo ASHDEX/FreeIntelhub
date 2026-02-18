@@ -8,6 +8,7 @@ const sectorConfig = require('../config/sectors.json');
 const { sendVerification, isConfigured: smtpConfigured } = require('../services/emailService');
 const { getLatestCVEs } = require('../services/cveFetcher');
 const { generateRSS } = require('../services/feedGenerator');
+const { lookupIOC, PROVIDERS: TI_PROVIDERS } = require('../services/iocLookup');
 const router = express.Router();
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
@@ -828,6 +829,48 @@ router.get('/api/cves', async (req, res) => {
 router.get('/health', (req, res) => {
   const { count } = stmts.totalCount.get();
   res.json({ status: 'ok', articles: count });
+});
+
+// =============================================
+// IOC Lookup
+// =============================================
+
+// API Keys management page
+router.get('/keys', (req, res) => {
+  res.render('keys', { pageTitle: 'API Keys' });
+});
+
+// IOC Lookup page
+router.get('/lookup', (req, res) => {
+  res.render('lookup', { pageTitle: 'IOC Lookup', providers: TI_PROVIDERS });
+});
+
+// IOC Lookup API — keys are used once and discarded
+router.post('/api/lookup', apiLimiter, async (req, res) => {
+  const iocValue = (req.body.ioc || '').trim();
+  if (!iocValue || iocValue.length > 2048) {
+    return res.status(400).json({ error: 'Invalid IOC value' });
+  }
+
+  const apiKeys = {};
+  const keys = req.body.keys || {};
+  for (const [provider, key] of Object.entries(keys)) {
+    const k = String(key).trim();
+    if (k && k.length <= 256 && TI_PROVIDERS[provider]) {
+      apiKeys[provider] = k;
+    }
+  }
+
+  const selectedProviders = Array.isArray(req.body.providers)
+    ? req.body.providers.filter(p => typeof p === 'string' && TI_PROVIDERS[p])
+    : null;
+
+  try {
+    const result = await lookupIOC(iocValue, apiKeys, selectedProviders);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: 'Lookup failed' });
+  }
 });
 
 // =============================================
