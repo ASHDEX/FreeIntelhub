@@ -2,73 +2,143 @@
 
 <div class="page-header">
   <h1>IOC Lookup</h1>
-  <p>Look up IPs, domains, hashes, and URLs against threat intelligence providers. Manage your API keys on the <a href="/keys">API Keys</a> page.</p>
+  <p>Look up IPs, domains, hashes, and URLs against threat intelligence providers. Save your keys on the <a href="/keys">API Keys</a> page so they auto-fill here.</p>
 </div>
 
-<!-- API Keys Configuration -->
-<details class="lookup-keys-panel" id="keys-panel">
-  <summary class="lookup-keys-toggle">API Keys <span class="keys-status" id="keys-status">Enter keys below</span></summary>
-  <div class="lookup-keys-body">
-    <div class="alert alert-info" style="margin-bottom: 1rem;">Keys are loaded from your saved cookie if available. To add or change keys, visit the <a href="/keys">API Keys</a> page.</div>
-    <div class="lookup-keys-grid">
-      <div class="lookup-key-field">
-        <label>VirusTotal</label>
-        <input type="password" id="key-virustotal" placeholder="Paste API key" autocomplete="off" spellcheck="false">
-        <span class="form-hint">Free tier: 4 lookups/min &mdash; <a href="https://www.virustotal.com/gui/my-apikey" target="_blank" rel="noopener noreferrer">Get key</a></span>
+<!-- Provider Cards -->
+<div class="provider-cards" id="provider-cards">
+
+  <!-- VirusTotal -->
+  <div class="provider-card" id="card-virustotal" data-provider="virustotal">
+    <div class="provider-card-header">
+      <div class="provider-card-title">
+        <strong>VirusTotal</strong>
+        <span class="badge badge-source" style="font-size:0.62rem;">API key required</span>
       </div>
-      <div class="lookup-key-field">
-        <label>AbuseIPDB</label>
-        <input type="password" id="key-abuseipdb" placeholder="Paste API key" autocomplete="off" spellcheck="false">
-        <span class="form-hint">Free tier: 1000 lookups/day &mdash; <a href="https://www.abuseipdb.com/account/api" target="_blank" rel="noopener noreferrer">Get key</a></span>
+      <span class="form-hint" style="margin:0;"><a href="https://www.virustotal.com/gui/my-apikey" target="_blank" rel="noopener noreferrer">Get key</a> &mdash; Free: 4 req/min</span>
+    </div>
+    <div class="provider-card-body">
+      <div class="provider-row">
+        <label>IOC</label>
+        <div class="provider-input-wrap">
+          <svg class="lookup-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <input type="text" class="ioc-input" placeholder="IP, domain, hash, or URL..." autocomplete="off" spellcheck="false">
+        </div>
       </div>
-      <div class="lookup-key-field">
-        <label>ThreatFox</label>
-        <span class="badge badge-source" style="font-size:0.65rem;">No key needed</span>
-      </div>
-      <div class="lookup-key-field">
-        <label>MalwareBazaar</label>
-        <span class="badge badge-source" style="font-size:0.65rem;">No key needed</span>
+      <div class="provider-row">
+        <label>API Key</label>
+        <input type="password" class="provider-key" id="key-virustotal" placeholder="Paste VirusTotal API key" autocomplete="off" spellcheck="false">
       </div>
     </div>
+    <div class="provider-card-footer">
+      <div class="provider-type-badge"></div>
+      <button class="btn btn-accent btn-sm-provider" onclick="doSingleLookup('virustotal')">Lookup</button>
+    </div>
+    <div class="provider-result" id="result-virustotal"></div>
   </div>
-</details>
 
-<!-- Lookup Form -->
-<div class="lookup-form-wrapper">
-  <form id="lookup-form" onsubmit="return doLookup(event)">
-    <div class="lookup-input-row">
-      <div class="lookup-input-wrap">
-        <svg class="lookup-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-        <input type="text" id="lookup-ioc" placeholder="Enter IP, domain, hash (MD5/SHA1/SHA256), or URL..." autocomplete="off" spellcheck="false" required>
+  <!-- AbuseIPDB -->
+  <div class="provider-card" id="card-abuseipdb" data-provider="abuseipdb">
+    <div class="provider-card-header">
+      <div class="provider-card-title">
+        <strong>AbuseIPDB</strong>
+        <span class="badge badge-source" style="font-size:0.62rem;">API key required</span>
       </div>
-      <button type="submit" class="btn btn-accent" id="lookup-btn">Lookup</button>
+      <span class="form-hint" style="margin:0;"><a href="https://www.abuseipdb.com/account/api" target="_blank" rel="noopener noreferrer">Get key</a> &mdash; Free: 1000 req/day</span>
     </div>
-    <div class="lookup-providers-row">
-      <label class="checkbox-label"><input type="checkbox" id="prov-virustotal" checked> VirusTotal</label>
-      <label class="checkbox-label"><input type="checkbox" id="prov-abuseipdb" checked> AbuseIPDB</label>
-      <label class="checkbox-label"><input type="checkbox" id="prov-threatfox" checked> ThreatFox</label>
-      <label class="checkbox-label"><input type="checkbox" id="prov-malwarebazaar" checked> MalwareBazaar</label>
+    <div class="provider-card-body">
+      <div class="provider-row">
+        <label>IOC</label>
+        <div class="provider-input-wrap">
+          <svg class="lookup-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <input type="text" class="ioc-input" placeholder="IP address..." autocomplete="off" spellcheck="false">
+        </div>
+      </div>
+      <div class="provider-row">
+        <label>API Key</label>
+        <input type="password" class="provider-key" id="key-abuseipdb" placeholder="Paste AbuseIPDB API key" autocomplete="off" spellcheck="false">
+      </div>
     </div>
-  </form>
+    <div class="provider-card-footer">
+      <div class="provider-type-badge"></div>
+      <button class="btn btn-accent btn-sm-provider" onclick="doSingleLookup('abuseipdb')">Lookup</button>
+    </div>
+    <div class="provider-result" id="result-abuseipdb"></div>
+  </div>
+
+  <!-- ThreatFox -->
+  <div class="provider-card" id="card-threatfox" data-provider="threatfox">
+    <div class="provider-card-header">
+      <div class="provider-card-title">
+        <strong>ThreatFox</strong>
+        <span class="badge badge-source" style="font-size:0.62rem;background:var(--green);color:#fff;">No key needed</span>
+      </div>
+      <span class="form-hint" style="margin:0;">Abuse.ch &mdash; Free, open</span>
+    </div>
+    <div class="provider-card-body">
+      <div class="provider-row">
+        <label>IOC</label>
+        <div class="provider-input-wrap">
+          <svg class="lookup-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <input type="text" class="ioc-input" placeholder="IP, domain, hash, or URL..." autocomplete="off" spellcheck="false">
+        </div>
+      </div>
+    </div>
+    <div class="provider-card-footer">
+      <div class="provider-type-badge"></div>
+      <button class="btn btn-accent btn-sm-provider" onclick="doSingleLookup('threatfox')">Lookup</button>
+    </div>
+    <div class="provider-result" id="result-threatfox"></div>
+  </div>
+
+  <!-- MalwareBazaar -->
+  <div class="provider-card" id="card-malwarebazaar" data-provider="malwarebazaar">
+    <div class="provider-card-header">
+      <div class="provider-card-title">
+        <strong>MalwareBazaar</strong>
+        <span class="badge badge-source" style="font-size:0.62rem;background:var(--green);color:#fff;">No key needed</span>
+      </div>
+      <span class="form-hint" style="margin:0;">Abuse.ch &mdash; Free, open</span>
+    </div>
+    <div class="provider-card-body">
+      <div class="provider-row">
+        <label>IOC</label>
+        <div class="provider-input-wrap">
+          <svg class="lookup-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <input type="text" class="ioc-input" placeholder="MD5, SHA1, or SHA256 hash..." autocomplete="off" spellcheck="false">
+        </div>
+      </div>
+    </div>
+    <div class="provider-card-footer">
+      <div class="provider-type-badge"></div>
+      <button class="btn btn-accent btn-sm-provider" onclick="doSingleLookup('malwarebazaar')">Lookup</button>
+    </div>
+    <div class="provider-result" id="result-malwarebazaar"></div>
+  </div>
+
 </div>
 
-<!-- Detected Type -->
-<div id="lookup-type-badge" class="lookup-type-badge" style="display:none;"></div>
+<!-- Search All banner -->
+<div class="lookup-all-banner" id="lookup-all-banner">
+  <div class="lookup-all-left">
+    <strong>Search all providers at once</strong>
+    <span>Enter an IOC in any card above, then click here to query every provider simultaneously.</span>
+  </div>
+  <button class="btn btn-accent" id="lookup-all-btn" onclick="doAllLookup()">Lookup All</button>
+</div>
 
-<!-- Loading -->
+<!-- Global loading -->
 <div id="lookup-loading" class="lookup-loading" style="display:none;">
   <div class="lookup-spinner"></div>
   <span>Querying threat intelligence providers...</span>
 </div>
 
-<!-- Error -->
+<!-- Global error -->
 <div id="lookup-error" class="alert alert-err" style="display:none;"></div>
-
-<!-- Results -->
-<div id="lookup-results" style="display:none;"></div>
 
 <script>
 var COOKIE_NAME = 'fih_ti_keys';
+var ALL_PROVIDERS = ['virustotal', 'abuseipdb', 'threatfox', 'malwarebazaar'];
 
 // --- Cookie reader ---
 function getCookie(name) {
@@ -81,7 +151,7 @@ function getCookie(name) {
   return null;
 }
 
-// --- Load saved keys from cookie on page load ---
+// --- Load saved keys from cookie ---
 function loadFromCookie() {
   var raw = getCookie(COOKIE_NAME);
   if (!raw) return;
@@ -92,35 +162,20 @@ function loadFromCookie() {
   } catch (_) {}
 }
 
-// --- Read keys from the form fields ---
-function getKeys() {
-  var keys = {};
-  var vt = document.getElementById('key-virustotal').value.trim();
-  var ab = document.getElementById('key-abuseipdb').value.trim();
-  if (vt) keys.virustotal = vt;
-  if (ab) keys.abuseipdb = ab;
-  return keys;
-}
+// --- Sync IOC inputs: typing in any card copies the value to all others ---
+var iocInputs = document.querySelectorAll('.ioc-input');
+iocInputs.forEach(function(inp) {
+  inp.addEventListener('input', function() {
+    var val = this.value;
+    iocInputs.forEach(function(other) {
+      if (other !== inp) other.value = val;
+    });
+    // Update type badges on all cards
+    updateAllTypeBadges(val.trim());
+  });
+});
 
-function updateKeysStatus() {
-  var keys = getKeys();
-  var count = Object.keys(keys).length;
-  var saved = !!getCookie(COOKIE_NAME);
-  var el = document.getElementById('keys-status');
-  if (count > 0) {
-    el.textContent = count + ' key' + (count > 1 ? 's' : '') + (saved ? ' (saved)' : ' (session only)');
-    el.className = 'keys-status keys-status-ok';
-  } else {
-    el.textContent = 'Enter keys below';
-    el.className = 'keys-status';
-  }
-}
-
-// Update status badge as user types keys
-document.getElementById('key-virustotal').addEventListener('input', updateKeysStatus);
-document.getElementById('key-abuseipdb').addEventListener('input', updateKeysStatus);
-
-// --- IOC type detection (client-side for instant feedback) ---
+// --- IOC type detection ---
 function detectType(val) {
   if (/^(?:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\.){3}(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)$/.test(val)) return 'ip';
   if (/^[a-fA-F0-9]{64}$/.test(val)) return 'hash (SHA256)';
@@ -131,107 +186,178 @@ function detectType(val) {
   return null;
 }
 
-// --- Lookup ---
-function doLookup(e) {
-  e.preventDefault();
-  var ioc = document.getElementById('lookup-ioc').value.trim();
-  if (!ioc) return false;
+function updateAllTypeBadges(val) {
+  var badges = document.querySelectorAll('.provider-type-badge');
+  if (val.length >= 3) {
+    var type = detectType(val);
+    badges.forEach(function(b) {
+      if (type) { b.textContent = 'Detected: ' + type; b.style.display = 'inline-block'; }
+      else { b.style.display = 'none'; }
+    });
+  } else {
+    badges.forEach(function(b) { b.style.display = 'none'; });
+  }
+}
+
+// --- Get the IOC value (from the first non-empty input) ---
+function getIOC() {
+  for (var i = 0; i < iocInputs.length; i++) {
+    var v = iocInputs[i].value.trim();
+    if (v) return v;
+  }
+  return '';
+}
+
+// --- Get API keys ---
+function getKeys() {
+  var keys = {};
+  var vt = document.getElementById('key-virustotal').value.trim();
+  var ab = document.getElementById('key-abuseipdb').value.trim();
+  if (vt) keys.virustotal = vt;
+  if (ab) keys.abuseipdb = ab;
+  return keys;
+}
+
+// --- Single provider lookup ---
+function doSingleLookup(provider) {
+  var ioc = getIOC();
+  if (!ioc) { showCardError(provider, 'Enter an IOC value to look up.'); return; }
 
   var keys = getKeys();
-  var providers = [];
-  if (document.getElementById('prov-virustotal').checked) providers.push('virustotal');
-  if (document.getElementById('prov-abuseipdb').checked) providers.push('abuseipdb');
-  if (document.getElementById('prov-threatfox').checked) providers.push('threatfox');
-  if (document.getElementById('prov-malwarebazaar').checked) providers.push('malwarebazaar');
-
-  if (!providers.length) { showError('Select at least one provider.'); return false; }
-
-  // Show loading
-  document.getElementById('lookup-loading').style.display = 'flex';
-  document.getElementById('lookup-results').style.display = 'none';
-  document.getElementById('lookup-error').style.display = 'none';
-  document.getElementById('lookup-btn').disabled = true;
-
-  // Show type badge
-  var type = detectType(ioc);
-  var typeBadge = document.getElementById('lookup-type-badge');
-  if (type) {
-    typeBadge.textContent = 'Detected type: ' + type;
-    typeBadge.style.display = 'inline-block';
-  } else {
-    typeBadge.style.display = 'none';
-  }
+  showCardLoading(provider, true);
+  clearCardResult(provider);
+  hideGlobalError();
 
   fetch('/api/lookup', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ioc: ioc, keys: keys, providers: providers })
+    body: JSON.stringify({ ioc: ioc, keys: keys, providers: [provider] })
   })
   .then(function(r) { return r.json(); })
   .then(function(data) {
-    document.getElementById('lookup-loading').style.display = 'none';
-    document.getElementById('lookup-btn').disabled = false;
-
-    if (data.error) { showError(data.error); return; }
-    renderResults(data);
+    showCardLoading(provider, false);
+    if (data.error) { showCardError(provider, data.error); return; }
+    if (data.results && data.results.length) {
+      renderCardResult(provider, data.results[0]);
+    }
   })
   .catch(function(err) {
-    document.getElementById('lookup-loading').style.display = 'none';
-    document.getElementById('lookup-btn').disabled = false;
-    showError('Network error: ' + err.message);
+    showCardLoading(provider, false);
+    showCardError(provider, 'Network error: ' + err.message);
   });
-
-  return false;
 }
 
-function showError(msg) {
+// --- Lookup All providers ---
+function doAllLookup() {
+  var ioc = getIOC();
+  if (!ioc) { showGlobalError('Enter an IOC in any provider card first.'); return; }
+
+  var keys = getKeys();
+  var visibleProviders = [];
+  ALL_PROVIDERS.forEach(function(p) {
+    var card = document.getElementById('card-' + p);
+    if (card && card.style.display !== 'none') visibleProviders.push(p);
+  });
+  if (!visibleProviders.length) return;
+
+  // Show loading on all visible cards
+  visibleProviders.forEach(function(p) {
+    showCardLoading(p, true);
+    clearCardResult(p);
+  });
+  hideGlobalError();
+
+  fetch('/api/lookup', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ioc: ioc, keys: keys, providers: visibleProviders })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    visibleProviders.forEach(function(p) { showCardLoading(p, false); });
+    if (data.error) { showGlobalError(data.error); return; }
+    if (data.results) {
+      data.results.forEach(function(r) {
+        var pid = r.provider ? r.provider.toLowerCase().replace(/\s+/g, '') : '';
+        // Map display names back to provider ids
+        var nameMap = { 'virustotal': 'virustotal', 'abuseipdb': 'abuseipdb', 'threatfox': 'threatfox', 'malwarebazaar': 'malwarebazaar' };
+        var resolvedId = nameMap[pid] || pid;
+        renderCardResult(resolvedId, r);
+      });
+    }
+  })
+  .catch(function(err) {
+    visibleProviders.forEach(function(p) { showCardLoading(p, false); });
+    showGlobalError('Network error: ' + err.message);
+  });
+}
+
+// --- Card UI helpers ---
+function showCardLoading(provider, show) {
+  var card = document.getElementById('card-' + provider);
+  if (!card) return;
+  var btn = card.querySelector('.btn-sm-provider');
+  if (btn) btn.disabled = show;
+  var result = document.getElementById('result-' + provider);
+  if (show) {
+    result.innerHTML = '<div class="lookup-loading" style="display:flex;padding:1rem 0;"><div class="lookup-spinner"></div><span>Querying...</span></div>';
+    result.style.display = 'block';
+  }
+}
+
+function clearCardResult(provider) {
+  var el = document.getElementById('result-' + provider);
+  if (el) { el.innerHTML = ''; el.style.display = 'none'; }
+}
+
+function showCardError(provider, msg) {
+  var el = document.getElementById('result-' + provider);
+  if (el) {
+    el.innerHTML = '<div class="provider-result-msg provider-result-err">' + esc(msg) + '</div>';
+    el.style.display = 'block';
+  }
+}
+
+function showGlobalError(msg) {
   var el = document.getElementById('lookup-error');
   el.textContent = msg;
   el.style.display = 'block';
 }
 
+function hideGlobalError() {
+  document.getElementById('lookup-error').style.display = 'none';
+}
+
 function esc(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 
-function renderResults(data) {
-  var container = document.getElementById('lookup-results');
-  if (!data.results || !data.results.length) {
-    container.innerHTML = '<p class="empty">No results returned.</p>';
-    container.style.display = 'block';
-    return;
+// --- Render result inside a card ---
+function renderCardResult(provider, r) {
+  var el = document.getElementById('result-' + provider);
+  if (!el) return;
+
+  var html = '<div class="provider-result-inner">';
+
+  if (r.error) {
+    html += '<div class="provider-result-msg provider-result-err">' + esc(r.error) + '</div>';
+  } else if (r.found === false) {
+    html += '<div class="provider-result-msg provider-result-clean">Not found in database</div>';
+  } else {
+    // Header with link
+    if (r.link) {
+      html += '<div class="provider-result-link"><a href="' + esc(r.link) + '" target="_blank" rel="noopener noreferrer" class="btn-sm">View full report &rarr;</a></div>';
+    }
+    html += renderProviderResult(r);
   }
 
-  var html = '<div class="lookup-results-grid">';
-
-  data.results.forEach(function(r) {
-    html += '<div class="lookup-result-card' + (r.error ? ' lookup-result-error' : '') + '">';
-    html += '<div class="lookup-result-header">';
-    html += '<strong>' + esc(r.provider || 'Unknown') + '</strong>';
-    if (r.link) html += '<a href="' + esc(r.link) + '" target="_blank" rel="noopener noreferrer" class="btn-sm">View &rarr;</a>';
-    html += '</div>';
-
-    if (r.error) {
-      html += '<p class="lookup-result-err">' + esc(r.error) + '</p>';
-    } else if (r.found === false) {
-      html += '<p class="lookup-result-clean">Not found in database</p>';
-    } else {
-      html += '<div class="lookup-result-body">';
-      html += renderProviderResult(r);
-      html += '</div>';
-    }
-
-    html += '</div>';
-  });
-
   html += '</div>';
-  container.innerHTML = html;
-  container.style.display = 'block';
+  el.innerHTML = html;
+  el.style.display = 'block';
 }
 
 function renderProviderResult(r) {
   var html = '';
 
   if (r.provider === 'VirusTotal') {
-    var ratio = r.malicious + '/' + r.total;
     var severity = r.malicious === 0 ? 'clean' : (r.malicious >= 5 ? 'danger' : 'warn');
     html += '<div class="lookup-verdict lookup-verdict-' + severity + '">';
     html += '<span class="lookup-verdict-num">' + r.malicious + '</span>';
@@ -301,40 +427,25 @@ function formatBytes(b) {
   return (b / 1048576).toFixed(1) + ' MB';
 }
 
-// --- Pre-select providers from URL query param (e.g. ?providers=virustotal) ---
+// --- Filter: show only the cards matching ?providers= ---
 function applyProviderFilter() {
   var params = new URLSearchParams(window.location.search);
   var filter = params.get('providers');
-  if (!filter) return;
+  if (!filter) return; // show all
   var allowed = filter.split(',');
-  var all = ['virustotal', 'abuseipdb', 'threatfox', 'malwarebazaar'];
-  all.forEach(function(p) {
-    var cb = document.getElementById('prov-' + p);
-    if (cb) cb.checked = allowed.indexOf(p) !== -1;
+  ALL_PROVIDERS.forEach(function(p) {
+    var card = document.getElementById('card-' + p);
+    if (card) card.style.display = allowed.indexOf(p) !== -1 ? '' : 'none';
   });
+  // If only one provider visible, hide the "Lookup All" banner
+  if (allowed.length === 1) {
+    document.getElementById('lookup-all-banner').style.display = 'none';
+  }
 }
 
-// --- Init: load saved cookie keys ---
+// --- Init ---
 loadFromCookie();
-updateKeysStatus();
 applyProviderFilter();
-
-// Live type detection
-document.getElementById('lookup-ioc').addEventListener('input', function() {
-  var val = this.value.trim();
-  var typeBadge = document.getElementById('lookup-type-badge');
-  if (val.length >= 3) {
-    var type = detectType(val);
-    if (type) {
-      typeBadge.textContent = 'Detected type: ' + type;
-      typeBadge.style.display = 'inline-block';
-    } else {
-      typeBadge.style.display = 'none';
-    }
-  } else {
-    typeBadge.style.display = 'none';
-  }
-});
 </script>
 
 <%- include('partials/footer') %>
