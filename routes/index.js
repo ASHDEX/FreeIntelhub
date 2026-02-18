@@ -835,6 +835,11 @@ router.get('/health', (req, res) => {
 // IOC Lookup
 // =============================================
 
+// API Keys management page
+router.get('/keys', (req, res) => {
+  res.render('keys', { pageTitle: 'API Keys' });
+});
+
 // IOC Lookup page
 router.get('/lookup', (req, res) => {
   res.render('lookup', { pageTitle: 'IOC Lookup', providers: TI_PROVIDERS });

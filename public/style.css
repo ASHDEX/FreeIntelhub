@@ -629,6 +629,42 @@ details[open] .lookup-keys-toggle::before { transform: rotate(90deg); }
 }
 .lookup-keys-btns { display: flex; gap: 0.5rem; }
 
+/* --- API Keys page --- */
+.keys-page-card {
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 1.5rem; margin-bottom: 1.5rem;
+}
+.keys-page-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+.keys-page-actions {
+  margin-top: 1.25rem; padding-top: 1.25rem; border-top: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem;
+}
+.keys-page-left { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+.keys-page-btns { display: flex; gap: 0.5rem; }
+.keys-save-status { font-size: 0.78rem; font-weight: 500; transition: opacity 0.3s; }
+.keys-status-ok { color: var(--green); }
+.keys-status-err { color: var(--red); }
+.btn-outline {
+  background: var(--bg-elevated); border: 1px solid var(--border); color: var(--text-muted);
+  padding: 0.5rem 1rem; border-radius: var(--radius-sm); cursor: pointer; font-size: 0.82rem;
+  font-family: var(--font); transition: all var(--transition);
+}
+.btn-outline:hover { border-color: var(--text-muted); color: var(--text); }
+.keys-page-info {
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 1.5rem; margin-bottom: 1.5rem;
+}
+.keys-page-info h3 { margin: 0 0 1rem; font-size: 1rem; }
+.keys-info-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+.keys-info-item { padding: 0.75rem; background: var(--bg-elevated); border-radius: var(--radius-sm); }
+.keys-info-item strong { display: block; margin-bottom: 0.35rem; font-size: 0.85rem; }
+.keys-info-item p { margin: 0; font-size: 0.78rem; color: var(--text-muted); line-height: 1.5; }
+.keys-info-item code { font-size: 0.72rem; background: var(--bg); padding: 0.1em 0.3em; border-radius: 3px; }
+@media (max-width: 640px) {
+  .keys-page-grid { grid-template-columns: 1fr; }
+  .keys-info-grid { grid-template-columns: 1fr; }
+}
+
 .lookup-form-wrapper { margin-bottom: 1.5rem; }
 .lookup-input-row { display: flex; gap: 0.5rem; margin-bottom: 0.75rem; }
 .lookup-input-wrap {

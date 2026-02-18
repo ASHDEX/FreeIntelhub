@@ -1,0 +1,160 @@
+<%- include('partials/head', { pageTitle: 'API Keys' }) %>
+
+<div class="page-header">
+  <h1>API Keys</h1>
+  <p>Manage your threat intelligence API keys. Keys are used by <a href="/lookup">IOC Lookup</a> and are never stored on the server. Optionally save them in a browser cookie so they persist across sessions.</p>
+</div>
+
+<div class="keys-page-card">
+  <div class="alert alert-warn" style="margin-bottom: 1.25rem;">
+    Keys are sent over HTTPS with each lookup request and immediately discarded by the server. When saved, they are stored as a <code>SameSite=Strict</code> cookie scoped to this site with a 30-day expiry. They never leave your browser otherwise.
+  </div>
+
+  <div class="keys-page-grid">
+    <div class="lookup-key-field">
+      <label>VirusTotal</label>
+      <input type="password" id="key-virustotal" placeholder="Paste API key" autocomplete="off" spellcheck="false">
+      <span class="form-hint">Free tier: 4 lookups/min &mdash; <a href="https://www.virustotal.com/gui/my-apikey" target="_blank" rel="noopener noreferrer">Get key</a></span>
+    </div>
+    <div class="lookup-key-field">
+      <label>AbuseIPDB</label>
+      <input type="password" id="key-abuseipdb" placeholder="Paste API key" autocomplete="off" spellcheck="false">
+      <span class="form-hint">Free tier: 1000 lookups/day &mdash; <a href="https://www.abuseipdb.com/account/api" target="_blank" rel="noopener noreferrer">Get key</a></span>
+    </div>
+    <div class="lookup-key-field">
+      <label>ThreatFox</label>
+      <span class="badge badge-source" style="font-size:0.65rem;">No key needed</span>
+    </div>
+    <div class="lookup-key-field">
+      <label>MalwareBazaar</label>
+      <span class="badge badge-source" style="font-size:0.65rem;">No key needed</span>
+    </div>
+  </div>
+
+  <div class="keys-page-actions">
+    <div class="keys-page-left">
+      <label class="checkbox-label">
+        <input type="checkbox" id="remember-keys"> Remember keys in this browser (cookie, 30 days)
+      </label>
+      <span class="keys-save-status" id="keys-save-status"></span>
+    </div>
+    <div class="keys-page-btns">
+      <button class="btn btn-accent" id="btn-save" onclick="saveKeysCookie()">Save to cookie</button>
+      <button class="btn btn-outline" id="btn-forget" onclick="forgetKeys()">Forget saved keys</button>
+    </div>
+  </div>
+</div>
+
+<div class="keys-page-info">
+  <h3>How it works</h3>
+  <div class="keys-info-grid">
+    <div class="keys-info-item">
+      <strong>Session only (default)</strong>
+      <p>Keys live only in the form fields. Closing or refreshing the page erases them. Nothing is stored.</p>
+    </div>
+    <div class="keys-info-item">
+      <strong>Save to cookie</strong>
+      <p>Keys are base64-encoded and saved in a <code>SameSite=Strict</code> browser cookie that expires after 30 days. On your next visit they are automatically loaded into the form.</p>
+    </div>
+    <div class="keys-info-item">
+      <strong>Forget</strong>
+      <p>Deletes the cookie and clears the form fields. Your keys are gone immediately.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+var COOKIE_NAME = 'fih_ti_keys';
+
+// --- Cookie helpers ---
+function setCookie(name, value, days) {
+  var expires = '';
+  if (days) {
+    var d = new Date();
+    d.setTime(d.getTime() + days * 86400000);
+    expires = '; expires=' + d.toUTCString();
+  }
+  document.cookie = name + '=' + encodeURIComponent(value) + expires + '; path=/; SameSite=Strict';
+}
+
+function getCookie(name) {
+  var prefix = name + '=';
+  var parts = document.cookie.split(';');
+  for (var i = 0; i < parts.length; i++) {
+    var c = parts[i].trim();
+    if (c.indexOf(prefix) === 0) return decodeURIComponent(c.substring(prefix.length));
+  }
+  return null;
+}
+
+function deleteCookie(name) {
+  document.cookie = name + '=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; SameSite=Strict';
+}
+
+function getKeys() {
+  var keys = {};
+  var vt = document.getElementById('key-virustotal').value.trim();
+  var ab = document.getElementById('key-abuseipdb').value.trim();
+  if (vt) keys.virustotal = vt;
+  if (ab) keys.abuseipdb = ab;
+  return keys;
+}
+
+function showStatus(msg, ok) {
+  var el = document.getElementById('keys-save-status');
+  el.textContent = msg;
+  el.className = 'keys-save-status ' + (ok ? 'keys-status-ok' : 'keys-status-err');
+  clearTimeout(el._timer);
+  el._timer = setTimeout(function() { el.textContent = ''; }, 3000);
+}
+
+function saveKeysCookie() {
+  var keys = getKeys();
+  if (!Object.keys(keys).length) { showStatus('Enter at least one key first.', false); return; }
+  setCookie(COOKIE_NAME, btoa(JSON.stringify(keys)), 30);
+  document.getElementById('remember-keys').checked = true;
+  showStatus('Keys saved to cookie.', true);
+}
+
+function forgetKeys() {
+  deleteCookie(COOKIE_NAME);
+  document.getElementById('key-virustotal').value = '';
+  document.getElementById('key-abuseipdb').value = '';
+  document.getElementById('remember-keys').checked = false;
+  showStatus('Cookie deleted. Keys cleared.', true);
+}
+
+function loadFromCookie() {
+  var raw = getCookie(COOKIE_NAME);
+  if (!raw) return;
+  try {
+    var keys = JSON.parse(atob(raw));
+    if (keys.virustotal) document.getElementById('key-virustotal').value = keys.virustotal;
+    if (keys.abuseipdb) document.getElementById('key-abuseipdb').value = keys.abuseipdb;
+    document.getElementById('remember-keys').checked = true;
+  } catch (_) {}
+}
+
+// Auto-save when checkbox toggled
+document.getElementById('remember-keys').addEventListener('change', function() {
+  if (this.checked) {
+    saveKeysCookie();
+  } else {
+    deleteCookie(COOKIE_NAME);
+    showStatus('Cookie deleted. Keys are session-only now.', true);
+  }
+});
+
+// Auto-save on input if remember is checked
+document.getElementById('key-virustotal').addEventListener('input', function() {
+  if (document.getElementById('remember-keys').checked) saveKeysCookie();
+});
+document.getElementById('key-abuseipdb').addEventListener('input', function() {
+  if (document.getElementById('remember-keys').checked) saveKeysCookie();
+});
+
+// Init
+loadFromCookie();
+</script>
+
+<%- include('partials/footer') %>
