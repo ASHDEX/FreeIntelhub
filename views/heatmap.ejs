@@ -1,0 +1,279 @@
+<%- include('partials/head', { pageTitle: 'Threat Heatmap' }) %>
+
+<div class="page-header">
+  <h1>Malware &times; Threat Actor Heatmap</h1>
+  <p>Co-occurrence of malware families and threat actor groups across <span id="heatmap-article-count">...</span> articles in the last <span id="heatmap-period-label">90 days</span></p>
+</div>
+
+<div class="trending-controls" style="margin-bottom:1.25rem;">
+  <button class="btn trending-btn" data-days="7">7 Days</button>
+  <button class="btn trending-btn" data-days="30">30 Days</button>
+  <button class="btn btn-accent trending-btn active" data-days="90">90 Days</button>
+  <button class="btn trending-btn" data-days="365">1 Year</button>
+</div>
+
+<!-- Summary stats -->
+<div class="stats-row" id="heatmap-stats" style="margin-bottom:1.5rem;justify-content:flex-start;"></div>
+
+<!-- Loading -->
+<div id="heatmap-loading" class="lookup-loading" style="display:flex;padding:2rem 0;">
+  <div class="lookup-spinner"></div>
+  <span>Building threat intelligence heatmap...</span>
+</div>
+
+<!-- Empty state -->
+<div id="heatmap-empty" class="empty" style="display:none;">
+  No co-occurrences found for this time period. Try a longer range or wait for more articles to be ingested.
+</div>
+
+<!-- Legend -->
+<div id="heatmap-legend" class="heatmap-legend" style="display:none;">
+  <span class="heatmap-legend-label">Fewer</span>
+  <div class="heatmap-legend-bar"></div>
+  <span class="heatmap-legend-label">More</span>
+</div>
+
+<!-- Heatmap container -->
+<div id="heatmap-wrapper" class="heatmap-wrapper" style="display:none;">
+  <div id="heatmap-grid" class="heatmap-grid"></div>
+</div>
+
+<!-- Top entities side panels -->
+<div class="trending-grid" id="heatmap-panels" style="display:none;margin-top:2rem;">
+  <section class="trending-section">
+    <h2>Top Malware Families</h2>
+    <div id="top-malware" class="heatmap-entity-list"></div>
+  </section>
+  <section class="trending-section">
+    <h2>Top Threat Actor Groups</h2>
+    <div id="top-actors" class="heatmap-entity-list"></div>
+  </section>
+</div>
+
+<!-- Tooltip -->
+<div id="heatmap-tooltip" class="heatmap-tooltip"></div>
+
+<script>
+(function() {
+  var currentDays = 90;
+  var tooltip = document.getElementById('heatmap-tooltip');
+
+  function escHtml(s) {
+    var d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
+  }
+
+  function loadHeatmap(days) {
+    currentDays = days;
+    document.getElementById('heatmap-loading').style.display = 'flex';
+    document.getElementById('heatmap-wrapper').style.display = 'none';
+    document.getElementById('heatmap-empty').style.display = 'none';
+    document.getElementById('heatmap-legend').style.display = 'none';
+    document.getElementById('heatmap-panels').style.display = 'none';
+    document.getElementById('heatmap-stats').innerHTML = '';
+
+    fetch('/api/heatmap?days=' + days)
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        document.getElementById('heatmap-loading').style.display = 'none';
+        document.getElementById('heatmap-article-count').textContent = data.totalArticles.toLocaleString();
+
+        if (!data.malware.length || !data.actors.length) {
+          document.getElementById('heatmap-empty').style.display = 'block';
+          return;
+        }
+
+        renderStats(data);
+        renderHeatmap(data);
+        renderTopLists(data);
+
+        document.getElementById('heatmap-wrapper').style.display = 'block';
+        document.getElementById('heatmap-legend').style.display = 'flex';
+        document.getElementById('heatmap-panels').style.display = 'grid';
+      })
+      .catch(function(err) {
+        document.getElementById('heatmap-loading').style.display = 'none';
+        document.getElementById('heatmap-empty').textContent = 'Error loading heatmap: ' + err.message;
+        document.getElementById('heatmap-empty').style.display = 'block';
+      });
+  }
+
+  function renderStats(data) {
+    var totalCoOccurrences = data.matrix.reduce(function(s, c) { return s + c.count; }, 0);
+    var html = '';
+    html += '<div class="stat-card"><strong>' + data.malware.length + '</strong><span>Malware Families</span></div>';
+    html += '<div class="stat-card"><strong>' + data.actors.length + '</strong><span>Threat Actors</span></div>';
+    html += '<div class="stat-card"><strong>' + totalCoOccurrences + '</strong><span>Co-occurrences</span></div>';
+    html += '<div class="stat-card"><strong>' + data.totalArticles.toLocaleString() + '</strong><span>Articles Scanned</span></div>';
+    document.getElementById('heatmap-stats').innerHTML = html;
+  }
+
+  function getColor(count, max) {
+    if (count === 0) return 'var(--bg-card)';
+    var intensity = Math.min(count / Math.max(max, 1), 1);
+    // Scale from low (dark teal) to high (bright red)
+    if (intensity <= 0.33) {
+      var t = intensity / 0.33;
+      // Teal: rgba(34,211,238, 0.15) -> rgba(34,211,238, 0.5)
+      var a = 0.15 + t * 0.35;
+      return 'rgba(34,211,238,' + a.toFixed(2) + ')';
+    } else if (intensity <= 0.66) {
+      var t = (intensity - 0.33) / 0.33;
+      // Teal to amber: blend
+      var r = Math.round(34 + t * (251 - 34));
+      var g = Math.round(211 + t * (191 - 211));
+      var b = Math.round(238 + t * (36 - 238));
+      return 'rgba(' + r + ',' + g + ',' + b + ',0.6)';
+    } else {
+      var t = (intensity - 0.66) / 0.34;
+      // Amber to red
+      var r = Math.round(251 + t * (239 - 251));
+      var g = Math.round(191 - t * 191);
+      var b = Math.round(36 - t * 36);
+      var a = 0.6 + t * 0.3;
+      return 'rgba(' + r + ',' + g + ',' + b + ',' + a.toFixed(2) + ')';
+    }
+  }
+
+  function renderHeatmap(data) {
+    var grid = document.getElementById('heatmap-grid');
+    var malware = data.malware;
+    var actors = data.actors;
+    var maxCount = data.maxCount || 1;
+
+    // Build lookup map for fast access
+    var lookup = {};
+    data.matrix.forEach(function(cell) {
+      if (!lookup[cell.malware]) lookup[cell.malware] = {};
+      lookup[cell.malware][cell.actor] = cell;
+    });
+
+    // Calculate grid dimensions
+    var cols = actors.length;
+    var rows = malware.length;
+
+    var html = '<table class="heatmap-table">';
+
+    // Header row with actor names (rotated)
+    html += '<thead><tr><th class="heatmap-corner"></th>';
+    for (var c = 0; c < cols; c++) {
+      html += '<th class="heatmap-col-header"><div class="heatmap-col-label">' + escHtml(actors[c]) + '</div></th>';
+    }
+    html += '</tr></thead>';
+
+    // Data rows
+    html += '<tbody>';
+    for (var r = 0; r < rows; r++) {
+      html += '<tr>';
+      html += '<td class="heatmap-row-header">' + escHtml(malware[r]) + '</td>';
+      for (var c = 0; c < cols; c++) {
+        var cell = lookup[malware[r]] && lookup[malware[r]][actors[c]];
+        var count = cell ? cell.count : 0;
+        var bg = getColor(count, maxCount);
+        html += '<td class="heatmap-cell' + (count > 0 ? ' heatmap-cell-active' : '') + '" ';
+        html += 'style="background:' + bg + ';" ';
+        html += 'data-malware="' + escHtml(malware[r]) + '" ';
+        html += 'data-actor="' + escHtml(actors[c]) + '" ';
+        html += 'data-count="' + count + '">';
+        if (count > 0) html += '<span class="heatmap-cell-num">' + count + '</span>';
+        html += '</td>';
+      }
+      html += '</tr>';
+    }
+    html += '</tbody></table>';
+
+    grid.innerHTML = html;
+
+    // Tooltip events
+    var cells = grid.querySelectorAll('.heatmap-cell-active');
+    cells.forEach(function(el) {
+      el.addEventListener('mouseenter', function(e) {
+        var mw = el.getAttribute('data-malware');
+        var ta = el.getAttribute('data-actor');
+        var cnt = el.getAttribute('data-count');
+        tooltip.innerHTML = '<strong>' + escHtml(mw) + '</strong> &times; <strong>' + escHtml(ta) + '</strong><br>' + cnt + ' article' + (cnt !== '1' ? 's' : '');
+        tooltip.style.display = 'block';
+        positionTooltip(e);
+      });
+      el.addEventListener('mousemove', positionTooltip);
+      el.addEventListener('mouseleave', function() {
+        tooltip.style.display = 'none';
+      });
+      el.addEventListener('click', function() {
+        var mw = el.getAttribute('data-malware');
+        var ta = el.getAttribute('data-actor');
+        // Search for articles mentioning both
+        var q = mw.split('/')[0].split('(')[0].trim() + ' ' + ta.split('(')[0].trim();
+        window.location.href = '/search?q=' + encodeURIComponent(q);
+      });
+    });
+  }
+
+  function positionTooltip(e) {
+    var x = e.clientX + 12;
+    var y = e.clientY - 10;
+    // Keep tooltip on screen
+    if (x + 240 > window.innerWidth) x = e.clientX - 250;
+    if (y + 60 > window.innerHeight) y = e.clientY - 60;
+    tooltip.style.left = x + 'px';
+    tooltip.style.top = y + 'px';
+  }
+
+  function renderTopLists(data) {
+    // Top malware by total article count
+    var sortedMw = data.malware
+      .map(function(mw) { return { name: mw, count: data.malwareCounts[mw] || 0 }; })
+      .sort(function(a, b) { return b.count - a.count; })
+      .slice(0, 20);
+
+    var mwHtml = '';
+    sortedMw.forEach(function(item, i) {
+      var pct = data.totalArticles > 0 ? ((item.count / data.totalArticles) * 100).toFixed(1) : 0;
+      mwHtml += '<div class="heatmap-entity-row">';
+      mwHtml += '<span class="heatmap-entity-rank">' + (i + 1) + '</span>';
+      mwHtml += '<a href="/search?q=' + encodeURIComponent(item.name.split('/')[0].split('(')[0].trim()) + '" class="heatmap-entity-name">' + escHtml(item.name) + '</a>';
+      mwHtml += '<div class="heatmap-entity-bar-wrap"><div class="heatmap-entity-bar heatmap-bar-malware" style="width:' + Math.max(pct, 2) + '%"></div></div>';
+      mwHtml += '<span class="heatmap-entity-count">' + item.count + '</span>';
+      mwHtml += '</div>';
+    });
+    document.getElementById('top-malware').innerHTML = mwHtml || '<div class="empty" style="padding:1rem;">No malware families detected</div>';
+
+    // Top actors
+    var sortedTa = data.actors
+      .map(function(ta) { return { name: ta, count: data.actorCounts[ta] || 0 }; })
+      .sort(function(a, b) { return b.count - a.count; })
+      .slice(0, 20);
+
+    var taHtml = '';
+    sortedTa.forEach(function(item, i) {
+      var pct = data.totalArticles > 0 ? ((item.count / data.totalArticles) * 100).toFixed(1) : 0;
+      taHtml += '<div class="heatmap-entity-row">';
+      taHtml += '<span class="heatmap-entity-rank">' + (i + 1) + '</span>';
+      taHtml += '<a href="/search?q=' + encodeURIComponent(item.name.split('(')[0].trim()) + '" class="heatmap-entity-name">' + escHtml(item.name) + '</a>';
+      taHtml += '<div class="heatmap-entity-bar-wrap"><div class="heatmap-entity-bar heatmap-bar-actor" style="width:' + Math.max(pct, 2) + '%"></div></div>';
+      taHtml += '<span class="heatmap-entity-count">' + item.count + '</span>';
+      taHtml += '</div>';
+    });
+    document.getElementById('top-actors').innerHTML = taHtml || '<div class="empty" style="padding:1rem;">No threat actors detected</div>';
+  }
+
+  // Period toggle
+  document.querySelectorAll('.trending-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      document.querySelectorAll('.trending-btn').forEach(function(b) { b.classList.remove('active'); b.classList.remove('btn-accent'); });
+      btn.classList.add('active');
+      btn.classList.add('btn-accent');
+      var days = parseInt(btn.getAttribute('data-days'), 10);
+      var labels = { '7': '7 days', '30': '30 days', '90': '90 days', '365': '1 year' };
+      document.getElementById('heatmap-period-label').textContent = labels[days] || days + ' days';
+      loadHeatmap(days);
+    });
+  });
+
+  // Initial load
+  loadHeatmap(90);
+})();
+</script>
+
+<%- include('partials/footer') %>

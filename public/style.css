@@ -257,6 +257,56 @@ a:hover { color: #67e8f9; }
   100% { transform: translateX(-50%); }
 }
 
+/* === CVE Lookup Card === */
+.cve-lookup-card {
+  background: var(--bg-card); border: 1px solid var(--accent);
+  border-radius: var(--radius); padding: 1.25rem 1.5rem; margin-bottom: 2rem;
+  box-shadow: 0 0 0 1px var(--accent-soft);
+}
+.cve-lookup-header {
+  display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.75rem;
+}
+.cve-lookup-icon { width: 18px; height: 18px; color: var(--accent); flex-shrink: 0; }
+.cve-lookup-label {
+  font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--accent); background: var(--accent-soft); padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+}
+.cve-lookup-id {
+  font-size: 1.05rem; font-weight: 700; color: var(--text);
+  text-decoration: none;
+}
+.cve-lookup-id:hover { color: var(--accent); }
+.badge-severity {
+  font-size: 0.65rem; font-weight: 700; padding: 0.15rem 0.5rem;
+  border-radius: 4px; text-transform: uppercase; letter-spacing: 0.04em;
+}
+.badge-severity-critical { background: rgba(239,68,68,0.12); color: var(--red); }
+.badge-severity-high { background: rgba(251,191,36,0.12); color: var(--amber); }
+.badge-severity-medium { background: rgba(167,139,250,0.12); color: var(--purple); }
+.badge-severity-low { background: rgba(34,197,94,0.12); color: #22c55e; }
+.cve-lookup-desc {
+  font-size: 0.875rem; line-height: 1.6; color: var(--text-secondary);
+  margin-bottom: 0.75rem;
+}
+.cve-lookup-meta {
+  display: flex; gap: 1.25rem; font-size: 0.75rem; color: var(--text-muted);
+  margin-bottom: 0.75rem;
+}
+.cve-lookup-refs {
+  display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;
+  font-size: 0.75rem; padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+}
+.cve-lookup-refs-label { color: var(--text-muted); font-weight: 600; flex-shrink: 0; }
+.cve-lookup-ref {
+  color: var(--accent); text-decoration: none; padding: 0.1rem 0.4rem;
+  background: var(--accent-soft); border-radius: 3px; font-size: 0.7rem;
+  max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  display: inline-block;
+}
+.cve-lookup-ref:hover { text-decoration: underline; }
+
 /* === Stats row === */
 .stats-row { display: flex; gap: 0.625rem; flex-wrap: wrap; margin-bottom: 2.5rem; justify-content: center; }
 .stat-card {
@@ -598,3 +648,119 @@ section { margin-bottom: 2.5rem; }
 .health-bar-ok { background: var(--green); }
 .health-bar-fail { background: var(--red); }
 .health-pct { font-size: 0.75rem; font-weight: 600; margin-left: 0.5rem; }
+
+/* === Threat Heatmap === */
+.heatmap-wrapper {
+  overflow-x: auto; overflow-y: visible;
+  -webkit-overflow-scrolling: touch;
+  margin-bottom: 2rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-card);
+}
+.heatmap-table {
+  border-collapse: separate; border-spacing: 2px;
+  width: max-content; min-width: 100%;
+}
+.heatmap-corner {
+  position: sticky; left: 0; z-index: 3;
+  background: var(--bg-card); min-width: 140px;
+}
+.heatmap-col-header {
+  vertical-align: bottom; padding: 0 0.15rem;
+  height: 130px; position: relative;
+}
+.heatmap-col-label {
+  writing-mode: vertical-rl; text-orientation: mixed;
+  transform: rotate(180deg);
+  font-size: 0.68rem; font-weight: 500; color: var(--text-muted);
+  white-space: nowrap; padding: 0.35rem 0.15rem;
+  max-height: 120px; overflow: hidden; text-overflow: ellipsis;
+}
+.heatmap-row-header {
+  position: sticky; left: 0; z-index: 2;
+  background: var(--bg-card);
+  font-size: 0.72rem; font-weight: 500; color: var(--text-secondary);
+  padding: 0.3rem 0.75rem 0.3rem 0.5rem;
+  white-space: nowrap; text-align: right;
+  min-width: 140px; max-width: 180px;
+  overflow: hidden; text-overflow: ellipsis;
+  border-right: 1px solid var(--border);
+}
+.heatmap-cell {
+  width: 34px; height: 34px; min-width: 34px;
+  text-align: center; vertical-align: middle;
+  border-radius: 4px;
+  transition: all 0.15s ease;
+  border: 1px solid transparent;
+  position: relative;
+}
+.heatmap-cell-active { cursor: pointer; }
+.heatmap-cell-active:hover {
+  border-color: var(--text);
+  transform: scale(1.15);
+  z-index: 10;
+  box-shadow: 0 0 8px rgba(34,211,238,0.3);
+}
+.heatmap-cell-num {
+  font-size: 0.6rem; font-weight: 700; color: var(--text);
+  text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+}
+
+/* Tooltip */
+.heatmap-tooltip {
+  display: none; position: fixed; z-index: 9999;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-hover);
+  border-radius: var(--radius-sm);
+  padding: 0.5rem 0.75rem;
+  font-size: 0.78rem; color: var(--text);
+  box-shadow: var(--shadow-lg);
+  pointer-events: none;
+  max-width: 280px;
+  line-height: 1.5;
+}
+
+/* Legend */
+.heatmap-legend {
+  display: flex; align-items: center; gap: 0.5rem;
+  margin-bottom: 1rem; justify-content: flex-end;
+}
+.heatmap-legend-label { font-size: 0.7rem; color: var(--text-muted); font-weight: 500; }
+.heatmap-legend-bar {
+  width: 160px; height: 10px; border-radius: 5px;
+  background: linear-gradient(90deg, rgba(34,211,238,0.15), rgba(34,211,238,0.5), rgba(251,191,36,0.6), rgba(239,68,68,0.9));
+}
+
+/* Entity lists (top malware / actors) */
+.heatmap-entity-list { display: flex; flex-direction: column; gap: 0.35rem; }
+.heatmap-entity-row {
+  display: flex; align-items: center; gap: 0.5rem;
+  padding: 0.4rem 0; border-bottom: 1px solid var(--border);
+}
+.heatmap-entity-row:last-child { border-bottom: none; }
+.heatmap-entity-rank {
+  font-size: 0.7rem; font-weight: 700; color: var(--text-muted);
+  min-width: 20px; text-align: right;
+}
+.heatmap-entity-name {
+  font-size: 0.8rem; font-weight: 500; color: var(--text);
+  min-width: 120px; flex-shrink: 0;
+}
+.heatmap-entity-name:hover { color: var(--accent); text-decoration: none; }
+.heatmap-entity-bar-wrap {
+  flex: 1; height: 6px; border-radius: 3px;
+  background: var(--bg-hover); overflow: hidden;
+}
+.heatmap-entity-bar { height: 100%; border-radius: 3px; min-width: 2px; transition: width 0.4s ease; }
+.heatmap-bar-malware { background: linear-gradient(90deg, var(--accent), var(--red)); }
+.heatmap-bar-actor { background: linear-gradient(90deg, var(--purple), var(--red)); }
+.heatmap-entity-count { font-size: 0.72rem; font-weight: 600; color: var(--accent); min-width: 28px; text-align: right; }
+
+@media (max-width: 768px) {
+  .heatmap-row-header { min-width: 110px; max-width: 130px; font-size: 0.65rem; padding: 0.25rem 0.5rem; }
+  .heatmap-col-label { font-size: 0.6rem; }
+  .heatmap-cell { width: 28px; height: 28px; min-width: 28px; }
+  .heatmap-cell-num { font-size: 0.55rem; }
+  .heatmap-col-header { height: 100px; }
+}

@@ -6,8 +6,9 @@ const feeds = require('../config/feeds.json');
 const { CATEGORY_PATTERNS } = require('../services/categorizer');
 const sectorConfig = require('../config/sectors.json');
 const { sendVerification, isConfigured: smtpConfigured } = require('../services/emailService');
-const { getLatestCVEs } = require('../services/cveFetcher');
+const { getLatestCVEs, lookupCVE, CVE_ID_REGEX } = require('../services/cveFetcher');
 const { generateRSS } = require('../services/feedGenerator');
+const threatmapConfig = require('../config/threatmap.json');
 const router = express.Router();
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
@@ -333,18 +334,27 @@ router.get('/source/:source', (req, res) => {
 });
 
 // Search
-router.get('/search', (req, res) => {
+router.get('/search', async (req, res) => {
   const q = (req.query.q || '').trim();
   const page = getPage(req);
   let articles = [];
   let pages = 0;
+  let cveLookup = null;
+
   if (q) {
     const like = `%${q}%`;
     const total = stmts.searchCount.get(like, like, like).count;
     articles = stmts.searchArticles.all(like, like, like, PER_PAGE, (page - 1) * PER_PAGE);
     pages = Math.ceil(total / PER_PAGE);
+
+    // If query looks like a CVE ID, also fetch directly from NVD
+    if (CVE_ID_REGEX.test(q)) {
+      try {
+        cveLookup = await lookupCVE(q);
+      } catch (_) { /* NVD unavailable, continue with article results */ }
+    }
   }
-  res.render('search', { query: q, articles, page, pages, baseUrl: `/search?q=${encodeURIComponent(q)}` });
+  res.render('search', { query: q, articles, page, pages, cveLookup, baseUrl: `/search?q=${encodeURIComponent(q)}` });
 });
 
 // Sector page
@@ -417,6 +427,11 @@ router.get('/iocs', (req, res) => {
     articles, page, pages, total,
     baseUrl: '/iocs',
   });
+});
+
+// Threat Heatmap page
+router.get('/heatmap', (req, res) => {
+  res.render('heatmap', { pageTitle: 'Threat Heatmap' });
 });
 
 // Trending page
@@ -800,6 +815,125 @@ router.get('/api/trending', (req, res) => {
   res.json({ categories, vendors, sources, days: safeDays });
 });
 
+// GET /api/heatmap — Malware family vs threat actor co-occurrence matrix
+router.get('/api/heatmap', (req, res) => {
+  const days = parseInt(req.query.days, 10) || 90;
+  const safeDays = Math.min(Math.max(days, 1), 365);
+
+  const articles = db.prepare(`
+    SELECT id, title, summary FROM articles
+    WHERE published_at >= datetime('now', '-' || ? || ' days')
+  `).all(safeDays);
+
+  const { malware_families, threat_actors } = threatmapConfig;
+  const malwareNames = Object.keys(malware_families);
+  const actorNames = Object.keys(threat_actors);
+
+  // Build co-occurrence matrix and per-entity article lists
+  const matrix = {};            // matrix[malware][actor] = count
+  const malwareCounts = {};     // total articles per malware
+  const actorCounts = {};       // total articles per actor
+  const cellArticles = {};      // cellArticles[malware][actor] = [article ids]
+
+  for (const mw of malwareNames) {
+    matrix[mw] = {};
+    cellArticles[mw] = {};
+    malwareCounts[mw] = 0;
+    for (const ta of actorNames) {
+      matrix[mw][ta] = 0;
+      cellArticles[mw][ta] = [];
+    }
+  }
+  for (const ta of actorNames) actorCounts[ta] = 0;
+
+  for (const article of articles) {
+    const text = ((article.title || '') + ' ' + (article.summary || '')).toLowerCase();
+
+    // Detect which malware families are mentioned
+    const matchedMalware = [];
+    for (const [mw, keywords] of Object.entries(malware_families)) {
+      for (const kw of keywords) {
+        if (text.includes(kw)) {
+          matchedMalware.push(mw);
+          break;
+        }
+      }
+    }
+
+    // Detect which threat actors are mentioned
+    const matchedActors = [];
+    for (const [ta, keywords] of Object.entries(threat_actors)) {
+      for (const kw of keywords) {
+        if (text.includes(kw)) {
+          matchedActors.push(ta);
+          break;
+        }
+      }
+    }
+
+    // Update individual counts
+    for (const mw of matchedMalware) malwareCounts[mw]++;
+    for (const ta of matchedActors) actorCounts[ta]++;
+
+    // Update co-occurrence matrix
+    for (const mw of matchedMalware) {
+      for (const ta of matchedActors) {
+        matrix[mw][ta]++;
+        cellArticles[mw][ta].push(article.id);
+      }
+    }
+  }
+
+  // Filter to only rows/columns that have at least 1 co-occurrence
+  const activeMalware = malwareNames.filter(mw =>
+    actorNames.some(ta => matrix[mw][ta] > 0)
+  );
+  const activeActors = actorNames.filter(ta =>
+    malwareNames.some(mw => matrix[mw][ta] > 0)
+  );
+
+  // Also include top entities by article count (even without co-occurrence)
+  const topMalware = malwareNames
+    .filter(mw => malwareCounts[mw] > 0)
+    .sort((a, b) => malwareCounts[b] - malwareCounts[a])
+    .slice(0, 30);
+  const topActors = actorNames
+    .filter(ta => actorCounts[ta] > 0)
+    .sort((a, b) => actorCounts[b] - actorCounts[a])
+    .slice(0, 30);
+
+  // Merge: show union of active (co-occurring) and top-by-count
+  const finalMalware = [...new Set([...activeMalware, ...topMalware])];
+  const finalActors = [...new Set([...activeActors, ...topActors])];
+
+  // Build compact matrix for response
+  const compactMatrix = [];
+  let maxCount = 0;
+  for (const mw of finalMalware) {
+    for (const ta of finalActors) {
+      const count = matrix[mw] && matrix[mw][ta] ? matrix[mw][ta] : 0;
+      if (count > maxCount) maxCount = count;
+      compactMatrix.push({
+        malware: mw,
+        actor: ta,
+        count: count,
+        articles: cellArticles[mw] && cellArticles[mw][ta] ? cellArticles[mw][ta].slice(0, 5) : [],
+      });
+    }
+  }
+
+  res.json({
+    malware: finalMalware,
+    actors: finalActors,
+    matrix: compactMatrix,
+    malwareCounts: Object.fromEntries(finalMalware.map(mw => [mw, malwareCounts[mw]])),
+    actorCounts: Object.fromEntries(finalActors.map(ta => [ta, actorCounts[ta]])),
+    maxCount,
+    days: safeDays,
+    totalArticles: articles.length,
+  });
+});
+
 // GET /api/articles/:id/similar — Find duplicate/similar articles
 router.get('/api/articles/:id/similar', (req, res) => {
   const id = parseInt(req.params.id, 10);
@@ -822,6 +956,21 @@ router.get('/api/suggest', (req, res) => {
 router.get('/api/cves', async (req, res) => {
   const cves = await getLatestCVEs();
   res.json(cves);
+});
+
+// Direct CVE lookup API (JSON)
+router.get('/api/cve/:id', async (req, res) => {
+  const id = (req.params.id || '').trim();
+  if (!CVE_ID_REGEX.test(id)) {
+    return res.status(400).json({ error: 'Invalid CVE ID format. Use CVE-YYYY-NNNNN.' });
+  }
+  try {
+    const cve = await lookupCVE(id);
+    if (!cve) return res.status(404).json({ error: 'CVE not found in NVD.' });
+    res.json({ data: cve });
+  } catch (err) {
+    res.status(502).json({ error: 'Failed to fetch from NVD. Try again later.' });
+  }
 });
 
 // Health check (JSON)
