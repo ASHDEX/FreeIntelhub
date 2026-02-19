@@ -5,7 +5,7 @@
 
 const db = require('../db');
 
-const RETENTION_DAYS = parseInt(process.env.ARTICLE_RETENTION_DAYS, 10) || 90;
+const RETENTION_DAYS = parseInt(process.env.ARTICLE_RETENTION_DAYS, 10) || 365;
 
 const deleteOldArticles = db.prepare(`
   DELETE FROM articles WHERE published_at < datetime('now', '-' || ? || ' days')
