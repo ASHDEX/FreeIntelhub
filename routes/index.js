@@ -6,7 +6,7 @@ const feeds = require('../config/feeds.json');
 const { CATEGORY_PATTERNS } = require('../services/categorizer');
 const sectorConfig = require('../config/sectors.json');
 const { sendVerification, isConfigured: smtpConfigured } = require('../services/emailService');
-const { getLatestCVEs, lookupCVE, CVE_ID_REGEX } = require('../services/cveFetcher');
+const { getLatestCVEs, lookupCVE, fullCVELookup, CVE_ID_REGEX } = require('../services/cveFetcher');
 const { generateRSS } = require('../services/feedGenerator');
 const threatmapConfig = require('../config/threatmap.json');
 const router = express.Router();
@@ -432,6 +432,11 @@ router.get('/iocs', (req, res) => {
 // Threat Heatmap page
 router.get('/heatmap', (req, res) => {
   res.render('heatmap', { pageTitle: 'Threat Heatmap' });
+});
+
+// Vulnerability & Exploit Lookup page
+router.get('/vulnerability', (req, res) => {
+  res.render('vulnlookup', { pageTitle: 'Vulnerability & Exploit Lookup', query: '' });
 });
 
 // Trending page
@@ -958,7 +963,7 @@ router.get('/api/cves', async (req, res) => {
   res.json(cves);
 });
 
-// Direct CVE lookup API (JSON)
+// Direct CVE lookup API (JSON) — basic NVD only
 router.get('/api/cve/:id', async (req, res) => {
   const id = (req.params.id || '').trim();
   if (!CVE_ID_REGEX.test(id)) {
@@ -970,6 +975,22 @@ router.get('/api/cve/:id', async (req, res) => {
     res.json({ data: cve });
   } catch (err) {
     res.status(502).json({ error: 'Failed to fetch from NVD. Try again later.' });
+  }
+});
+
+// Full multi-source vulnerability lookup API (JSON)
+router.get('/api/vuln/:id', async (req, res) => {
+  const id = (req.params.id || '').trim();
+  if (!CVE_ID_REGEX.test(id)) {
+    return res.status(400).json({ error: 'Invalid CVE ID format. Use CVE-YYYY-NNNNN.' });
+  }
+  try {
+    const result = await fullCVELookup(id);
+    if (!result) return res.status(404).json({ error: 'CVE not found across any source.' });
+    res.json({ data: result });
+  } catch (err) {
+    console.error('Vuln lookup error:', err.message);
+    res.status(502).json({ error: 'Failed to fetch vulnerability data. Try again later.' });
   }
 });
 
