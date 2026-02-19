@@ -8,6 +8,7 @@ const sectorConfig = require('../config/sectors.json');
 const { sendVerification, isConfigured: smtpConfigured } = require('../services/emailService');
 const { getLatestCVEs } = require('../services/cveFetcher');
 const { generateRSS } = require('../services/feedGenerator');
+const threatmapConfig = require('../config/threatmap.json');
 const router = express.Router();
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
@@ -419,6 +420,11 @@ router.get('/iocs', (req, res) => {
   });
 });
 
+// Threat Heatmap page
+router.get('/heatmap', (req, res) => {
+  res.render('heatmap', { pageTitle: 'Threat Heatmap' });
+});
+
 // Trending page
 router.get('/trending', (req, res) => {
   res.render('trending', { pageTitle: 'Trending' });
@@ -798,6 +804,125 @@ router.get('/api/trending', (req, res) => {
   const vendors = stmts.trendingVendors.all(safeDays);
   const sources = stmts.trendingSources.all(safeDays);
   res.json({ categories, vendors, sources, days: safeDays });
+});
+
+// GET /api/heatmap — Malware family vs threat actor co-occurrence matrix
+router.get('/api/heatmap', (req, res) => {
+  const days = parseInt(req.query.days, 10) || 90;
+  const safeDays = Math.min(Math.max(days, 1), 365);
+
+  const articles = db.prepare(`
+    SELECT id, title, summary FROM articles
+    WHERE published_at >= datetime('now', '-' || ? || ' days')
+  `).all(safeDays);
+
+  const { malware_families, threat_actors } = threatmapConfig;
+  const malwareNames = Object.keys(malware_families);
+  const actorNames = Object.keys(threat_actors);
+
+  // Build co-occurrence matrix and per-entity article lists
+  const matrix = {};            // matrix[malware][actor] = count
+  const malwareCounts = {};     // total articles per malware
+  const actorCounts = {};       // total articles per actor
+  const cellArticles = {};      // cellArticles[malware][actor] = [article ids]
+
+  for (const mw of malwareNames) {
+    matrix[mw] = {};
+    cellArticles[mw] = {};
+    malwareCounts[mw] = 0;
+    for (const ta of actorNames) {
+      matrix[mw][ta] = 0;
+      cellArticles[mw][ta] = [];
+    }
+  }
+  for (const ta of actorNames) actorCounts[ta] = 0;
+
+  for (const article of articles) {
+    const text = ((article.title || '') + ' ' + (article.summary || '')).toLowerCase();
+
+    // Detect which malware families are mentioned
+    const matchedMalware = [];
+    for (const [mw, keywords] of Object.entries(malware_families)) {
+      for (const kw of keywords) {
+        if (text.includes(kw)) {
+          matchedMalware.push(mw);
+          break;
+        }
+      }
+    }
+
+    // Detect which threat actors are mentioned
+    const matchedActors = [];
+    for (const [ta, keywords] of Object.entries(threat_actors)) {
+      for (const kw of keywords) {
+        if (text.includes(kw)) {
+          matchedActors.push(ta);
+          break;
+        }
+      }
+    }
+
+    // Update individual counts
+    for (const mw of matchedMalware) malwareCounts[mw]++;
+    for (const ta of matchedActors) actorCounts[ta]++;
+
+    // Update co-occurrence matrix
+    for (const mw of matchedMalware) {
+      for (const ta of matchedActors) {
+        matrix[mw][ta]++;
+        cellArticles[mw][ta].push(article.id);
+      }
+    }
+  }
+
+  // Filter to only rows/columns that have at least 1 co-occurrence
+  const activeMalware = malwareNames.filter(mw =>
+    actorNames.some(ta => matrix[mw][ta] > 0)
+  );
+  const activeActors = actorNames.filter(ta =>
+    malwareNames.some(mw => matrix[mw][ta] > 0)
+  );
+
+  // Also include top entities by article count (even without co-occurrence)
+  const topMalware = malwareNames
+    .filter(mw => malwareCounts[mw] > 0)
+    .sort((a, b) => malwareCounts[b] - malwareCounts[a])
+    .slice(0, 30);
+  const topActors = actorNames
+    .filter(ta => actorCounts[ta] > 0)
+    .sort((a, b) => actorCounts[b] - actorCounts[a])
+    .slice(0, 30);
+
+  // Merge: show union of active (co-occurring) and top-by-count
+  const finalMalware = [...new Set([...activeMalware, ...topMalware])];
+  const finalActors = [...new Set([...activeActors, ...topActors])];
+
+  // Build compact matrix for response
+  const compactMatrix = [];
+  let maxCount = 0;
+  for (const mw of finalMalware) {
+    for (const ta of finalActors) {
+      const count = matrix[mw] && matrix[mw][ta] ? matrix[mw][ta] : 0;
+      if (count > maxCount) maxCount = count;
+      compactMatrix.push({
+        malware: mw,
+        actor: ta,
+        count: count,
+        articles: cellArticles[mw] && cellArticles[mw][ta] ? cellArticles[mw][ta].slice(0, 5) : [],
+      });
+    }
+  }
+
+  res.json({
+    malware: finalMalware,
+    actors: finalActors,
+    matrix: compactMatrix,
+    malwareCounts: Object.fromEntries(finalMalware.map(mw => [mw, malwareCounts[mw]])),
+    actorCounts: Object.fromEntries(finalActors.map(ta => [ta, actorCounts[ta]])),
+    maxCount,
+    days: safeDays,
+    totalArticles: articles.length,
+  });
 });
 
 // GET /api/articles/:id/similar — Find duplicate/similar articles
