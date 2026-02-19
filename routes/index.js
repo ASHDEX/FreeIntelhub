@@ -8,6 +8,7 @@ const sectorConfig = require('../config/sectors.json');
 const { sendVerification, isConfigured: smtpConfigured } = require('../services/emailService');
 const { getLatestCVEs, lookupCVE, fullCVELookup, CVE_ID_REGEX } = require('../services/cveFetcher');
 const { generateRSS } = require('../services/feedGenerator');
+const threatmapConfig = require('../config/threatmap.json');
 const router = express.Router();
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
@@ -437,6 +438,7 @@ router.get('/heatmap', (req, res) => {
 router.get('/vulnerability', (req, res) => {
   res.render('vulnlookup', { pageTitle: 'Vulnerability & Exploit Lookup', query: '' });
 });
+
 
 // Trending page
 router.get('/trending', (req, res) => {
