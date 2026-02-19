@@ -9,6 +9,36 @@
   <% } %>
 </div>
 
+<% if (typeof cveLookup !== 'undefined' && cveLookup) { %>
+  <div class="cve-lookup-card">
+    <div class="cve-lookup-header">
+      <svg class="cve-lookup-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <span class="cve-lookup-label">NVD Lookup</span>
+      <a href="<%= cveLookup.link %>" target="_blank" rel="noopener noreferrer" class="cve-lookup-id"><%= cveLookup.id %></a>
+      <% if (cveLookup.severity) { %>
+        <span class="badge badge-severity badge-severity-<%= cveLookup.severity.toLowerCase() %>"><%= cveLookup.severity %><% if (cveLookup.score) { %> (<%= cveLookup.score %>)<% } %></span>
+      <% } %>
+    </div>
+    <p class="cve-lookup-desc"><%= cveLookup.description %></p>
+    <div class="cve-lookup-meta">
+      <% if (cveLookup.published) { %>
+        <span>Published: <%= new Date(cveLookup.published).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) %></span>
+      <% } %>
+      <% if (cveLookup.lastModified) { %>
+        <span>Modified: <%= new Date(cveLookup.lastModified).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) %></span>
+      <% } %>
+    </div>
+    <% if (cveLookup.references && cveLookup.references.length > 0) { %>
+      <div class="cve-lookup-refs">
+        <span class="cve-lookup-refs-label">References:</span>
+        <% cveLookup.references.forEach(function(ref) { %>
+          <a href="<%= ref.url %>" target="_blank" rel="noopener noreferrer" class="cve-lookup-ref"><%= ref.source || ref.url %></a>
+        <% }); %>
+      </div>
+    <% } %>
+  </div>
+<% } %>
+
 <%- include('partials/articleList', { articles }) %>
 <%- include('partials/pagination', { page, pages, baseUrl }) %>
 

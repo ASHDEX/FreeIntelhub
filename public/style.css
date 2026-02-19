@@ -257,6 +257,56 @@ a:hover { color: #67e8f9; }
   100% { transform: translateX(-50%); }
 }
 
+/* === CVE Lookup Card === */
+.cve-lookup-card {
+  background: var(--bg-card); border: 1px solid var(--accent);
+  border-radius: var(--radius); padding: 1.25rem 1.5rem; margin-bottom: 2rem;
+  box-shadow: 0 0 0 1px var(--accent-soft);
+}
+.cve-lookup-header {
+  display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.75rem;
+}
+.cve-lookup-icon { width: 18px; height: 18px; color: var(--accent); flex-shrink: 0; }
+.cve-lookup-label {
+  font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--accent); background: var(--accent-soft); padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+}
+.cve-lookup-id {
+  font-size: 1.05rem; font-weight: 700; color: var(--text);
+  text-decoration: none;
+}
+.cve-lookup-id:hover { color: var(--accent); }
+.badge-severity {
+  font-size: 0.65rem; font-weight: 700; padding: 0.15rem 0.5rem;
+  border-radius: 4px; text-transform: uppercase; letter-spacing: 0.04em;
+}
+.badge-severity-critical { background: rgba(239,68,68,0.12); color: var(--red); }
+.badge-severity-high { background: rgba(251,191,36,0.12); color: var(--amber); }
+.badge-severity-medium { background: rgba(167,139,250,0.12); color: var(--purple); }
+.badge-severity-low { background: rgba(34,197,94,0.12); color: #22c55e; }
+.cve-lookup-desc {
+  font-size: 0.875rem; line-height: 1.6; color: var(--text-secondary);
+  margin-bottom: 0.75rem;
+}
+.cve-lookup-meta {
+  display: flex; gap: 1.25rem; font-size: 0.75rem; color: var(--text-muted);
+  margin-bottom: 0.75rem;
+}
+.cve-lookup-refs {
+  display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;
+  font-size: 0.75rem; padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+}
+.cve-lookup-refs-label { color: var(--text-muted); font-weight: 600; flex-shrink: 0; }
+.cve-lookup-ref {
+  color: var(--accent); text-decoration: none; padding: 0.1rem 0.4rem;
+  background: var(--accent-soft); border-radius: 3px; font-size: 0.7rem;
+  max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  display: inline-block;
+}
+.cve-lookup-ref:hover { text-decoration: underline; }
+
 /* === Stats row === */
 .stats-row { display: flex; gap: 0.625rem; flex-wrap: wrap; margin-bottom: 2.5rem; justify-content: center; }
 .stat-card {

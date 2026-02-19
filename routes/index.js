@@ -6,7 +6,7 @@ const feeds = require('../config/feeds.json');
 const { CATEGORY_PATTERNS } = require('../services/categorizer');
 const sectorConfig = require('../config/sectors.json');
 const { sendVerification, isConfigured: smtpConfigured } = require('../services/emailService');
-const { getLatestCVEs } = require('../services/cveFetcher');
+const { getLatestCVEs, lookupCVE, CVE_ID_REGEX } = require('../services/cveFetcher');
 const { generateRSS } = require('../services/feedGenerator');
 const threatmapConfig = require('../config/threatmap.json');
 const router = express.Router();
@@ -334,18 +334,27 @@ router.get('/source/:source', (req, res) => {
 });
 
 // Search
-router.get('/search', (req, res) => {
+router.get('/search', async (req, res) => {
   const q = (req.query.q || '').trim();
   const page = getPage(req);
   let articles = [];
   let pages = 0;
+  let cveLookup = null;
+
   if (q) {
     const like = `%${q}%`;
     const total = stmts.searchCount.get(like, like, like).count;
     articles = stmts.searchArticles.all(like, like, like, PER_PAGE, (page - 1) * PER_PAGE);
     pages = Math.ceil(total / PER_PAGE);
+
+    // If query looks like a CVE ID, also fetch directly from NVD
+    if (CVE_ID_REGEX.test(q)) {
+      try {
+        cveLookup = await lookupCVE(q);
+      } catch (_) { /* NVD unavailable, continue with article results */ }
+    }
   }
-  res.render('search', { query: q, articles, page, pages, baseUrl: `/search?q=${encodeURIComponent(q)}` });
+  res.render('search', { query: q, articles, page, pages, cveLookup, baseUrl: `/search?q=${encodeURIComponent(q)}` });
 });
 
 // Sector page
@@ -947,6 +956,21 @@ router.get('/api/suggest', (req, res) => {
 router.get('/api/cves', async (req, res) => {
   const cves = await getLatestCVEs();
   res.json(cves);
+});
+
+// Direct CVE lookup API (JSON)
+router.get('/api/cve/:id', async (req, res) => {
+  const id = (req.params.id || '').trim();
+  if (!CVE_ID_REGEX.test(id)) {
+    return res.status(400).json({ error: 'Invalid CVE ID format. Use CVE-YYYY-NNNNN.' });
+  }
+  try {
+    const cve = await lookupCVE(id);
+    if (!cve) return res.status(404).json({ error: 'CVE not found in NVD.' });
+    res.json({ data: cve });
+  } catch (err) {
+    res.status(502).json({ error: 'Failed to fetch from NVD. Try again later.' });
+  }
 });
 
 // Health check (JSON)
