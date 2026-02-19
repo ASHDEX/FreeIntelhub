@@ -16,153 +16,88 @@
   <script src="/app.js" defer></script>
 </head>
 <body>
-
-  <!-- Top bar (hamburger + logo + search + theme) -->
-  <header class="topbar">
-    <button class="sidebar-toggle" id="sidebar-toggle" aria-label="Toggle navigation">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
-    </button>
-    <a href="/" class="logo">Free<span>Intel</span>Hub</a>
-    <div class="topbar-right">
-      <form action="/search" method="GET" class="nav-search">
-        <svg class="nav-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-        <input type="text" name="q" placeholder="Search..." value="<%= typeof query !== 'undefined' ? query : '' %>">
-      </form>
-      <button class="theme-toggle" id="theme-toggle" title="Toggle theme">
-        <svg class="theme-icon-dark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
-        <svg class="theme-icon-light" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-      </button>
-    </div>
-  </header>
-
-  <!-- Overlay (click to close sidebar) -->
-  <div class="sidebar-overlay" id="sidebar-overlay"></div>
-
-  <!-- Sidebar -->
-  <aside class="sidebar" id="sidebar">
-    <div class="sidebar-head">
+  <nav class="navbar">
+    <div class="container nav-inner">
       <a href="/" class="logo">Free<span>Intel</span>Hub</a>
-      <button class="sidebar-close" id="sidebar-close" aria-label="Close navigation">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
-      </button>
+
+      <div class="nav-tabs" id="nav-tabs">
+        <a href="/" class="nav-tab<%= currentPath === '/' ? ' active' : '' %>">Feed</a>
+
+        <div class="nav-dropdown">
+          <a href="/sources" class="nav-tab<%= currentPath === '/sources' || currentPath.startsWith('/source/') ? ' active' : '' %>">Sources <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></a>
+          <div class="dropdown-menu">
+            <% navSources.forEach(function(s) { %>
+              <a href="/source/<%= encodeURIComponent(s) %>" class="dropdown-item"><%= s %></a>
+            <% }); %>
+            <div class="dropdown-divider"></div>
+            <a href="/sources" class="dropdown-item dropdown-all">View all sources</a>
+          </div>
+        </div>
+
+        <div class="nav-dropdown">
+          <a href="/vendors" class="nav-tab<%= currentPath === '/vendors' || currentPath.startsWith('/vendor/') ? ' active' : '' %>">Vendors <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></a>
+          <div class="dropdown-menu dropdown-menu-scroll">
+            <% (typeof vendors !== 'undefined' ? vendors : []).slice(0, 15).forEach(function(v) { %>
+              <a href="/vendor/<%= encodeURIComponent(v.vendor) %>" class="dropdown-item"><%= v.vendor %></a>
+            <% }); %>
+            <div class="dropdown-divider"></div>
+            <a href="/vendors" class="dropdown-item dropdown-all">View all vendors</a>
+          </div>
+        </div>
+
+        <div class="nav-dropdown">
+          <a href="/categories" class="nav-tab<%= currentPath === '/categories' || currentPath.startsWith('/category/') ? ' active' : '' %>">Threats <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></a>
+          <div class="dropdown-menu">
+            <% navCategories.forEach(function(c) { %>
+              <a href="/category/<%= encodeURIComponent(c) %>" class="dropdown-item"><%= c %></a>
+            <% }); %>
+            <div class="dropdown-divider"></div>
+            <a href="/categories" class="dropdown-item dropdown-all">View all types</a>
+          </div>
+        </div>
+
+        <div class="nav-dropdown">
+          <a href="/sectors" class="nav-tab<%= currentPath === '/sectors' || currentPath.startsWith('/sector/') ? ' active' : '' %>">Sectors <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></a>
+          <div class="dropdown-menu dropdown-menu-scroll">
+            <% navSectors.forEach(function(s) { %>
+              <a href="/sector/<%= encodeURIComponent(s) %>" class="dropdown-item"><%= s %></a>
+            <% }); %>
+            <div class="dropdown-divider"></div>
+            <a href="/sectors" class="dropdown-item dropdown-all">View all sectors</a>
+          </div>
+        </div>
+
+        <div class="nav-dropdown">
+          <a href="/trending" class="nav-tab<%= currentPath === '/trending' || currentPath === '/bookmarks' || currentPath === '/mitre' || currentPath === '/iocs' ? ' active' : '' %>">Tools <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></a>
+          <div class="dropdown-menu">
+            <a href="/trending" class="dropdown-item">Trending</a>
+            <a href="/mitre" class="dropdown-item">MITRE ATT&CK</a>
+            <a href="/iocs" class="dropdown-item">IOC Feed</a>
+            <a href="/bookmarks" class="dropdown-item">Bookmarks</a>
+            <div class="dropdown-divider"></div>
+            <a href="/feed/all.xml" class="dropdown-item">RSS Feed</a>
+            <a href="/api/articles" class="dropdown-item">API</a>
+          </div>
+        </div>
+
+        <a href="/alerts" class="nav-tab nav-tab-alert<%= currentPath === '/alerts' ? ' active' : '' %>">
+          <svg class="alert-bell" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          Alerts
+        </a>
+      </div>
+
+      <div class="nav-right">
+        <button class="theme-toggle" id="theme-toggle" title="Toggle theme">
+          <svg class="theme-icon-dark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+          <svg class="theme-icon-light" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        </button>
+        <form action="/search" method="GET" class="nav-search">
+          <svg class="nav-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <input type="text" name="q" placeholder="Search..." value="<%= typeof query !== 'undefined' ? query : '' %>">
+        </form>
+      </div>
+
+      <button class="nav-toggle" onclick="document.getElementById('nav-tabs').classList.toggle('open')">&#9776;</button>
     </div>
-
-    <nav class="sidebar-nav">
-      <a href="/" class="sidebar-link<%= currentPath === '/' ? ' active' : '' %>">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
-        Feed
-      </a>
-
-      <!-- Sources -->
-      <div class="sidebar-dropdown">
-        <button class="sidebar-link<%= currentPath === '/sources' || currentPath.startsWith('/source/') ? ' active' : '' %>">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
-          Sources
-          <svg class="sidebar-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
-        </button>
-        <div class="sidebar-sub">
-          <% navSources.forEach(function(s) { %>
-            <a href="/source/<%= encodeURIComponent(s) %>" class="sidebar-sub-link"><%= s %></a>
-          <% }); %>
-          <div class="sidebar-divider"></div>
-          <a href="/sources" class="sidebar-sub-link sidebar-sub-all">View all sources</a>
-        </div>
-      </div>
-
-      <!-- Vendors -->
-      <div class="sidebar-dropdown">
-        <button class="sidebar-link<%= currentPath === '/vendors' || currentPath.startsWith('/vendor/') ? ' active' : '' %>">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-          Vendors
-          <svg class="sidebar-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
-        </button>
-        <div class="sidebar-sub sidebar-sub-scroll">
-          <% (typeof vendors !== 'undefined' ? vendors : []).slice(0, 15).forEach(function(v) { %>
-            <a href="/vendor/<%= encodeURIComponent(v.vendor) %>" class="sidebar-sub-link"><%= v.vendor %></a>
-          <% }); %>
-          <div class="sidebar-divider"></div>
-          <a href="/vendors" class="sidebar-sub-link sidebar-sub-all">View all vendors</a>
-        </div>
-      </div>
-
-      <!-- Threats -->
-      <div class="sidebar-dropdown">
-        <button class="sidebar-link<%= currentPath === '/categories' || currentPath.startsWith('/category/') ? ' active' : '' %>">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-          Threats
-          <svg class="sidebar-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
-        </button>
-        <div class="sidebar-sub">
-          <% navCategories.forEach(function(c) { %>
-            <a href="/category/<%= encodeURIComponent(c) %>" class="sidebar-sub-link"><%= c %></a>
-          <% }); %>
-          <div class="sidebar-divider"></div>
-          <a href="/categories" class="sidebar-sub-link sidebar-sub-all">View all types</a>
-        </div>
-      </div>
-
-      <!-- Sectors -->
-      <div class="sidebar-dropdown">
-        <button class="sidebar-link<%= currentPath === '/sectors' || currentPath.startsWith('/sector/') ? ' active' : '' %>">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
-          Sectors
-          <svg class="sidebar-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
-        </button>
-        <div class="sidebar-sub sidebar-sub-scroll">
-          <% navSectors.forEach(function(s) { %>
-            <a href="/sector/<%= encodeURIComponent(s) %>" class="sidebar-sub-link"><%= s %></a>
-          <% }); %>
-          <div class="sidebar-divider"></div>
-          <a href="/sectors" class="sidebar-sub-link sidebar-sub-all">View all sectors</a>
-        </div>
-      </div>
-
-      <div class="sidebar-divider"></div>
-
-      <!-- Tools -->
-      <div class="sidebar-dropdown">
-        <button class="sidebar-link<%= currentPath === '/trending' || currentPath === '/bookmarks' || currentPath === '/mitre' || currentPath === '/iocs' ? ' active' : '' %>">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
-          Tools
-          <svg class="sidebar-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
-        </button>
-        <div class="sidebar-sub">
-          <a href="/trending" class="sidebar-sub-link">Trending</a>
-          <a href="/mitre" class="sidebar-sub-link">MITRE ATT&CK</a>
-          <a href="/iocs" class="sidebar-sub-link">IOC Feed</a>
-          <a href="/bookmarks" class="sidebar-sub-link">Bookmarks</a>
-          <div class="sidebar-divider"></div>
-          <a href="/feed/all.xml" class="sidebar-sub-link">RSS Feed</a>
-          <a href="/api/articles" class="sidebar-sub-link">API</a>
-        </div>
-      </div>
-
-      <!-- IOC Lookup -->
-      <div class="sidebar-dropdown">
-        <button class="sidebar-link<%= currentPath === '/lookup' || currentPath === '/keys' ? ' active' : '' %>">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-          IOC Lookup
-          <svg class="sidebar-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
-        </button>
-        <div class="sidebar-sub">
-          <a href="/lookup?providers=virustotal" class="sidebar-sub-link">VirusTotal</a>
-          <a href="/lookup?providers=abuseipdb" class="sidebar-sub-link">AbuseIPDB</a>
-          <a href="/lookup?providers=threatfox" class="sidebar-sub-link">ThreatFox (Abuse.ch)</a>
-          <a href="/lookup?providers=malwarebazaar" class="sidebar-sub-link">MalwareBazaar (Abuse.ch)</a>
-          <div class="sidebar-divider"></div>
-          <a href="/lookup" class="sidebar-sub-link sidebar-sub-all">All providers</a>
-          <a href="/keys" class="sidebar-sub-link">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px;vertical-align:-2px;margin-right:4px;"><path d="m21 2-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0 3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>API Keys
-          </a>
-        </div>
-      </div>
-
-      <!-- Alerts -->
-      <a href="/alerts" class="sidebar-link<%= currentPath === '/alerts' ? ' active' : '' %>">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-        Alerts
-      </a>
-    </nav>
-  </aside>
-
+  </nav>
   <main class="container">
