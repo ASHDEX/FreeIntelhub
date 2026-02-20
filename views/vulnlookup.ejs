@@ -1,21 +1,25 @@
 <%- include('partials/head', { pageTitle: 'Vulnerability & Exploit Lookup' }) %>
 
-<div class="page-header">
-  <h1>Vulnerability & Exploit Lookup</h1>
-  <p>Search any CVE across 40+ vulnerability databases, exploit repositories, and threat intel sources.</p>
-</div>
-
-<div class="vuln-search-section">
-  <div class="vuln-search-box">
-    <div class="vuln-search-wrapper">
-      <svg class="vuln-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-      <input type="text" id="vuln-search-input" placeholder="Enter CVE ID (e.g. CVE-2024-21887)..." autocomplete="off" spellcheck="false" value="<%= typeof query !== 'undefined' ? query : '' %>">
-      <button id="vuln-search-btn" class="vuln-search-btn" disabled>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
-      </button>
+<!-- Hero search section — vertically centered before results, collapses after -->
+<div id="vuln-hero" class="vuln-hero">
+  <div class="vuln-hero-inner">
+    <div class="vuln-hero-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
     </div>
-    <div id="vuln-suggestions" class="vuln-suggestions"></div>
-    <p class="vuln-search-hint">Type a CVE ID like <code>CVE-2024-3400</code> or <code>CVE-2023-44228</code></p>
+    <h1 class="vuln-hero-title">Vulnerability & Exploit Lookup</h1>
+    <p class="vuln-hero-subtitle">Search any CVE across 40+ vulnerability databases, exploit repositories, and threat intel sources.</p>
+
+    <div class="vuln-search-box">
+      <div class="vuln-search-wrapper">
+        <svg class="vuln-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <input type="text" id="vuln-search-input" placeholder="Enter CVE ID (e.g. CVE-2024-21887)..." autocomplete="off" spellcheck="false" value="<%= typeof query !== 'undefined' ? query : '' %>">
+        <button id="vuln-search-btn" class="vuln-search-btn" disabled>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+        </button>
+      </div>
+      <div id="vuln-suggestions" class="vuln-suggestions"></div>
+      <p class="vuln-search-hint">Type a CVE ID like <code>CVE-2024-3400</code> or <code>CVE-2023-44228</code> &mdash; press Enter to search</p>
+    </div>
   </div>
 </div>
 
@@ -31,36 +35,54 @@
 <!-- Results container -->
 <div id="vuln-results" style="display:none;">
 
-  <!-- Header card with severity -->
+  <!-- ===== 1. CVE Overview Card ===== -->
   <div id="vuln-header-card" class="vuln-card vuln-header-card"></div>
 
-  <!-- Exploitation & PoC status -->
-  <div id="vuln-exploit-status" class="vuln-status-row"></div>
+  <!-- ===== 2. Exploitation & PoC Status Panel ===== -->
+  <div class="vuln-panel vuln-panel-status">
+    <h2 class="vuln-panel-title">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+      Exploitation & PoC Status
+    </h2>
+    <div id="vuln-exploit-status" class="vuln-status-grid"></div>
+  </div>
 
-  <!-- CISA KEV details -->
-  <div id="vuln-cisa" class="vuln-card" style="display:none;"></div>
+  <!-- ===== 3. CISA KEV details ===== -->
+  <div id="vuln-cisa" class="vuln-card vuln-cisa-card" style="display:none;"></div>
 
-  <!-- Source results tabs -->
-  <div class="vuln-sources-section">
-    <h2 class="vuln-section-title">Source Results</h2>
+  <!-- ===== 4. Source Results ===== -->
+  <div class="vuln-panel">
+    <h2 class="vuln-panel-title">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+      Source Results
+    </h2>
     <div id="vuln-source-cards" class="vuln-source-grid"></div>
   </div>
 
-  <!-- Affected packages (from OSV / GitHub) -->
+  <!-- ===== 5. Affected Packages ===== -->
   <div id="vuln-affected" class="vuln-card" style="display:none;">
-    <h3 class="vuln-card-title">Affected Packages</h3>
+    <h3 class="vuln-card-title">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+      Affected Packages
+    </h3>
     <div id="vuln-affected-list"></div>
   </div>
 
-  <!-- References -->
+  <!-- ===== 6. References ===== -->
   <div id="vuln-references" class="vuln-card" style="display:none;">
-    <h3 class="vuln-card-title">References</h3>
+    <h3 class="vuln-card-title">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+      References
+    </h3>
     <div id="vuln-refs-list"></div>
   </div>
 
-  <!-- External database links -->
-  <div class="vuln-external-section">
-    <h2 class="vuln-section-title">Lookup in 40+ Databases</h2>
+  <!-- ===== 7. External Database Links ===== -->
+  <div class="vuln-panel vuln-panel-links">
+    <h2 class="vuln-panel-title">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15,3 21,3 21,9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+      Lookup in 40+ Databases
+    </h2>
 
     <h3 class="vuln-subsection-title">Vulnerability Databases</h3>
     <div id="vuln-db-links" class="vuln-link-grid"></div>
@@ -73,6 +95,7 @@
 
 <script>
 (function() {
+  var hero = document.getElementById('vuln-hero');
   var input = document.getElementById('vuln-search-input');
   var btn = document.getElementById('vuln-search-btn');
   var sugBox = document.getElementById('vuln-suggestions');
@@ -91,7 +114,6 @@
     var v = input.value.trim();
     btn.disabled = !CVE_RE.test(v);
 
-    // Show live suggestions/format hints
     clearTimeout(debounce);
     if (v.length === 0) { sugBox.innerHTML = ''; sugBox.style.display = 'none'; return; }
 
@@ -109,7 +131,6 @@
         + '</div>';
       sugBox.style.display = 'block';
 
-      // If user typed at least "CVE-2024-" fetch recent CVEs for suggestions
       debounce = setTimeout(function() {
         if (/^CVE-\d{4}-\d{1,}$/i.test(v)) {
           fetchSuggestions(v.toUpperCase());
@@ -140,7 +161,6 @@
             + '<span class="vuln-sug-desc">' + escHtml(c.description || '') + '</span>'
             + '</div>';
         }).join('');
-        // Keep the "keep typing" hint + add matches
         sugBox.innerHTML = sugBox.innerHTML + html;
       })
       .catch(function() {});
@@ -183,11 +203,12 @@
   });
 
   function doLookup(cveId) {
+    // Collapse hero to compact mode
+    hero.classList.add('vuln-hero-compact');
     loading.style.display = 'flex';
     errorEl.style.display = 'none';
     results.style.display = 'none';
 
-    // Update URL without reload
     history.replaceState(null, '', '/vulnerability?cve=' + encodeURIComponent(cveId));
 
     fetch('/api/vuln/' + encodeURIComponent(cveId))
@@ -209,7 +230,7 @@
   function renderResults(data) {
     results.style.display = 'block';
 
-    // Header card
+    // ===== Header card =====
     var sevClass = data.severity ? 'vuln-severity-' + data.severity.toLowerCase() : '';
     var headerHtml = '<div class="vuln-header-top">'
       + '<a href="' + escHtml(data.link) + '" target="_blank" rel="noopener noreferrer" class="vuln-header-id">' + escHtml(data.id) + '</a>';
@@ -225,9 +246,9 @@
     }
 
     headerHtml += '<div class="vuln-header-meta">';
-    if (data.published) headerHtml += '<span>Published: ' + new Date(data.published).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) + '</span>';
-    if (data.lastModified) headerHtml += '<span>Modified: ' + new Date(data.lastModified).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) + '</span>';
-    if (data.vector) headerHtml += '<span class="vuln-vector"><code>' + escHtml(data.vector) + '</code></span>';
+    if (data.published) headerHtml += '<span><strong>Published:</strong> ' + new Date(data.published).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) + '</span>';
+    if (data.lastModified) headerHtml += '<span><strong>Modified:</strong> ' + new Date(data.lastModified).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) + '</span>';
+    if (data.vector) headerHtml += '<span class="vuln-vector"><strong>Vector:</strong> <code>' + escHtml(data.vector) + '</code></span>';
     headerHtml += '</div>';
 
     if (data.weaknesses && data.weaknesses.length > 0) {
@@ -239,62 +260,96 @@
     }
     document.getElementById('vuln-header-card').innerHTML = headerHtml;
 
-    // Exploitation status
-    var statusHtml = '<div class="vuln-status-item ' + (data.exploitedInWild ? 'vuln-status-danger' : 'vuln-status-safe') + '">'
-      + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">'
+    // ===== Exploitation & PoC status =====
+    var statusHtml = '';
+
+    // Exploited in the wild
+    statusHtml += '<div class="vuln-status-card ' + (data.exploitedInWild ? 'vuln-status-danger' : 'vuln-status-safe') + '">'
+      + '<div class="vuln-status-icon">'
+      + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">'
       + (data.exploitedInWild
         ? '<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>'
         : '<circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>')
       + '</svg>'
-      + '<span>' + (data.exploitedInWild ? 'Exploited in the Wild (CISA KEV)' : 'Not in CISA Known Exploited Vulnerabilities') + '</span>'
+      + '</div>'
+      + '<div class="vuln-status-text">'
+      + '<span class="vuln-status-label">Exploited in the Wild</span>'
+      + '<span class="vuln-status-value">' + (data.exploitedInWild ? 'YES &mdash; Listed in CISA KEV' : 'Not in CISA Known Exploited Vulnerabilities') + '</span>'
+      + '</div>'
       + '</div>';
 
-    statusHtml += '<div class="vuln-status-item ' + (data.hasKnownExploit ? 'vuln-status-warn' : 'vuln-status-safe') + '">'
-      + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">'
+    // PoC / Exploit presence
+    statusHtml += '<div class="vuln-status-card ' + (data.hasKnownExploit ? 'vuln-status-warn' : 'vuln-status-safe') + '">'
+      + '<div class="vuln-status-icon">'
+      + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">'
       + (data.hasKnownExploit
         ? '<path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>'
         : '<circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>')
       + '</svg>'
-      + '<span>' + (data.hasKnownExploit ? 'PoC / Exploit References Found' : 'No Known PoC / Exploit References') + '</span>'
+      + '</div>'
+      + '<div class="vuln-status-text">'
+      + '<span class="vuln-status-label">PoC / Exploit Available</span>'
+      + '<span class="vuln-status-value">' + (data.hasKnownExploit ? 'YES &mdash; Public exploit or PoC references found' : 'No known public PoC or exploit references') + '</span>'
+      + '</div>'
       + '</div>';
+
+    // Ransomware use (from CISA KEV)
+    if (data.cisaKev) {
+      var ransomware = data.cisaKev.knownRansomwareCampaignUse || 'Unknown';
+      var isRansomware = ransomware.toLowerCase() === 'known';
+      statusHtml += '<div class="vuln-status-card ' + (isRansomware ? 'vuln-status-danger' : 'vuln-status-neutral') + '">'
+        + '<div class="vuln-status-icon">'
+        + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>'
+        + '</div>'
+        + '<div class="vuln-status-text">'
+        + '<span class="vuln-status-label">Ransomware Campaign Use</span>'
+        + '<span class="vuln-status-value">' + escHtml(ransomware) + '</span>'
+        + '</div>'
+        + '</div>';
+    }
 
     document.getElementById('vuln-exploit-status').innerHTML = statusHtml;
 
-    // CISA KEV details
+    // ===== CISA KEV details =====
     var cisaEl = document.getElementById('vuln-cisa');
     if (data.cisaKev) {
       var k = data.cisaKev;
       cisaEl.style.display = 'block';
-      cisaEl.innerHTML = '<h3 class="vuln-card-title vuln-cisa-title">CISA Known Exploited Vulnerability</h3>'
+      cisaEl.innerHTML = '<h3 class="vuln-card-title vuln-cisa-title">'
+        + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>'
+        + 'CISA Known Exploited Vulnerability'
+        + '</h3>'
         + '<div class="vuln-cisa-grid">'
-        + '<div><strong>Vendor</strong><span>' + escHtml(k.vendorProject) + '</span></div>'
-        + '<div><strong>Product</strong><span>' + escHtml(k.product) + '</span></div>'
-        + '<div><strong>Date Added</strong><span>' + escHtml(k.dateAdded) + '</span></div>'
-        + '<div><strong>Due Date</strong><span>' + escHtml(k.dueDate) + '</span></div>'
-        + '<div><strong>Ransomware Use</strong><span>' + escHtml(k.knownRansomwareCampaignUse) + '</span></div>'
+        + '<div class="vuln-cisa-field"><span class="vuln-cisa-key">Vendor</span><span class="vuln-cisa-val">' + escHtml(k.vendorProject) + '</span></div>'
+        + '<div class="vuln-cisa-field"><span class="vuln-cisa-key">Product</span><span class="vuln-cisa-val">' + escHtml(k.product) + '</span></div>'
+        + '<div class="vuln-cisa-field"><span class="vuln-cisa-key">Date Added</span><span class="vuln-cisa-val">' + escHtml(k.dateAdded) + '</span></div>'
+        + '<div class="vuln-cisa-field"><span class="vuln-cisa-key">Due Date</span><span class="vuln-cisa-val">' + escHtml(k.dueDate) + '</span></div>'
         + '</div>'
         + '<p class="vuln-cisa-desc">' + escHtml(k.shortDescription) + '</p>'
-        + (k.requiredAction ? '<p class="vuln-cisa-action"><strong>Required Action:</strong> ' + escHtml(k.requiredAction) + '</p>' : '');
+        + (k.requiredAction ? '<div class="vuln-cisa-action"><strong>Required Action:</strong> ' + escHtml(k.requiredAction) + '</div>' : '');
     } else {
       cisaEl.style.display = 'none';
     }
 
-    // Source result cards
+    // ===== Source result cards =====
     var sourceHtml = '';
     var sources = data.sources;
     var sourceList = [
-      { key: 'nvd', name: 'NIST NVD', icon: 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z' },
-      { key: 'osv', name: 'OSV.dev', icon: 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z' },
-      { key: 'github', name: 'GitHub Advisory', icon: 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z' },
-      { key: 'cisa_kev', name: 'CISA KEV', icon: 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z' },
+      { key: 'nvd', name: 'NIST NVD', icon: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>' },
+      { key: 'osv', name: 'OSV.dev', icon: '<circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>' },
+      { key: 'github', name: 'GitHub Advisory', icon: '<path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/>' },
+      { key: 'cisa_kev', name: 'CISA KEV', icon: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>' },
     ];
     sourceList.forEach(function(s) {
       var src = sources[s.key];
       var found = src && src.status === 'found';
       sourceHtml += '<div class="vuln-source-card ' + (found ? 'vuln-source-found' : 'vuln-source-miss') + '">'
         + '<div class="vuln-source-header">'
+        + '<div class="vuln-source-name-row">'
+        + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">' + s.icon + '</svg>'
         + '<span class="vuln-source-name">' + escHtml(s.name) + '</span>'
-        + '<span class="vuln-source-status">' + (found ? 'Found' : 'Not Found') + '</span>'
+        + '</div>'
+        + '<span class="vuln-source-badge ' + (found ? 'vuln-badge-found' : 'vuln-badge-miss') + '">' + (found ? 'Found' : 'Not Found') + '</span>'
         + '</div>';
       if (found && s.key === 'osv' && src.data) {
         sourceHtml += '<p class="vuln-source-detail">' + escHtml(src.data.summary || src.data.details || '') + '</p>';
@@ -311,7 +366,7 @@
     });
     document.getElementById('vuln-source-cards').innerHTML = sourceHtml;
 
-    // Affected packages
+    // ===== Affected packages =====
     var affectedEl = document.getElementById('vuln-affected');
     var affectedList = document.getElementById('vuln-affected-list');
     var packages = [];
@@ -332,7 +387,7 @@
       affectedEl.style.display = 'none';
     }
 
-    // References
+    // ===== References =====
     var refsEl = document.getElementById('vuln-references');
     var refsList = document.getElementById('vuln-refs-list');
     if (data.references && data.references.length > 0) {
@@ -347,7 +402,7 @@
       refsEl.style.display = 'none';
     }
 
-    // External links
+    // ===== External links =====
     var links = data.externalLinks;
     if (links) {
       var dbHtml = links.vulnerability_databases.map(function(l) {
@@ -369,7 +424,7 @@
     }
 
     // Scroll to results
-    results.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    document.getElementById('vuln-header-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   // Auto-lookup from URL param

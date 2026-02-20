@@ -311,39 +311,77 @@ a:hover { color: #67e8f9; }
 .nav-tab-vuln { display: flex; align-items: center; gap: 0.3rem; }
 .vuln-nav-icon { width: 14px; height: 14px; flex-shrink: 0; }
 
-/* === Vulnerability Lookup Page === */
-.vuln-search-section { margin-bottom: 2rem; text-align: center; }
+/* === Vulnerability Lookup Page — Hero Search === */
+.vuln-hero {
+  display: flex; align-items: center; justify-content: center;
+  min-height: calc(60vh - 60px); text-align: center;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  padding: 2rem 0;
+}
+.vuln-hero-inner { max-width: 680px; width: 100%; }
+.vuln-hero-icon {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 56px; height: 56px; border-radius: 50%;
+  background: var(--accent-soft); color: var(--accent);
+  margin-bottom: 1.25rem;
+}
+.vuln-hero-icon svg { width: 28px; height: 28px; }
+.vuln-hero-title {
+  font-size: 1.75rem; font-weight: 800; color: var(--text);
+  margin-bottom: 0.5rem; letter-spacing: -0.02em;
+}
+.vuln-hero-subtitle {
+  font-size: 0.9rem; color: var(--text-muted); line-height: 1.6;
+  margin-bottom: 2rem; max-width: 500px; margin-left: auto; margin-right: auto;
+}
+
+/* Hero compact mode (after search) */
+.vuln-hero-compact {
+  min-height: unset; padding: 1rem 0;
+}
+.vuln-hero-compact .vuln-hero-icon,
+.vuln-hero-compact .vuln-hero-title,
+.vuln-hero-compact .vuln-hero-subtitle {
+  display: none;
+}
+
+/* Search box */
 .vuln-search-box { position: relative; max-width: 600px; margin: 0 auto; }
 .vuln-search-wrapper {
-  display: flex; align-items: center; gap: 0.5rem;
+  display: flex; align-items: center; gap: 0.65rem;
   background: var(--bg-card); border: 2px solid var(--border);
-  border-radius: var(--radius); padding: 0.75rem 1rem;
+  border-radius: var(--radius); padding: 0.9rem 1.15rem;
   transition: all var(--transition);
+  box-shadow: var(--shadow-sm);
 }
-.vuln-search-wrapper:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
-.vuln-search-icon { width: 20px; height: 20px; color: var(--text-muted); flex-shrink: 0; }
+.vuln-search-wrapper:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 4px var(--accent-soft), var(--shadow-md);
+}
+.vuln-search-icon { width: 22px; height: 22px; color: var(--text-muted); flex-shrink: 0; }
 .vuln-search-wrapper input {
   flex: 1; background: none; border: none; color: var(--text);
-  font-size: 1rem; font-family: var(--font); outline: none;
+  font-size: 1.05rem; font-family: var(--font); outline: none;
   letter-spacing: 0.02em;
 }
 .vuln-search-wrapper input::placeholder { color: var(--text-muted); }
 .vuln-search-btn {
   background: var(--accent); color: var(--bg); border: none;
-  border-radius: var(--radius-xs); padding: 0.4rem 0.6rem;
+  border-radius: var(--radius-xs); padding: 0.45rem 0.7rem;
   cursor: pointer; display: flex; align-items: center;
   transition: all var(--transition); opacity: 1;
 }
 .vuln-search-btn:disabled { opacity: 0.3; cursor: default; }
-.vuln-search-btn:not(:disabled):hover { transform: scale(1.05); }
+.vuln-search-btn:not(:disabled):hover { transform: scale(1.08); }
 .vuln-search-btn svg { width: 18px; height: 18px; }
 .vuln-search-hint {
-  margin-top: 0.5rem; font-size: 0.75rem; color: var(--text-muted);
+  margin-top: 0.75rem; font-size: 0.78rem; color: var(--text-muted);
 }
 .vuln-search-hint code {
-  background: var(--bg-elevated); padding: 0.1rem 0.3rem;
-  border-radius: 3px; font-size: 0.7rem;
+  background: var(--bg-elevated); padding: 0.12rem 0.35rem;
+  border-radius: 3px; font-size: 0.72rem;
 }
+.vuln-hero-compact .vuln-search-hint { display: none; }
 
 /* Suggestions dropdown */
 .vuln-suggestions {
@@ -386,7 +424,7 @@ a:hover { color: #67e8f9; }
   gap: 1rem; padding: 3rem 0; color: var(--text-muted);
 }
 .vuln-spinner {
-  width: 32px; height: 32px; border: 3px solid var(--border);
+  width: 36px; height: 36px; border: 3px solid var(--border);
   border-top-color: var(--accent); border-radius: 50%;
   animation: vuln-spin 0.8s linear infinite;
 }
@@ -399,6 +437,19 @@ a:hover { color: #67e8f9; }
   color: var(--red); text-align: center; margin-bottom: 1.5rem;
 }
 
+/* Panels */
+.vuln-panel {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 1.25rem 1.5rem;
+  margin-bottom: 1rem;
+}
+.vuln-panel-title {
+  font-size: 0.95rem; font-weight: 700; color: var(--text);
+  margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;
+  padding-bottom: 0.65rem; border-bottom: 1px solid var(--border);
+}
+.vuln-panel-title svg { color: var(--accent); flex-shrink: 0; }
+
 /* Cards */
 .vuln-card {
   background: var(--bg-card); border: 1px solid var(--border);
@@ -410,24 +461,25 @@ a:hover { color: #67e8f9; }
   margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem;
 }
 
-/* Header card */
+/* Header card (CVE overview) */
 .vuln-header-card { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent-soft); }
 .vuln-header-top { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
-.vuln-header-id { font-size: 1.3rem; font-weight: 800; color: var(--text); text-decoration: none; letter-spacing: -0.01em; }
+.vuln-header-id { font-size: 1.4rem; font-weight: 800; color: var(--text); text-decoration: none; letter-spacing: -0.01em; }
 .vuln-header-id:hover { color: var(--accent); }
 .vuln-severity-badge {
-  font-size: 0.7rem; font-weight: 700; padding: 0.2rem 0.6rem;
+  font-size: 0.72rem; font-weight: 700; padding: 0.25rem 0.7rem;
   border-radius: 4px; text-transform: uppercase; letter-spacing: 0.04em;
 }
 .vuln-severity-critical { background: rgba(239,68,68,0.15); color: var(--red); border: 1px solid rgba(239,68,68,0.3); }
 .vuln-severity-high { background: rgba(251,191,36,0.15); color: var(--amber); border: 1px solid rgba(251,191,36,0.3); }
 .vuln-severity-medium { background: rgba(167,139,250,0.15); color: var(--purple); border: 1px solid rgba(167,139,250,0.3); }
 .vuln-severity-low { background: rgba(34,197,94,0.15); color: #22c55e; border: 1px solid rgba(34,197,94,0.3); }
-.vuln-header-desc { font-size: 0.875rem; line-height: 1.65; color: var(--text-secondary); margin-bottom: 0.75rem; }
+.vuln-header-desc { font-size: 0.875rem; line-height: 1.7; color: var(--text-secondary); margin-bottom: 0.75rem; }
 .vuln-header-meta {
   display: flex; gap: 1.25rem; flex-wrap: wrap;
-  font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.5rem;
+  font-size: 0.78rem; color: var(--text-muted); margin-bottom: 0.5rem;
 }
+.vuln-header-meta strong { color: var(--text-secondary); font-weight: 600; }
 .vuln-vector code {
   background: var(--bg-elevated); padding: 0.15rem 0.4rem;
   border-radius: 3px; font-size: 0.68rem;
@@ -438,55 +490,84 @@ a:hover { color: #67e8f9; }
   border-radius: 3px; background: rgba(167,139,250,0.1); color: var(--purple);
 }
 
-/* Exploitation status row */
-.vuln-status-row {
-  display: flex; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 1rem;
+/* === Exploitation & PoC Status Grid === */
+.vuln-status-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 0.75rem;
 }
-.vuln-status-item {
-  display: flex; align-items: center; gap: 0.5rem;
-  padding: 0.65rem 1rem; border-radius: var(--radius-sm);
-  font-size: 0.8rem; font-weight: 600; flex: 1; min-width: 240px;
+.vuln-status-card {
+  display: flex; align-items: flex-start; gap: 0.85rem;
+  padding: 1rem 1.15rem; border-radius: var(--radius-sm);
+  transition: all var(--transition);
 }
-.vuln-status-danger { background: rgba(239,68,68,0.1); color: var(--red); border: 1px solid rgba(239,68,68,0.2); }
-.vuln-status-warn { background: rgba(251,191,36,0.1); color: var(--amber); border: 1px solid rgba(251,191,36,0.2); }
-.vuln-status-safe { background: rgba(34,197,94,0.08); color: var(--green); border: 1px solid rgba(34,197,94,0.15); }
+.vuln-status-icon {
+  flex-shrink: 0; width: 40px; height: 40px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 50%;
+}
+.vuln-status-danger { background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.2); }
+.vuln-status-danger .vuln-status-icon { background: rgba(239,68,68,0.15); color: var(--red); }
+.vuln-status-warn { background: rgba(251,191,36,0.08); border: 1px solid rgba(251,191,36,0.2); }
+.vuln-status-warn .vuln-status-icon { background: rgba(251,191,36,0.15); color: var(--amber); }
+.vuln-status-safe { background: rgba(34,197,94,0.06); border: 1px solid rgba(34,197,94,0.12); }
+.vuln-status-safe .vuln-status-icon { background: rgba(34,197,94,0.12); color: var(--green); }
+.vuln-status-neutral { background: var(--bg-elevated); border: 1px solid var(--border); }
+.vuln-status-neutral .vuln-status-icon { background: var(--bg-hover); color: var(--text-muted); }
+.vuln-status-text { flex: 1; min-width: 0; }
+.vuln-status-label {
+  display: block; font-size: 0.7rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.04em;
+  color: var(--text-muted); margin-bottom: 0.2rem;
+}
+.vuln-status-value { display: block; font-size: 0.82rem; font-weight: 600; color: var(--text); }
+.vuln-status-danger .vuln-status-value { color: var(--red); }
+.vuln-status-warn .vuln-status-value { color: var(--amber); }
+.vuln-status-safe .vuln-status-value { color: var(--green); }
 
 /* CISA KEV card */
+.vuln-cisa-card { border-left: 3px solid var(--red); }
 .vuln-cisa-title { color: var(--red); }
 .vuln-cisa-grid {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 0.5rem; margin-bottom: 0.75rem;
+  gap: 0.65rem; margin-bottom: 0.85rem;
 }
-.vuln-cisa-grid > div { font-size: 0.78rem; }
-.vuln-cisa-grid strong { display: block; font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 0.15rem; }
-.vuln-cisa-grid span { color: var(--text); }
-.vuln-cisa-desc { font-size: 0.8rem; color: var(--text-secondary); line-height: 1.5; }
-.vuln-cisa-action { font-size: 0.78rem; color: var(--amber); margin-top: 0.5rem; }
+.vuln-cisa-field {}
+.vuln-cisa-key {
+  display: block; font-size: 0.62rem; font-weight: 700; color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.15rem;
+}
+.vuln-cisa-val { display: block; font-size: 0.82rem; color: var(--text); font-weight: 500; }
+.vuln-cisa-desc { font-size: 0.82rem; color: var(--text-secondary); line-height: 1.55; }
+.vuln-cisa-action {
+  font-size: 0.8rem; color: var(--amber); margin-top: 0.65rem;
+  padding: 0.6rem 0.8rem; background: rgba(251,191,36,0.06);
+  border-radius: var(--radius-xs); border: 1px solid rgba(251,191,36,0.12);
+}
 
-/* Source cards grid */
-.vuln-sources-section { margin-bottom: 1.5rem; }
-.vuln-section-title {
-  font-size: 1rem; font-weight: 700; color: var(--text);
-  margin-bottom: 0.75rem; padding-bottom: 0.5rem;
-  border-bottom: 1px solid var(--border);
-}
+/* Source cards */
 .vuln-subsection-title {
   font-size: 0.85rem; font-weight: 600; color: var(--text-secondary);
   margin: 1rem 0 0.5rem;
 }
 .vuln-source-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 0.75rem; }
 .vuln-source-card {
-  background: var(--bg-card); border: 1px solid var(--border);
+  background: var(--bg-elevated); border: 1px solid var(--border);
   border-radius: var(--radius-sm); padding: 0.85rem 1rem;
   transition: all var(--transition);
 }
 .vuln-source-found { border-left: 3px solid var(--green); }
-.vuln-source-miss { border-left: 3px solid var(--text-muted); opacity: 0.6; }
-.vuln-source-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.35rem; }
-.vuln-source-name { font-size: 0.8rem; font-weight: 700; color: var(--text); }
-.vuln-source-status { font-size: 0.65rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
-.vuln-source-found .vuln-source-status { color: var(--green); }
-.vuln-source-miss .vuln-source-status { color: var(--text-muted); }
+.vuln-source-miss { border-left: 3px solid var(--text-muted); opacity: 0.55; }
+.vuln-source-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.4rem; }
+.vuln-source-name-row { display: flex; align-items: center; gap: 0.4rem; }
+.vuln-source-name-row svg { color: var(--text-muted); }
+.vuln-source-found .vuln-source-name-row svg { color: var(--accent); }
+.vuln-source-name { font-size: 0.82rem; font-weight: 700; color: var(--text); }
+.vuln-source-badge {
+  font-size: 0.62rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.04em; padding: 0.15rem 0.4rem; border-radius: 3px;
+}
+.vuln-badge-found { background: rgba(34,197,94,0.12); color: var(--green); }
+.vuln-badge-miss { background: var(--bg-hover); color: var(--text-muted); }
 .vuln-source-detail {
   font-size: 0.75rem; color: var(--text-secondary); line-height: 1.45;
   overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
@@ -499,7 +580,7 @@ a:hover { color: #67e8f9; }
 
 /* Affected packages */
 .vuln-affected-item {
-  padding: 0.35rem 0; border-bottom: 1px solid var(--border); font-size: 0.78rem;
+  padding: 0.4rem 0; border-bottom: 1px solid var(--border); font-size: 0.8rem;
 }
 .vuln-affected-item:last-child { border-bottom: none; }
 .vuln-affected-item code { font-size: 0.75rem; color: var(--accent); }
@@ -507,14 +588,14 @@ a:hover { color: #67e8f9; }
 /* References */
 .vuln-ref-item {
   display: flex; align-items: center; gap: 0.5rem;
-  padding: 0.4rem 0; border-bottom: 1px solid var(--border);
+  padding: 0.45rem 0; border-bottom: 1px solid var(--border);
   text-decoration: none; transition: background var(--transition);
 }
 .vuln-ref-item:last-child { border-bottom: none; }
-.vuln-ref-item:hover { background: var(--bg-hover); }
+.vuln-ref-item:hover { background: var(--bg-hover); margin: 0 -0.5rem; padding-left: 0.5rem; padding-right: 0.5rem; border-radius: var(--radius-xs); }
 .vuln-ref-source {
   font-size: 0.68rem; font-weight: 600; color: var(--accent);
-  background: var(--accent-soft); padding: 0.1rem 0.4rem;
+  background: var(--accent-soft); padding: 0.12rem 0.45rem;
   border-radius: 3px; flex-shrink: 0; min-width: 60px; text-align: center;
 }
 .vuln-ref-url {
@@ -523,7 +604,11 @@ a:hover { color: #67e8f9; }
 }
 
 /* External links grid */
-.vuln-external-section { margin-top: 1.5rem; }
+.vuln-panel-links { background: transparent; border: none; padding: 0; }
+.vuln-panel-links .vuln-panel-title {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 1rem 1.5rem; margin-bottom: 0.75rem;
+}
 .vuln-link-grid {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
   gap: 0.5rem;
@@ -535,7 +620,7 @@ a:hover { color: #67e8f9; }
   border-radius: var(--radius-xs); text-decoration: none;
   transition: all var(--transition); font-size: 0.75rem;
 }
-.vuln-ext-link:hover { border-color: var(--accent); background: var(--bg-hover); transform: translateY(-1px); }
+.vuln-ext-link:hover { border-color: var(--accent); background: var(--bg-hover); transform: translateY(-1px); box-shadow: var(--shadow-sm); }
 .vuln-ext-name { color: var(--text); font-weight: 500; }
 .vuln-ext-link svg { color: var(--text-muted); flex-shrink: 0; }
 .vuln-link-primary { border-left: 2px solid var(--accent); }
@@ -549,13 +634,16 @@ a:hover { color: #67e8f9; }
 .vuln-link-bugbounty { border-left: 2px solid var(--green); }
 
 @media (max-width: 768px) {
-  .vuln-search-wrapper { padding: 0.6rem 0.75rem; }
-  .vuln-search-wrapper input { font-size: 0.9rem; }
+  .vuln-hero { min-height: calc(50vh - 60px); padding: 1.5rem 0; }
+  .vuln-hero-title { font-size: 1.3rem; }
+  .vuln-hero-subtitle { font-size: 0.82rem; }
+  .vuln-search-wrapper { padding: 0.7rem 0.85rem; }
+  .vuln-search-wrapper input { font-size: 0.92rem; }
   .vuln-link-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
-  .vuln-status-row { flex-direction: column; }
-  .vuln-status-item { min-width: unset; }
+  .vuln-status-grid { grid-template-columns: 1fr; }
   .vuln-source-grid { grid-template-columns: 1fr; }
   .vuln-header-id { font-size: 1.1rem; }
+  .vuln-panel { padding: 1rem; }
 }
 
 /* === Stats row === */
