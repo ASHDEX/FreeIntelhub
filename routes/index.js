@@ -439,6 +439,7 @@ router.get('/vulnerability', (req, res) => {
   res.render('vulnlookup', { pageTitle: 'Vulnerability & Exploit Lookup', query: '' });
 });
 
+
 // Trending page
 router.get('/trending', (req, res) => {
   res.render('trending', { pageTitle: 'Trending' });
