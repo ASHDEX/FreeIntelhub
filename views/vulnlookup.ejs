@@ -19,14 +19,36 @@
       </div>
       <div id="vuln-suggestions" class="vuln-suggestions"></div>
       <p class="vuln-search-hint">Type a CVE ID like <code>CVE-2024-3400</code> or <code>CVE-2023-44228</code> &mdash; press Enter to search</p>
+      <!-- Search history chips -->
+      <div id="vuln-history" class="vuln-history" style="display:none;"></div>
     </div>
+  </div>
+</div>
+
+<!-- Recent / Trending CVEs grid (shown before search) -->
+<div id="vuln-recent" class="vuln-recent-section">
+  <div class="vuln-recent-header">
+    <h2 class="vuln-recent-title">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg>
+      Latest Published CVEs
+    </h2>
+  </div>
+  <div id="vuln-recent-grid" class="vuln-recent-grid">
+    <div class="vuln-recent-loading">Loading latest CVEs...</div>
   </div>
 </div>
 
 <!-- Loading state -->
 <div id="vuln-loading" class="vuln-loading" style="display:none;">
   <div class="vuln-spinner"></div>
-  <p>Querying NVD, MITRE, GitHub Advisory, OSV.dev, CISA KEV and more...</p>
+  <p id="vuln-loading-text">Querying NVD, MITRE, GitHub Advisory, OSV.dev, CISA KEV, EPSS and more...</p>
+  <div class="vuln-loading-sources" id="vuln-loading-sources">
+    <span class="vuln-loading-chip">NVD</span>
+    <span class="vuln-loading-chip">OSV.dev</span>
+    <span class="vuln-loading-chip">GitHub</span>
+    <span class="vuln-loading-chip">CISA KEV</span>
+    <span class="vuln-loading-chip">EPSS</span>
+  </div>
 </div>
 
 <!-- Error state -->
@@ -38,7 +60,13 @@
   <!-- ===== 1. CVE Overview Card ===== -->
   <div id="vuln-header-card" class="vuln-card vuln-header-card"></div>
 
-  <!-- ===== 2. Exploitation & PoC Status Panel ===== -->
+  <!-- ===== 2. EPSS Score Card ===== -->
+  <div id="vuln-epss-card" class="vuln-card vuln-epss-card" style="display:none;"></div>
+
+  <!-- ===== 3. CVSS Breakdown ===== -->
+  <div id="vuln-cvss-breakdown" class="vuln-card" style="display:none;"></div>
+
+  <!-- ===== 4. Exploitation & PoC Status Panel ===== -->
   <div class="vuln-panel vuln-panel-status">
     <h2 class="vuln-panel-title">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
@@ -47,10 +75,42 @@
     <div id="vuln-exploit-status" class="vuln-status-grid"></div>
   </div>
 
-  <!-- ===== 3. CISA KEV details ===== -->
+  <!-- ===== 5. CISA KEV details ===== -->
   <div id="vuln-cisa" class="vuln-card vuln-cisa-card" style="display:none;"></div>
 
-  <!-- ===== 4. Source Results ===== -->
+  <!-- ===== 5b. Threat Intelligence Panel ===== -->
+  <div id="vuln-threat-intel" class="vuln-panel vuln-panel-threat" style="display:none;">
+    <h2 class="vuln-panel-title">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M12 8v4"/><circle cx="12" cy="16" r="0.5"/></svg>
+      Threat Intelligence
+    </h2>
+
+    <!-- Threat Actor stat bar -->
+    <div id="threat-stats" class="threat-stats-bar"></div>
+
+    <!-- Threat Actors -->
+    <h3 class="vuln-subsection-title">Associated Threat Actors</h3>
+    <div id="threat-actors" class="threat-actor-grid"></div>
+
+    <!-- Industry Sector Heatmap -->
+    <h3 class="vuln-subsection-title">Industry Sector Targeting Heatmap</h3>
+    <div class="threat-heatmap-legend">
+      <span class="threat-legend-label">Impact:</span>
+      <span class="threat-legend-item"><span class="threat-heat-swatch threat-heat-bg-0"></span>None</span>
+      <span class="threat-legend-item"><span class="threat-heat-swatch threat-heat-bg-1"></span>Low</span>
+      <span class="threat-legend-item"><span class="threat-heat-swatch threat-heat-bg-2"></span>Medium</span>
+      <span class="threat-legend-item"><span class="threat-heat-swatch threat-heat-bg-3"></span>High</span>
+      <span class="threat-legend-item"><span class="threat-heat-swatch threat-heat-bg-4"></span>Very High</span>
+      <span class="threat-legend-item"><span class="threat-heat-swatch threat-heat-bg-5"></span>Critical</span>
+    </div>
+    <div id="threat-heatmap" class="threat-heatmap-grid"></div>
+
+    <!-- Known Incidents / Breaches -->
+    <h3 class="vuln-subsection-title">Known Security Incidents & Breaches</h3>
+    <div id="threat-incidents" class="threat-incidents-list"></div>
+  </div>
+
+  <!-- ===== 6. Source Results ===== -->
   <div class="vuln-panel">
     <h2 class="vuln-panel-title">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
@@ -59,7 +119,7 @@
     <div id="vuln-source-cards" class="vuln-source-grid"></div>
   </div>
 
-  <!-- ===== 5. Affected Packages ===== -->
+  <!-- ===== 7. Affected Packages ===== -->
   <div id="vuln-affected" class="vuln-card" style="display:none;">
     <h3 class="vuln-card-title">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
@@ -68,7 +128,7 @@
     <div id="vuln-affected-list"></div>
   </div>
 
-  <!-- ===== 6. References ===== -->
+  <!-- ===== 8. References ===== -->
   <div id="vuln-references" class="vuln-card" style="display:none;">
     <h3 class="vuln-card-title">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
@@ -77,7 +137,7 @@
     <div id="vuln-refs-list"></div>
   </div>
 
-  <!-- ===== 7. External Database Links ===== -->
+  <!-- ===== 9. External Database Links ===== -->
   <div class="vuln-panel vuln-panel-links">
     <h2 class="vuln-panel-title">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15,3 21,3 21,9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
@@ -102,6 +162,8 @@
   var loading = document.getElementById('vuln-loading');
   var errorEl = document.getElementById('vuln-error');
   var results = document.getElementById('vuln-results');
+  var recentSection = document.getElementById('vuln-recent');
+  var historyEl = document.getElementById('vuln-history');
 
   var CVE_RE = /^CVE-\d{4}-\d{4,}$/i;
   var PARTIAL_RE = /^(C|CV|CVE|CVE-|CVE-\d{0,4}|CVE-\d{4}-|CVE-\d{4}-\d{0,})$/i;
@@ -109,7 +171,133 @@
 
   function escHtml(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 
-  // Validate and enable button
+  // ===== Search History (localStorage) =====
+  var HISTORY_KEY = 'vuln_search_history';
+  var MAX_HISTORY = 8;
+
+  function getHistory() {
+    try { return JSON.parse(localStorage.getItem(HISTORY_KEY)) || []; }
+    catch (e) { return []; }
+  }
+
+  function addToHistory(cveId, severity) {
+    var history = getHistory();
+    history = history.filter(function(h) { return h.id !== cveId; });
+    history.unshift({ id: cveId, severity: severity || '', time: Date.now() });
+    if (history.length > MAX_HISTORY) history = history.slice(0, MAX_HISTORY);
+    try { localStorage.setItem(HISTORY_KEY, JSON.stringify(history)); } catch (e) {}
+    renderHistory();
+  }
+
+  function renderHistory() {
+    var history = getHistory();
+    if (history.length === 0) { historyEl.style.display = 'none'; return; }
+    historyEl.style.display = 'flex';
+    var html = '<span class="vuln-history-label">Recent:</span>';
+    history.forEach(function(h) {
+      var sevClass = h.severity ? ' vuln-hist-' + h.severity.toLowerCase() : '';
+      html += '<button class="vuln-history-chip' + sevClass + '" data-cve="' + escHtml(h.id) + '">' + escHtml(h.id) + '</button>';
+    });
+    historyEl.innerHTML = html;
+  }
+
+  historyEl.addEventListener('click', function(e) {
+    var chip = e.target.closest('[data-cve]');
+    if (chip) {
+      input.value = chip.getAttribute('data-cve');
+      btn.disabled = false;
+      sugBox.style.display = 'none';
+      doLookup(chip.getAttribute('data-cve'));
+    }
+  });
+
+  renderHistory();
+
+  // ===== Recent CVEs on page load =====
+  function loadRecentCVEs() {
+    fetch('/api/cves')
+      .then(function(r) { return r.json(); })
+      .then(function(cves) {
+        if (!cves || cves.length === 0) {
+          document.getElementById('vuln-recent-grid').innerHTML = '<p class="vuln-recent-empty">No recent CVEs available.</p>';
+          return;
+        }
+        var html = cves.slice(0, 9).map(function(c) {
+          var sevClass = c.severity ? 'vuln-severity-' + c.severity.toLowerCase() : '';
+          var sevBadge = c.severity
+            ? '<span class="vuln-severity-badge vuln-recent-sev ' + sevClass + '">' + escHtml(c.severity) + '</span>'
+            : '';
+          return '<div class="vuln-recent-card" data-cve="' + escHtml(c.id) + '">'
+            + '<div class="vuln-recent-card-top">'
+            + '<span class="vuln-recent-card-id">' + escHtml(c.id) + '</span>'
+            + sevBadge
+            + '</div>'
+            + '<p class="vuln-recent-card-desc">' + escHtml(c.description || 'No description available.') + '</p>'
+            + '</div>';
+        }).join('');
+        document.getElementById('vuln-recent-grid').innerHTML = html;
+      })
+      .catch(function() {
+        document.getElementById('vuln-recent-grid').innerHTML = '<p class="vuln-recent-empty">Could not load recent CVEs.</p>';
+      });
+  }
+
+  // Click on recent CVE card
+  document.getElementById('vuln-recent-grid').addEventListener('click', function(e) {
+    var card = e.target.closest('[data-cve]');
+    if (card) {
+      input.value = card.getAttribute('data-cve');
+      btn.disabled = false;
+      doLookup(card.getAttribute('data-cve'));
+    }
+  });
+
+  // ===== CVSS Vector Parsing =====
+  var CVSS_LABELS = {
+    AV: { name: 'Attack Vector', N: 'Network', A: 'Adjacent', L: 'Local', P: 'Physical' },
+    AC: { name: 'Attack Complexity', L: 'Low', H: 'High' },
+    PR: { name: 'Privileges Required', N: 'None', L: 'Low', H: 'High' },
+    UI: { name: 'User Interaction', N: 'None', R: 'Required' },
+    S:  { name: 'Scope', U: 'Unchanged', C: 'Changed' },
+    C:  { name: 'Confidentiality', N: 'None', L: 'Low', H: 'High' },
+    I:  { name: 'Integrity', N: 'None', L: 'Low', H: 'High' },
+    A:  { name: 'Availability', N: 'None', L: 'Low', H: 'High' },
+  };
+
+  var CVSS_DANGER = {
+    AV: { N: 'high', A: 'medium', L: 'low', P: 'low' },
+    AC: { L: 'high', H: 'low' },
+    PR: { N: 'high', L: 'medium', H: 'low' },
+    UI: { N: 'high', R: 'low' },
+    S:  { C: 'high', U: 'low' },
+    C:  { H: 'high', L: 'medium', N: 'low' },
+    I:  { H: 'high', L: 'medium', N: 'low' },
+    A:  { H: 'high', L: 'medium', N: 'low' },
+  };
+
+  function parseCVSSVector(vector) {
+    if (!vector || !vector.includes('/')) return null;
+    var parts = vector.split('/');
+    var metrics = [];
+    parts.forEach(function(part) {
+      var kv = part.split(':');
+      if (kv.length === 2 && CVSS_LABELS[kv[0]]) {
+        var key = kv[0], val = kv[1];
+        var info = CVSS_LABELS[key];
+        var danger = (CVSS_DANGER[key] && CVSS_DANGER[key][val]) || 'low';
+        metrics.push({
+          key: key,
+          name: info.name,
+          value: info[val] || val,
+          code: val,
+          danger: danger,
+        });
+      }
+    });
+    return metrics.length > 0 ? metrics : null;
+  }
+
+  // ===== Input validation and suggestions =====
   input.addEventListener('input', function() {
     var v = input.value.trim();
     btn.disabled = !CVE_RE.test(v);
@@ -202,9 +390,23 @@
     if (!e.target.closest('.vuln-search-box')) { sugBox.style.display = 'none'; }
   });
 
+  // ===== Copy to clipboard helper =====
+  function copyToClipboard(text, btnEl) {
+    navigator.clipboard.writeText(text).then(function() {
+      btnEl.classList.add('vuln-copied');
+      btnEl.setAttribute('title', 'Copied!');
+      setTimeout(function() {
+        btnEl.classList.remove('vuln-copied');
+        btnEl.setAttribute('title', 'Copy CVE ID');
+      }, 1500);
+    }).catch(function() {});
+  }
+
+  // ===== Main Lookup =====
   function doLookup(cveId) {
     // Collapse hero to compact mode
     hero.classList.add('vuln-hero-compact');
+    recentSection.style.display = 'none';
     loading.style.display = 'flex';
     errorEl.style.display = 'none';
     results.style.display = 'none';
@@ -218,6 +420,7 @@
       })
       .then(function(json) {
         loading.style.display = 'none';
+        addToHistory(json.data.id, json.data.severity);
         renderResults(json.data);
       })
       .catch(function(err) {
@@ -233,7 +436,11 @@
     // ===== Header card =====
     var sevClass = data.severity ? 'vuln-severity-' + data.severity.toLowerCase() : '';
     var headerHtml = '<div class="vuln-header-top">'
-      + '<a href="' + escHtml(data.link) + '" target="_blank" rel="noopener noreferrer" class="vuln-header-id">' + escHtml(data.id) + '</a>';
+      + '<a href="' + escHtml(data.link) + '" target="_blank" rel="noopener noreferrer" class="vuln-header-id">' + escHtml(data.id) + '</a>'
+      + '<button class="vuln-copy-btn" title="Copy CVE ID" data-copy="' + escHtml(data.id) + '">'
+      + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>'
+      + '<svg class="vuln-copy-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="m9 12 2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg>'
+      + '</button>';
 
     if (data.severity) {
       headerHtml += '<span class="vuln-severity-badge ' + sevClass + '">'
@@ -260,8 +467,98 @@
     }
     document.getElementById('vuln-header-card').innerHTML = headerHtml;
 
+    // Bind copy button
+    var copyBtn = document.querySelector('.vuln-copy-btn[data-copy]');
+    if (copyBtn) {
+      copyBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        copyToClipboard(this.getAttribute('data-copy'), this);
+      });
+    }
+
+    // ===== EPSS Score Card =====
+    var epssCard = document.getElementById('vuln-epss-card');
+    if (data.epss) {
+      var epssPercent = (data.epss.score * 100).toFixed(2);
+      var epssPctile = (data.epss.percentile * 100).toFixed(1);
+      var epssLevel = data.epss.score >= 0.1 ? 'high' : data.epss.score >= 0.01 ? 'medium' : 'low';
+
+      epssCard.style.display = 'block';
+      epssCard.innerHTML = '<div class="vuln-epss-content">'
+        + '<div class="vuln-epss-gauge">'
+        + '<div class="vuln-epss-ring vuln-epss-' + epssLevel + '">'
+        + '<span class="vuln-epss-number">' + epssPercent + '%</span>'
+        + '</div>'
+        + '<span class="vuln-epss-gauge-label">EPSS Score</span>'
+        + '</div>'
+        + '<div class="vuln-epss-details">'
+        + '<h3 class="vuln-card-title">'
+        + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>'
+        + 'Exploit Prediction Scoring System (EPSS)'
+        + '</h3>'
+        + '<p class="vuln-epss-desc">Probability of exploitation in the next 30 days based on FIRST.org EPSS model.</p>'
+        + '<div class="vuln-epss-stats">'
+        + '<div class="vuln-epss-stat">'
+        + '<span class="vuln-epss-stat-label">Exploitation Probability</span>'
+        + '<span class="vuln-epss-stat-value vuln-epss-val-' + epssLevel + '">' + epssPercent + '%</span>'
+        + '</div>'
+        + '<div class="vuln-epss-stat">'
+        + '<span class="vuln-epss-stat-label">Percentile Rank</span>'
+        + '<span class="vuln-epss-stat-value">' + epssPctile + '%</span>'
+        + '</div>'
+        + '</div>'
+        + '<div class="vuln-epss-bar-container">'
+        + '<div class="vuln-epss-bar-bg">'
+        + '<div class="vuln-epss-bar-fill vuln-epss-bar-' + epssLevel + '" style="width:' + Math.min(parseFloat(epssPctile), 100) + '%"></div>'
+        + '</div>'
+        + '<span class="vuln-epss-bar-label">Higher than ' + epssPctile + '% of all CVEs</span>'
+        + '</div>'
+        + '</div>'
+        + '</div>';
+    } else {
+      epssCard.style.display = 'none';
+    }
+
+    // ===== CVSS Vector Breakdown =====
+    var cvssEl = document.getElementById('vuln-cvss-breakdown');
+    var metrics = parseCVSSVector(data.vector);
+    if (metrics) {
+      cvssEl.style.display = 'block';
+      var cvssHtml = '<h3 class="vuln-card-title">'
+        + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>'
+        + 'CVSS Vector Breakdown'
+        + '</h3>'
+        + '<div class="vuln-cvss-grid">';
+      metrics.forEach(function(m) {
+        cvssHtml += '<div class="vuln-cvss-metric">'
+          + '<span class="vuln-cvss-metric-label">' + escHtml(m.name) + '</span>'
+          + '<span class="vuln-cvss-metric-value vuln-cvss-' + m.danger + '">' + escHtml(m.value) + '</span>'
+          + '</div>';
+      });
+      cvssHtml += '</div>';
+      cvssEl.innerHTML = cvssHtml;
+    } else {
+      cvssEl.style.display = 'none';
+    }
+
     // ===== Exploitation & PoC status =====
     var statusHtml = '';
+
+    // EPSS quick status (if available)
+    if (data.epss) {
+      var eLvl = data.epss.score >= 0.1 ? 'vuln-status-danger' : data.epss.score >= 0.01 ? 'vuln-status-warn' : 'vuln-status-safe';
+      var eLabel = data.epss.score >= 0.1 ? 'HIGH risk of exploitation' : data.epss.score >= 0.01 ? 'MODERATE risk of exploitation' : 'LOW risk of exploitation';
+      statusHtml += '<div class="vuln-status-card ' + eLvl + '">'
+        + '<div class="vuln-status-icon">'
+        + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>'
+        + '</div>'
+        + '<div class="vuln-status-text">'
+        + '<span class="vuln-status-label">EPSS (30-day Exploit Probability)</span>'
+        + '<span class="vuln-status-value">' + (data.epss.score * 100).toFixed(2) + '% &mdash; ' + eLabel + '</span>'
+        + '</div>'
+        + '</div>';
+    }
+
 
     // Exploited in the wild
     statusHtml += '<div class="vuln-status-card ' + (data.exploitedInWild ? 'vuln-status-danger' : 'vuln-status-safe') + '">'
@@ -330,6 +627,92 @@
     } else {
       cisaEl.style.display = 'none';
     }
+
+    // ===== Threat Intelligence Panel =====
+    var threatPanel = document.getElementById('vuln-threat-intel');
+    if (data.threatIntel) {
+      var ti = data.threatIntel;
+      threatPanel.style.display = 'block';
+
+      // Stats bar
+      var statsHtml = '<div class="threat-stat-item">'
+        + '<span class="threat-stat-number">' + ti.actorCount + '</span>'
+        + '<span class="threat-stat-label">Threat Actor' + (ti.actorCount !== 1 ? 's' : '') + '</span>'
+        + '</div>'
+        + '<div class="threat-stat-item">'
+        + '<span class="threat-stat-number">' + ti.incidentCount + '</span>'
+        + '<span class="threat-stat-label">Known Incident' + (ti.incidentCount !== 1 ? 's' : '') + '</span>'
+        + '</div>'
+        + '<div class="threat-stat-item">'
+        + '<span class="threat-stat-number">' + ti.sectorHeatmap.filter(function(s) { return s.level > 0; }).length + '</span>'
+        + '<span class="threat-stat-label">Sectors Targeted</span>'
+        + '</div>'
+        + '<div class="threat-stat-item">'
+        + '<span class="threat-stat-number">' + ti.origins.length + '</span>'
+        + '<span class="threat-stat-label">Origin' + (ti.origins.length !== 1 ? 's' : '') + '</span>'
+        + '</div>';
+      if (ti.vulnName) {
+        statsHtml = '<div class="threat-stat-item threat-stat-name">'
+          + '<span class="threat-stat-label">Common Name</span>'
+          + '<span class="threat-stat-number threat-stat-vulnname">' + escHtml(ti.vulnName) + '</span>'
+          + '</div>' + statsHtml;
+      }
+      document.getElementById('threat-stats').innerHTML = statsHtml;
+
+      // Threat Actor cards
+      var actorHtml = ti.actors.map(function(a) {
+        var motivClass = '';
+        if (/ransomware|financial|extortion/i.test(a.motivation)) motivClass = 'threat-motiv-financial';
+        else if (/espionage/i.test(a.motivation)) motivClass = 'threat-motiv-espionage';
+        else if (/pre-position/i.test(a.motivation)) motivClass = 'threat-motiv-preposition';
+
+        return '<div class="threat-actor-card">'
+          + '<div class="threat-actor-header">'
+          + '<span class="threat-actor-name">' + escHtml(a.name) + '</span>'
+          + '<span class="threat-actor-origin">' + escHtml(a.origin) + '</span>'
+          + '</div>'
+          + (a.aliases && a.aliases.length > 0
+            ? '<div class="threat-actor-aliases">Also: ' + a.aliases.map(function(al) { return escHtml(al); }).join(', ') + '</div>'
+            : '')
+          + '<div class="threat-actor-meta">'
+          + '<span class="threat-actor-motiv ' + motivClass + '">' + escHtml(a.motivation) + '</span>'
+          + (a.first_seen ? '<span class="threat-actor-seen">First seen: ' + escHtml(a.first_seen) + '</span>' : '')
+          + '</div>'
+          + '</div>';
+      }).join('');
+      document.getElementById('threat-actors').innerHTML = actorHtml;
+
+      // Heatmap
+      var heatHtml = ti.sectorHeatmap.map(function(s) {
+        return '<div class="threat-heat-cell threat-heat-' + s.level + '">'
+          + '<span class="threat-heat-sector">' + escHtml(s.sector) + '</span>'
+          + '<span class="threat-heat-level">' + s.level + '/5</span>'
+          + '</div>';
+      }).join('');
+      document.getElementById('threat-heatmap').innerHTML = heatHtml;
+
+      // Incidents
+      var incHtml = ti.incidents.map(function(inc) {
+        var typeClass = '';
+        if (/breach/i.test(inc.type)) typeClass = 'threat-inc-breach';
+        else if (/mass/i.test(inc.type)) typeClass = 'threat-inc-mass';
+        else if (/espionage|zero.day/i.test(inc.type)) typeClass = 'threat-inc-espionage';
+        else typeClass = 'threat-inc-other';
+
+        return '<div class="threat-incident-card ' + typeClass + '">'
+          + '<div class="threat-inc-header">'
+          + '<span class="threat-inc-name">' + escHtml(inc.name) + '</span>'
+          + '<span class="threat-inc-date">' + escHtml(inc.date) + '</span>'
+          + '</div>'
+          + '<span class="threat-inc-type">' + escHtml(inc.type) + '</span>'
+          + '<p class="threat-inc-impact">' + escHtml(inc.impact) + '</p>'
+          + '</div>';
+      }).join('');
+      document.getElementById('threat-incidents').innerHTML = incHtml;
+    } else {
+      threatPanel.style.display = 'none';
+    }
+
 
     // ===== Source result cards =====
     var sourceHtml = '';
@@ -434,6 +817,9 @@
     input.value = cvePre.toUpperCase();
     btn.disabled = false;
     doLookup(cvePre.toUpperCase());
+  } else {
+    // Only load recent CVEs if not doing an auto-lookup
+    loadRecentCVEs();
   }
 })();
 </script>

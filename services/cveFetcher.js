@@ -189,6 +189,19 @@ function fetchCISAKEV(id) {
   });
 }
 
+// Fetch EPSS (Exploit Prediction Scoring System) from FIRST.org
+function fetchEPSS(id) {
+  return fetchJSON(`https://api.first.org/data/1.0/epss?cve=${encodeURIComponent(id)}`).then(json => {
+    const entry = (json.data || [])[0];
+    if (!entry) return null;
+    return {
+      score: parseFloat(entry.epss) || 0,
+      percentile: parseFloat(entry.percentile) || 0,
+      date: entry.date || '',
+    };
+  });
+}
+
 // Generate lookup links for databases that don't have free APIs
 function generateExternalLinks(id) {
   const encoded = encodeURIComponent(id);
@@ -275,17 +288,19 @@ async function fullCVELookup(cveId) {
   }
 
   // Query all free APIs in parallel
-  const [nvd, osv, github, cisaKev] = await Promise.allSettled([
+  const [nvd, osv, github, cisaKev, epss] = await Promise.allSettled([
     fetchNVD(id),
     fetchOSV(id),
     fetchGitHubAdvisory(id),
     fetchCISAKEV(id),
+    fetchEPSS(id),
   ]);
 
   const nvdData = nvd.status === 'fulfilled' ? nvd.value : null;
   const osvData = osv.status === 'fulfilled' ? osv.value : null;
   const githubData = github.status === 'fulfilled' ? github.value : null;
   const cisaData = cisaKev.status === 'fulfilled' ? cisaKev.value : null;
+  const epssData = epss.status === 'fulfilled' ? epss.value : null;
 
   if (!nvdData && !osvData && !githubData) return null;
 
@@ -321,6 +336,8 @@ async function fullCVELookup(cveId) {
     exploitedInWild,
     hasKnownExploit,
     cisaKev: cisaData,
+    // EPSS score
+    epss: epssData,
     // External lookup links
     externalLinks,
   };

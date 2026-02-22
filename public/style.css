@@ -633,6 +633,294 @@ a:hover { color: #67e8f9; }
 .vuln-link-community { border-left: 2px solid var(--green); }
 .vuln-link-bugbounty { border-left: 2px solid var(--green); }
 
+/* === Copy CVE Button === */
+.vuln-copy-btn {
+  background: var(--bg-elevated); border: 1px solid var(--border);
+  border-radius: var(--radius-xs); padding: 0.3rem;
+  cursor: pointer; display: inline-flex; align-items: center;
+  color: var(--text-muted); transition: all var(--transition);
+}
+.vuln-copy-btn:hover { color: var(--accent); border-color: var(--accent); }
+.vuln-copy-btn .vuln-copy-check { display: none; }
+.vuln-copy-btn.vuln-copied svg:first-child { display: none; }
+.vuln-copy-btn.vuln-copied .vuln-copy-check { display: block; color: var(--green); }
+
+/* === Search History Chips === */
+.vuln-history {
+  display: flex; align-items: center; gap: 0.4rem;
+  flex-wrap: wrap; margin-top: 0.75rem; justify-content: center;
+}
+.vuln-history-label {
+  font-size: 0.7rem; font-weight: 600; color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: 0.04em;
+}
+.vuln-history-chip {
+  font-size: 0.68rem; font-weight: 600; font-family: var(--font);
+  padding: 0.2rem 0.55rem; border-radius: 12px;
+  background: var(--bg-elevated); border: 1px solid var(--border);
+  color: var(--text-secondary); cursor: pointer;
+  transition: all var(--transition);
+}
+.vuln-history-chip:hover { border-color: var(--accent); color: var(--accent); }
+.vuln-hist-critical { border-color: rgba(239,68,68,0.3); color: var(--red); }
+.vuln-hist-high { border-color: rgba(251,191,36,0.3); color: var(--amber); }
+.vuln-hist-medium { border-color: rgba(167,139,250,0.3); color: var(--purple); }
+.vuln-hist-low { border-color: rgba(34,197,94,0.3); color: #22c55e; }
+
+/* === Recent CVEs Section === */
+.vuln-recent-section { max-width: 900px; margin: 0 auto 2rem; }
+.vuln-recent-header { margin-bottom: 0.75rem; }
+.vuln-recent-title {
+  font-size: 0.9rem; font-weight: 700; color: var(--text);
+  display: flex; align-items: center; gap: 0.5rem;
+}
+.vuln-recent-title svg { color: var(--accent); }
+.vuln-recent-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 0.6rem;
+}
+.vuln-recent-card {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 0.85rem 1rem;
+  cursor: pointer; transition: all var(--transition);
+}
+.vuln-recent-card:hover {
+  border-color: var(--accent); box-shadow: var(--shadow-sm);
+  transform: translateY(-1px);
+}
+.vuln-recent-card-top {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 0.5rem; margin-bottom: 0.4rem;
+}
+.vuln-recent-card-id { font-size: 0.78rem; font-weight: 700; color: var(--accent); }
+.vuln-recent-sev { font-size: 0.55rem; padding: 0.1rem 0.3rem; }
+.vuln-recent-card-desc {
+  font-size: 0.72rem; color: var(--text-muted); line-height: 1.45;
+  overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.vuln-recent-loading {
+  grid-column: 1 / -1; text-align: center;
+  font-size: 0.8rem; color: var(--text-muted); padding: 2rem;
+}
+.vuln-recent-empty {
+  grid-column: 1 / -1; text-align: center;
+  font-size: 0.8rem; color: var(--text-muted); padding: 1rem;
+}
+
+/* === Loading source chips === */
+.vuln-loading-sources {
+  display: flex; gap: 0.4rem; flex-wrap: wrap; justify-content: center;
+  margin-top: 0.25rem;
+}
+.vuln-loading-chip {
+  font-size: 0.62rem; font-weight: 600; padding: 0.15rem 0.5rem;
+  border-radius: 10px; background: var(--bg-elevated); border: 1px solid var(--border);
+  color: var(--text-muted); animation: vuln-chip-pulse 1.5s ease-in-out infinite;
+}
+.vuln-loading-chip:nth-child(2) { animation-delay: 0.2s; }
+.vuln-loading-chip:nth-child(3) { animation-delay: 0.4s; }
+.vuln-loading-chip:nth-child(4) { animation-delay: 0.6s; }
+.vuln-loading-chip:nth-child(5) { animation-delay: 0.8s; }
+@keyframes vuln-chip-pulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; border-color: var(--accent); color: var(--accent); }
+}
+
+/* === EPSS Score Card === */
+.vuln-epss-card { border-color: var(--accent); }
+.vuln-epss-content { display: flex; gap: 1.5rem; align-items: flex-start; }
+.vuln-epss-gauge { display: flex; flex-direction: column; align-items: center; gap: 0.4rem; flex-shrink: 0; }
+.vuln-epss-ring {
+  width: 80px; height: 80px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  border: 4px solid var(--border);
+}
+.vuln-epss-high { border-color: var(--red); background: rgba(239,68,68,0.06); }
+.vuln-epss-medium { border-color: var(--amber); background: rgba(251,191,36,0.06); }
+.vuln-epss-low { border-color: var(--green); background: rgba(34,197,94,0.06); }
+.vuln-epss-number { font-size: 1rem; font-weight: 800; color: var(--text); }
+.vuln-epss-gauge-label {
+  font-size: 0.6rem; font-weight: 700; color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: 0.05em;
+}
+.vuln-epss-details { flex: 1; min-width: 0; }
+.vuln-epss-desc { font-size: 0.78rem; color: var(--text-muted); line-height: 1.5; margin-bottom: 0.75rem; }
+.vuln-epss-stats { display: flex; gap: 1.5rem; margin-bottom: 0.75rem; }
+.vuln-epss-stat {}
+.vuln-epss-stat-label {
+  display: block; font-size: 0.6rem; font-weight: 700; color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 0.15rem;
+}
+.vuln-epss-stat-value { display: block; font-size: 1.15rem; font-weight: 800; color: var(--text); }
+.vuln-epss-val-high { color: var(--red); }
+.vuln-epss-val-medium { color: var(--amber); }
+.vuln-epss-val-low { color: var(--green); }
+.vuln-epss-bar-container { margin-top: 0.5rem; }
+.vuln-epss-bar-bg {
+  height: 6px; background: var(--bg-elevated); border-radius: 3px;
+  overflow: hidden; margin-bottom: 0.3rem;
+}
+.vuln-epss-bar-fill { height: 100%; border-radius: 3px; transition: width 0.6s ease; }
+.vuln-epss-bar-high { background: var(--red); }
+.vuln-epss-bar-medium { background: var(--amber); }
+.vuln-epss-bar-low { background: var(--green); }
+.vuln-epss-bar-label { font-size: 0.65rem; color: var(--text-muted); }
+
+/* === CVSS Vector Breakdown === */
+.vuln-cvss-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 0.5rem;
+}
+.vuln-cvss-metric {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0.45rem 0.7rem; background: var(--bg-elevated);
+  border-radius: var(--radius-xs); border: 1px solid var(--border);
+}
+.vuln-cvss-metric-label {
+  font-size: 0.68rem; font-weight: 600; color: var(--text-muted);
+}
+.vuln-cvss-metric-value {
+  font-size: 0.72rem; font-weight: 700; padding: 0.1rem 0.4rem;
+  border-radius: 3px;
+}
+.vuln-cvss-high { background: rgba(239,68,68,0.12); color: var(--red); }
+.vuln-cvss-medium { background: rgba(251,191,36,0.12); color: var(--amber); }
+.vuln-cvss-low { background: rgba(34,197,94,0.1); color: var(--green); }
+
+/* === Threat Intelligence Panel === */
+.vuln-panel-threat { border-color: var(--amber); box-shadow: 0 0 0 1px rgba(251,191,36,0.1); }
+.vuln-panel-threat .vuln-panel-title svg { color: var(--amber); }
+
+/* Stats bar */
+.threat-stats-bar {
+  display: flex; gap: 1rem; flex-wrap: wrap;
+  padding: 0.75rem 1rem; background: var(--bg-elevated);
+  border-radius: var(--radius-sm); margin-bottom: 1rem;
+  border: 1px solid var(--border);
+}
+.threat-stat-item {
+  display: flex; flex-direction: column; gap: 0.1rem;
+  padding-right: 1rem; border-right: 1px solid var(--border);
+}
+.threat-stat-item:last-child { border-right: none; padding-right: 0; }
+.threat-stat-number {
+  font-size: 1.2rem; font-weight: 800; color: var(--text);
+  line-height: 1.1;
+}
+.threat-stat-vulnname { color: var(--amber); font-size: 1rem; }
+.threat-stat-label {
+  font-size: 0.6rem; font-weight: 700; color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: 0.04em;
+}
+.threat-stat-name { order: -1; }
+
+/* Threat Actor cards */
+.threat-actor-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 0.6rem; margin-bottom: 1.25rem;
+}
+.threat-actor-card {
+  background: var(--bg-elevated); border: 1px solid var(--border);
+  border-left: 3px solid var(--red); border-radius: var(--radius-sm);
+  padding: 0.8rem 1rem; transition: all var(--transition);
+}
+.threat-actor-card:hover { border-left-color: var(--amber); box-shadow: var(--shadow-sm); }
+.threat-actor-header {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 0.5rem; margin-bottom: 0.3rem;
+}
+.threat-actor-name { font-size: 0.88rem; font-weight: 800; color: var(--text); }
+.threat-actor-origin {
+  font-size: 0.62rem; font-weight: 700; padding: 0.15rem 0.45rem;
+  border-radius: 3px; background: var(--bg-hover); color: var(--text-secondary);
+  white-space: nowrap;
+}
+.threat-actor-aliases {
+  font-size: 0.68rem; color: var(--text-muted); font-style: italic;
+  margin-bottom: 0.35rem;
+}
+.threat-actor-meta { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.threat-actor-motiv {
+  font-size: 0.6rem; font-weight: 700; padding: 0.12rem 0.4rem;
+  border-radius: 3px; text-transform: uppercase; letter-spacing: 0.03em;
+}
+.threat-motiv-financial { background: rgba(239,68,68,0.1); color: var(--red); }
+.threat-motiv-espionage { background: rgba(167,139,250,0.12); color: var(--purple); }
+.threat-motiv-preposition { background: rgba(251,191,36,0.12); color: var(--amber); }
+.threat-actor-seen { font-size: 0.62rem; color: var(--text-muted); }
+
+/* Industry Sector Heatmap */
+.threat-heatmap-legend {
+  display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;
+  margin-bottom: 0.6rem; font-size: 0.65rem; color: var(--text-muted);
+}
+.threat-legend-label { font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
+.threat-legend-item { display: flex; align-items: center; gap: 0.2rem; }
+.threat-heat-swatch {
+  width: 14px; height: 14px; border-radius: 2px;
+  display: inline-block; border: 1px solid rgba(255,255,255,0.05);
+}
+.threat-heatmap-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 4px; margin-bottom: 1.25rem;
+}
+.threat-heat-cell {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0.5rem 0.65rem; border-radius: var(--radius-xs);
+  transition: all var(--transition);
+}
+.threat-heat-sector { font-size: 0.72rem; font-weight: 600; }
+.threat-heat-level { font-size: 0.6rem; font-weight: 700; opacity: 0.7; }
+
+/* Heatmap levels */
+.threat-heat-0 { background: var(--bg-elevated); color: var(--text-muted); }
+.threat-heat-1 { background: rgba(34,197,94,0.1); color: var(--green); border: 1px solid rgba(34,197,94,0.15); }
+.threat-heat-2 { background: rgba(251,191,36,0.08); color: var(--amber); border: 1px solid rgba(251,191,36,0.15); }
+.threat-heat-3 { background: rgba(251,146,60,0.12); color: #fb923c; border: 1px solid rgba(251,146,60,0.2); }
+.threat-heat-4 { background: rgba(239,68,68,0.1); color: var(--red); border: 1px solid rgba(239,68,68,0.2); }
+.threat-heat-5 { background: rgba(239,68,68,0.18); color: var(--red); border: 1px solid rgba(239,68,68,0.3); font-weight: 700; }
+
+/* Swatch colors (for legend) */
+.threat-heat-bg-0 { background: var(--bg-elevated); border-color: var(--border); }
+.threat-heat-bg-1 { background: rgba(34,197,94,0.3); border-color: rgba(34,197,94,0.4); }
+.threat-heat-bg-2 { background: rgba(251,191,36,0.35); border-color: rgba(251,191,36,0.5); }
+.threat-heat-bg-3 { background: rgba(251,146,60,0.4); border-color: rgba(251,146,60,0.55); }
+.threat-heat-bg-4 { background: rgba(239,68,68,0.35); border-color: rgba(239,68,68,0.5); }
+.threat-heat-bg-5 { background: rgba(239,68,68,0.55); border-color: rgba(239,68,68,0.7); }
+
+/* Incident cards */
+.threat-incidents-list {
+  display: flex; flex-direction: column; gap: 0.5rem;
+}
+.threat-incident-card {
+  background: var(--bg-elevated); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 0.75rem 1rem;
+  border-left: 3px solid var(--text-muted);
+}
+.threat-inc-breach { border-left-color: var(--red); }
+.threat-inc-mass { border-left-color: var(--amber); }
+.threat-inc-espionage { border-left-color: var(--purple); }
+.threat-inc-other { border-left-color: var(--accent); }
+.threat-inc-header {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 0.5rem; margin-bottom: 0.3rem;
+}
+.threat-inc-name { font-size: 0.82rem; font-weight: 700; color: var(--text); }
+.threat-inc-date {
+  font-size: 0.62rem; font-weight: 700; padding: 0.1rem 0.4rem;
+  border-radius: 3px; background: var(--bg-hover); color: var(--text-muted);
+  white-space: nowrap;
+}
+.threat-inc-type {
+  display: inline-block; font-size: 0.6rem; font-weight: 700;
+  padding: 0.1rem 0.4rem; border-radius: 3px;
+  background: rgba(167,139,250,0.1); color: var(--purple);
+  text-transform: uppercase; letter-spacing: 0.03em;
+  margin-bottom: 0.3rem;
+}
+.threat-inc-impact { font-size: 0.75rem; color: var(--text-secondary); line-height: 1.5; margin: 0; }
+
 @media (max-width: 768px) {
   .vuln-hero { min-height: calc(50vh - 60px); padding: 1.5rem 0; }
   .vuln-hero-title { font-size: 1.3rem; }
@@ -644,6 +932,15 @@ a:hover { color: #67e8f9; }
   .vuln-source-grid { grid-template-columns: 1fr; }
   .vuln-header-id { font-size: 1.1rem; }
   .vuln-panel { padding: 1rem; }
+  .vuln-epss-content { flex-direction: column; align-items: stretch; }
+  .vuln-epss-gauge { flex-direction: row; gap: 0.75rem; }
+  .vuln-epss-stats { flex-direction: column; gap: 0.5rem; }
+  .vuln-cvss-grid { grid-template-columns: 1fr 1fr; }
+  .vuln-recent-grid { grid-template-columns: 1fr; }
+  .threat-stats-bar { gap: 0.5rem; }
+  .threat-stat-item { padding-right: 0.5rem; }
+  .threat-actor-grid { grid-template-columns: 1fr; }
+  .threat-heatmap-grid { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); }
 }
 
 /* === Stats row === */
