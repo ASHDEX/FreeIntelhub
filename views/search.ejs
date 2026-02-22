@@ -3,7 +3,7 @@
 <div class="page-header">
   <h1>Search Results</h1>
   <% if (query) { %>
-    <p>Results for "<strong><%= query %></strong>" &mdash; <%= articles.length %> found</p>
+    <p>Results for "<strong><%= query %></strong>" &mdash; <%= articles.length + (typeof cveLookup !== 'undefined' && cveLookup ? 1 : 0) %> found</p>
   <% } else { %>
     <p>Enter a search term above.</p>
   <% } %>
@@ -32,7 +32,7 @@
       <div class="cve-lookup-refs">
         <span class="cve-lookup-refs-label">References:</span>
         <% cveLookup.references.forEach(function(ref) { %>
-          <a href="<%= ref.url %>" target="_blank" rel="noopener noreferrer" class="cve-lookup-ref"><%= ref.source || ref.url %></a>
+          <a href="<%= ref.url %>" target="_blank" rel="noopener noreferrer" class="cve-lookup-ref"><%= ref.url.replace(/^https?:\/\//, '').split('/')[0] %></a>
         <% }); %>
       </div>
     <% } %>
