@@ -921,6 +921,109 @@ a:hover { color: #67e8f9; }
 }
 .threat-inc-impact { font-size: 0.75rem; color: var(--text-secondary); line-height: 1.5; margin: 0; }
 
+/* === Ransomfeed Page === */
+.rf-controls { margin-bottom: 1.25rem; }
+.rf-filter-row {
+  display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;
+  margin-bottom: 0.5rem;
+}
+.rf-filter-label { font-size: 0.75rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.rf-select {
+  background: var(--bg-elevated); color: var(--text); border: 1px solid var(--border);
+  border-radius: var(--radius-xs); padding: 0.4rem 0.65rem; font-size: 0.8rem;
+  cursor: pointer; transition: border-color var(--transition);
+}
+.rf-select:hover { border-color: var(--border-hover); }
+.rf-select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+.rf-clear-btn {
+  font-size: 0.7rem; padding: 0.35rem 0.7rem; background: var(--bg-hover);
+  color: var(--text-muted); border: 1px solid var(--border); border-radius: var(--radius-xs);
+  text-decoration: none; transition: all var(--transition);
+}
+.rf-clear-btn:hover { background: var(--bg-elevated); color: var(--text); border-color: var(--border-hover); }
+.rf-result-count { font-size: 0.75rem; color: var(--text-muted); }
+
+.rf-stats-row {
+  display: flex; gap: 0.6rem; flex-wrap: wrap; margin-bottom: 1.25rem;
+}
+.rf-stat-card {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 0.7rem 1.2rem; text-align: center;
+  min-width: 100px; transition: all var(--transition);
+}
+.rf-stat-card:hover { border-color: var(--border-hover); transform: translateY(-1px); }
+.rf-stat-number { display: block; font-size: 1.3rem; font-weight: 800; color: var(--accent); line-height: 1.1; }
+.rf-stat-label { font-size: 0.65rem; color: var(--text-muted); font-weight: 500; text-transform: uppercase; letter-spacing: 0.03em; }
+
+.rf-top-groups { margin-bottom: 1.25rem; }
+.rf-section-title {
+  font-size: 0.78rem; font-weight: 600; color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.6rem;
+}
+.rf-group-tags { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+.rf-group-tag {
+  display: inline-flex; align-items: center; gap: 0.35rem;
+  background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.15);
+  color: var(--red); border-radius: 100px; padding: 0.2rem 0.6rem;
+  font-size: 0.72rem; font-weight: 600; text-decoration: none;
+  transition: all var(--transition);
+}
+.rf-group-tag:hover { background: rgba(239,68,68,0.15); border-color: rgba(239,68,68,0.3); text-decoration: none; }
+.rf-group-tag-count {
+  background: rgba(239,68,68,0.15); padding: 0.05rem 0.35rem;
+  border-radius: 100px; font-size: 0.62rem; font-weight: 700;
+}
+
+.rf-table-wrapper {
+  overflow-x: auto; border: 1px solid var(--border);
+  border-radius: var(--radius); margin-bottom: 1.25rem;
+}
+.rf-table {
+  width: 100%; border-collapse: collapse; font-size: 0.82rem;
+}
+.rf-table thead { background: var(--bg-elevated); }
+.rf-table th {
+  padding: 0.65rem 0.85rem; text-align: left; font-size: 0.68rem;
+  font-weight: 700; color: var(--text-muted); text-transform: uppercase;
+  letter-spacing: 0.04em; border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.rf-table td {
+  padding: 0.55rem 0.85rem; border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+.rf-table tbody tr { transition: background var(--transition); }
+.rf-table tbody tr:hover { background: var(--bg-hover); }
+.rf-table tbody tr:last-child td { border-bottom: none; }
+
+.rf-cell-date { font-size: 0.72rem; color: var(--text-muted); white-space: nowrap; }
+.rf-victim-name { font-weight: 600; color: var(--text); }
+.rf-group-badge {
+  display: inline-block; background: rgba(239,68,68,0.1); color: var(--red);
+  padding: 0.12rem 0.45rem; border-radius: 3px; font-size: 0.72rem;
+  font-weight: 700; text-decoration: none; transition: all var(--transition);
+}
+.rf-group-badge:hover { background: rgba(239,68,68,0.2); text-decoration: none; }
+.rf-country-badge {
+  display: inline-block; background: var(--accent-soft); color: var(--accent);
+  padding: 0.12rem 0.45rem; border-radius: 3px; font-size: 0.72rem;
+  font-weight: 600; text-decoration: none; transition: all var(--transition);
+}
+.rf-country-badge:hover { background: var(--accent-medium); text-decoration: none; }
+.rf-unknown { color: var(--text-muted); font-style: italic; font-size: 0.72rem; }
+.rf-detail-link {
+  color: var(--text-muted); transition: color var(--transition);
+}
+.rf-detail-link:hover { color: var(--accent); }
+.rf-empty { text-align: center; color: var(--text-muted); padding: 2rem 1rem; font-style: italic; }
+
+.rf-attribution {
+  text-align: center; font-size: 0.68rem; color: var(--text-muted);
+  padding: 0.75rem 0; border-top: 1px solid var(--border); margin-top: 0.5rem;
+}
+.rf-attribution a { color: var(--accent); text-decoration: none; }
+.rf-attribution a:hover { text-decoration: underline; }
+
 @media (max-width: 768px) {
   .vuln-hero { min-height: calc(50vh - 60px); padding: 1.5rem 0; }
   .vuln-hero-title { font-size: 1.3rem; }
@@ -941,6 +1044,11 @@ a:hover { color: #67e8f9; }
   .threat-stat-item { padding-right: 0.5rem; }
   .threat-actor-grid { grid-template-columns: 1fr; }
   .threat-heatmap-grid { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); }
+  .rf-filter-row { flex-direction: column; align-items: flex-start; }
+  .rf-stats-row { gap: 0.4rem; }
+  .rf-stat-card { min-width: 70px; padding: 0.5rem 0.8rem; }
+  .rf-table { font-size: 0.75rem; }
+  .rf-table th, .rf-table td { padding: 0.4rem 0.55rem; }
 }
 
 /* === Stats row === */
