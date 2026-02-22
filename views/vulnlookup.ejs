@@ -78,6 +78,38 @@
   <!-- ===== 5. CISA KEV details ===== -->
   <div id="vuln-cisa" class="vuln-card vuln-cisa-card" style="display:none;"></div>
 
+  <!-- ===== 5b. Threat Intelligence Panel ===== -->
+  <div id="vuln-threat-intel" class="vuln-panel vuln-panel-threat" style="display:none;">
+    <h2 class="vuln-panel-title">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M12 8v4"/><circle cx="12" cy="16" r="0.5"/></svg>
+      Threat Intelligence
+    </h2>
+
+    <!-- Threat Actor stat bar -->
+    <div id="threat-stats" class="threat-stats-bar"></div>
+
+    <!-- Threat Actors -->
+    <h3 class="vuln-subsection-title">Associated Threat Actors</h3>
+    <div id="threat-actors" class="threat-actor-grid"></div>
+
+    <!-- Industry Sector Heatmap -->
+    <h3 class="vuln-subsection-title">Industry Sector Targeting Heatmap</h3>
+    <div class="threat-heatmap-legend">
+      <span class="threat-legend-label">Impact:</span>
+      <span class="threat-legend-item"><span class="threat-heat-swatch threat-heat-bg-0"></span>None</span>
+      <span class="threat-legend-item"><span class="threat-heat-swatch threat-heat-bg-1"></span>Low</span>
+      <span class="threat-legend-item"><span class="threat-heat-swatch threat-heat-bg-2"></span>Medium</span>
+      <span class="threat-legend-item"><span class="threat-heat-swatch threat-heat-bg-3"></span>High</span>
+      <span class="threat-legend-item"><span class="threat-heat-swatch threat-heat-bg-4"></span>Very High</span>
+      <span class="threat-legend-item"><span class="threat-heat-swatch threat-heat-bg-5"></span>Critical</span>
+    </div>
+    <div id="threat-heatmap" class="threat-heatmap-grid"></div>
+
+    <!-- Known Incidents / Breaches -->
+    <h3 class="vuln-subsection-title">Known Security Incidents & Breaches</h3>
+    <div id="threat-incidents" class="threat-incidents-list"></div>
+  </div>
+
   <!-- ===== 6. Source Results ===== -->
   <div class="vuln-panel">
     <h2 class="vuln-panel-title">
@@ -593,6 +625,91 @@
         + (k.requiredAction ? '<div class="vuln-cisa-action"><strong>Required Action:</strong> ' + escHtml(k.requiredAction) + '</div>' : '');
     } else {
       cisaEl.style.display = 'none';
+    }
+
+    // ===== Threat Intelligence Panel =====
+    var threatPanel = document.getElementById('vuln-threat-intel');
+    if (data.threatIntel) {
+      var ti = data.threatIntel;
+      threatPanel.style.display = 'block';
+
+      // Stats bar
+      var statsHtml = '<div class="threat-stat-item">'
+        + '<span class="threat-stat-number">' + ti.actorCount + '</span>'
+        + '<span class="threat-stat-label">Threat Actor' + (ti.actorCount !== 1 ? 's' : '') + '</span>'
+        + '</div>'
+        + '<div class="threat-stat-item">'
+        + '<span class="threat-stat-number">' + ti.incidentCount + '</span>'
+        + '<span class="threat-stat-label">Known Incident' + (ti.incidentCount !== 1 ? 's' : '') + '</span>'
+        + '</div>'
+        + '<div class="threat-stat-item">'
+        + '<span class="threat-stat-number">' + ti.sectorHeatmap.filter(function(s) { return s.level > 0; }).length + '</span>'
+        + '<span class="threat-stat-label">Sectors Targeted</span>'
+        + '</div>'
+        + '<div class="threat-stat-item">'
+        + '<span class="threat-stat-number">' + ti.origins.length + '</span>'
+        + '<span class="threat-stat-label">Origin' + (ti.origins.length !== 1 ? 's' : '') + '</span>'
+        + '</div>';
+      if (ti.vulnName) {
+        statsHtml = '<div class="threat-stat-item threat-stat-name">'
+          + '<span class="threat-stat-label">Common Name</span>'
+          + '<span class="threat-stat-number threat-stat-vulnname">' + escHtml(ti.vulnName) + '</span>'
+          + '</div>' + statsHtml;
+      }
+      document.getElementById('threat-stats').innerHTML = statsHtml;
+
+      // Threat Actor cards
+      var actorHtml = ti.actors.map(function(a) {
+        var motivClass = '';
+        if (/ransomware|financial|extortion/i.test(a.motivation)) motivClass = 'threat-motiv-financial';
+        else if (/espionage/i.test(a.motivation)) motivClass = 'threat-motiv-espionage';
+        else if (/pre-position/i.test(a.motivation)) motivClass = 'threat-motiv-preposition';
+
+        return '<div class="threat-actor-card">'
+          + '<div class="threat-actor-header">'
+          + '<span class="threat-actor-name">' + escHtml(a.name) + '</span>'
+          + '<span class="threat-actor-origin">' + escHtml(a.origin) + '</span>'
+          + '</div>'
+          + (a.aliases && a.aliases.length > 0
+            ? '<div class="threat-actor-aliases">Also: ' + a.aliases.map(function(al) { return escHtml(al); }).join(', ') + '</div>'
+            : '')
+          + '<div class="threat-actor-meta">'
+          + '<span class="threat-actor-motiv ' + motivClass + '">' + escHtml(a.motivation) + '</span>'
+          + (a.first_seen ? '<span class="threat-actor-seen">First seen: ' + escHtml(a.first_seen) + '</span>' : '')
+          + '</div>'
+          + '</div>';
+      }).join('');
+      document.getElementById('threat-actors').innerHTML = actorHtml;
+
+      // Heatmap
+      var heatHtml = ti.sectorHeatmap.map(function(s) {
+        return '<div class="threat-heat-cell threat-heat-' + s.level + '">'
+          + '<span class="threat-heat-sector">' + escHtml(s.sector) + '</span>'
+          + '<span class="threat-heat-level">' + s.level + '/5</span>'
+          + '</div>';
+      }).join('');
+      document.getElementById('threat-heatmap').innerHTML = heatHtml;
+
+      // Incidents
+      var incHtml = ti.incidents.map(function(inc) {
+        var typeClass = '';
+        if (/breach/i.test(inc.type)) typeClass = 'threat-inc-breach';
+        else if (/mass/i.test(inc.type)) typeClass = 'threat-inc-mass';
+        else if (/espionage|zero.day/i.test(inc.type)) typeClass = 'threat-inc-espionage';
+        else typeClass = 'threat-inc-other';
+
+        return '<div class="threat-incident-card ' + typeClass + '">'
+          + '<div class="threat-inc-header">'
+          + '<span class="threat-inc-name">' + escHtml(inc.name) + '</span>'
+          + '<span class="threat-inc-date">' + escHtml(inc.date) + '</span>'
+          + '</div>'
+          + '<span class="threat-inc-type">' + escHtml(inc.type) + '</span>'
+          + '<p class="threat-inc-impact">' + escHtml(inc.impact) + '</p>'
+          + '</div>';
+      }).join('');
+      document.getElementById('threat-incidents').innerHTML = incHtml;
+    } else {
+      threatPanel.style.display = 'none';
     }
 
     // ===== Source result cards =====

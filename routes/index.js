@@ -8,6 +8,7 @@ const sectorConfig = require('../config/sectors.json');
 const { sendVerification, isConfigured: smtpConfigured } = require('../services/emailService');
 const { getLatestCVEs, lookupCVE, fullCVELookup, CVE_ID_REGEX } = require('../services/cveFetcher');
 const { generateRSS } = require('../services/feedGenerator');
+const { lookupThreatIntel } = require('../services/threatIntel');
 const threatmapConfig = require('../config/threatmap.json');
 const router = express.Router();
 
@@ -988,6 +989,8 @@ router.get('/api/vuln/:id', async (req, res) => {
   try {
     const result = await fullCVELookup(id);
     if (!result) return res.status(404).json({ error: 'CVE not found across any source.' });
+    // Enrich with threat intelligence data
+    result.threatIntel = lookupThreatIntel(id);
     res.json({ data: result });
   } catch (err) {
     console.error('Vuln lookup error:', err.message);
