@@ -339,24 +339,22 @@ router.get('/source/:source', (req, res) => {
 router.get('/search', async (req, res) => {
   const q = (req.query.q || '').trim();
   const page = getPage(req);
+
+  // If query is a CVE ID, redirect to the full vulnerability lookup page
+  if (q && CVE_ID_REGEX.test(q)) {
+    return res.redirect(`/vulnerability?cve=${encodeURIComponent(q.toUpperCase())}`);
+  }
+
   let articles = [];
   let pages = 0;
-  let cveLookup = null;
 
   if (q) {
     const like = `%${q}%`;
     const total = stmts.searchCount.get(like, like, like).count;
     articles = stmts.searchArticles.all(like, like, like, PER_PAGE, (page - 1) * PER_PAGE);
     pages = Math.ceil(total / PER_PAGE);
-
-    // If query looks like a CVE ID, also fetch directly from NVD
-    if (CVE_ID_REGEX.test(q)) {
-      try {
-        cveLookup = await lookupCVE(q);
-      } catch (_) { /* NVD unavailable, continue with article results */ }
-    }
   }
-  res.render('search', { query: q, articles, page, pages, cveLookup, baseUrl: `/search?q=${encodeURIComponent(q)}` });
+  res.render('search', { query: q, articles, page, pages, cveLookup: null, baseUrl: `/search?q=${encodeURIComponent(q)}` });
 });
 
 // Sector page
