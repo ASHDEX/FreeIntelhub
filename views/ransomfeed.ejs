@@ -1,0 +1,376 @@
+<%- include('partials/head', { pageTitle: 'Ransomfeed' }) %>
+
+<%
+  // Pre-compute data for charts
+  var groupCounts = {};
+  var countryCounts = {};
+  var dailyCounts = {};
+  var recentItems = [];
+  items.forEach(function(item) {
+    if (item.group) groupCounts[item.group] = (groupCounts[item.group] || 0) + 1;
+    if (item.country) countryCounts[item.country] = (countryCounts[item.country] || 0) + 1;
+    if (item.pubDate) {
+      var d = new Date(item.pubDate).toISOString().slice(0, 10);
+      dailyCounts[d] = (dailyCounts[d] || 0) + 1;
+    }
+  });
+  var sortedGroups = Object.entries(groupCounts).sort(function(a,b) { return b[1] - a[1]; });
+  var sortedCountries = Object.entries(countryCounts).sort(function(a,b) { return b[1] - a[1]; });
+  var topGroups10 = sortedGroups.slice(0, 10);
+  var topCountries10 = sortedCountries.slice(0, 10);
+
+  // Last 24h count
+  var now = Date.now();
+  var last24h = items.filter(function(i) { return i.pubDate && (now - new Date(i.pubDate).getTime()) < 86400000; }).length;
+  var last7d = items.filter(function(i) { return i.pubDate && (now - new Date(i.pubDate).getTime()) < 604800000; }).length;
+
+  // Recent 8 items for the activity feed
+  recentItems = items.slice(0, 8);
+
+  // Daily timeline (last 30 days)
+  var timelineDays = [];
+  for (var di = 29; di >= 0; di--) {
+    var dd = new Date(now - di * 86400000).toISOString().slice(0, 10);
+    timelineDays.push({ date: dd, count: dailyCounts[dd] || 0 });
+  }
+%>
+
+<!-- Dashboard Header -->
+<div class="rfd-header">
+  <div class="rfd-header-left">
+    <h1 class="rfd-title">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="28" height="28"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      Ransomfeed
+    </h1>
+    <p class="rfd-subtitle">Live ransomware claim intelligence dashboard &mdash; powered by <a href="https://ransomfeed.it" target="_blank" rel="noopener noreferrer">ransomfeed.it</a></p>
+  </div>
+  <div class="rfd-header-right">
+    <div class="rfd-live-badge">
+      <span class="rfd-live-dot"></span>LIVE
+    </div>
+  </div>
+</div>
+
+<% if (error) { %>
+  <div class="alert alert-danger"><%= error %></div>
+<% } %>
+
+<!-- Stat Cards Row -->
+<div class="rfd-stats">
+  <div class="rfd-stat rfd-stat-accent">
+    <div class="rfd-stat-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+    </div>
+    <div class="rfd-stat-data">
+      <span class="rfd-stat-num"><%= total %></span>
+      <span class="rfd-stat-label">Total Claims</span>
+    </div>
+  </div>
+  <div class="rfd-stat rfd-stat-red">
+    <div class="rfd-stat-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+    </div>
+    <div class="rfd-stat-data">
+      <span class="rfd-stat-num"><%= last24h %></span>
+      <span class="rfd-stat-label">Last 24 Hours</span>
+    </div>
+  </div>
+  <div class="rfd-stat rfd-stat-amber">
+    <div class="rfd-stat-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+    </div>
+    <div class="rfd-stat-data">
+      <span class="rfd-stat-num"><%= last7d %></span>
+      <span class="rfd-stat-label">Last 7 Days</span>
+    </div>
+  </div>
+  <div class="rfd-stat rfd-stat-purple">
+    <div class="rfd-stat-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+    </div>
+    <div class="rfd-stat-data">
+      <span class="rfd-stat-num"><%= groups.length %></span>
+      <span class="rfd-stat-label">Active Groups</span>
+    </div>
+  </div>
+  <div class="rfd-stat rfd-stat-teal">
+    <div class="rfd-stat-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+    </div>
+    <div class="rfd-stat-data">
+      <span class="rfd-stat-num"><%= countries.length %></span>
+      <span class="rfd-stat-label">Countries Hit</span>
+    </div>
+  </div>
+</div>
+
+<!-- Activity Timeline Sparkline -->
+<div class="rfd-panel rfd-timeline-panel">
+  <div class="rfd-panel-header">
+    <h2 class="rfd-panel-title">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg>
+      Claim Activity (30 Days)
+    </h2>
+    <span class="rfd-panel-badge"><%= last7d %> this week</span>
+  </div>
+  <div class="rfd-timeline-chart">
+    <canvas id="rf-timeline-chart" height="80"></canvas>
+  </div>
+</div>
+
+<!-- Charts Row -->
+<div class="rfd-charts-row">
+  <!-- Top Groups Bar Chart -->
+  <div class="rfd-panel rfd-chart-panel">
+    <div class="rfd-panel-header">
+      <h2 class="rfd-panel-title">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        Top Ransomware Groups
+      </h2>
+    </div>
+    <div class="chart-container"><canvas id="rf-groups-chart"></canvas></div>
+  </div>
+
+  <!-- Top Countries Doughnut Chart -->
+  <div class="rfd-panel rfd-chart-panel">
+    <div class="rfd-panel-header">
+      <h2 class="rfd-panel-title">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+        Target Countries
+      </h2>
+    </div>
+    <div class="chart-container"><canvas id="rf-countries-chart"></canvas></div>
+  </div>
+</div>
+
+<!-- Live Activity Feed + Group Ranking -->
+<div class="rfd-mid-row">
+  <!-- Recent Claims -->
+  <div class="rfd-panel rfd-feed-panel">
+    <div class="rfd-panel-header">
+      <h2 class="rfd-panel-title">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+        Recent Claims
+      </h2>
+      <span class="rfd-live-dot-sm"></span>
+    </div>
+    <div class="rfd-feed-list">
+      <% recentItems.forEach(function(item) { %>
+        <div class="rfd-feed-item">
+          <div class="rfd-feed-dot <%= item.group ? 'rfd-feed-dot-active' : '' %>"></div>
+          <div class="rfd-feed-content">
+            <div class="rfd-feed-top">
+              <span class="rfd-feed-victim"><%= item.victim || item.title %></span>
+              <% if (item.pubDate) { %>
+                <span class="rfd-feed-time"><%= new Date(item.pubDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) %></span>
+              <% } %>
+            </div>
+            <div class="rfd-feed-meta">
+              <% if (item.group) { %><a href="/ransomfeed?group=<%= encodeURIComponent(item.group) %>" class="rf-group-badge"><%= item.group %></a><% } %>
+              <% if (item.country) { %><a href="/ransomfeed?country=<%= encodeURIComponent(item.country) %>" class="rf-country-badge"><%= item.country %></a><% } %>
+            </div>
+          </div>
+          <% if (item.link) { %>
+            <a href="<%= item.link %>" target="_blank" rel="noopener noreferrer" class="rfd-feed-link">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15,3 21,3 21,9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+            </a>
+          <% } %>
+        </div>
+      <% }); %>
+      <% if (recentItems.length === 0) { %>
+        <div class="rfd-feed-empty">No recent claims available</div>
+      <% } %>
+    </div>
+  </div>
+
+  <!-- Group Ranking Leaderboard -->
+  <div class="rfd-panel rfd-rank-panel">
+    <div class="rfd-panel-header">
+      <h2 class="rfd-panel-title">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+        Group Leaderboard
+      </h2>
+    </div>
+    <div class="rfd-rank-list">
+      <% sortedGroups.slice(0, 12).forEach(function(g, idx) { %>
+        <a href="/ransomfeed?group=<%= encodeURIComponent(g[0]) %>" class="rfd-rank-item">
+          <span class="rfd-rank-pos <%= idx < 3 ? 'rfd-rank-top' : '' %>"><%= idx + 1 %></span>
+          <span class="rfd-rank-name"><%= g[0] %></span>
+          <div class="rfd-rank-bar-wrap">
+            <div class="rfd-rank-bar" style="width:<%= Math.max((g[1] / sortedGroups[0][1]) * 100, 4) %>%"></div>
+          </div>
+          <span class="rfd-rank-count"><%= g[1] %></span>
+        </a>
+      <% }); %>
+    </div>
+  </div>
+</div>
+
+<!-- Filters + Full Table -->
+<div class="rfd-panel rfd-table-panel">
+  <div class="rfd-panel-header">
+    <h2 class="rfd-panel-title">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      All Claims
+    </h2>
+    <div class="rfd-table-filters">
+      <select id="rf-group-filter" class="rf-select" onchange="applyFilters()">
+        <option value="">All Groups</option>
+        <% groups.forEach(function(g) { %>
+          <option value="<%= g %>"<%= activeGroup === g ? ' selected' : '' %>><%= g %></option>
+        <% }); %>
+      </select>
+      <select id="rf-country-filter" class="rf-select" onchange="applyFilters()">
+        <option value="">All Countries</option>
+        <% countries.forEach(function(c) { %>
+          <option value="<%= c %>"<%= activeCountry === c ? ' selected' : '' %>><%= c %></option>
+        <% }); %>
+      </select>
+      <% if (activeGroup || activeCountry) { %>
+        <a href="/ransomfeed" class="rf-clear-btn">Clear</a>
+      <% } %>
+    </div>
+  </div>
+
+  <div class="rf-table-wrapper">
+    <table class="rf-table">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Victim</th>
+          <th>Group</th>
+          <th>Country</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <% if (items.length === 0) { %>
+          <tr><td colspan="5" class="rf-empty">No ransomware claims found<%= (activeGroup || activeCountry) ? ' matching your filters' : '' %>.</td></tr>
+        <% } else { %>
+          <% items.forEach(function(item) { %>
+            <tr>
+              <td class="rf-cell-date">
+                <% if (item.pubDate) { %>
+                  <%= new Date(item.pubDate).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) %>
+                <% } else { %>&mdash;<% } %>
+              </td>
+              <td class="rf-cell-victim"><span class="rf-victim-name"><%= item.victim || item.title %></span></td>
+              <td class="rf-cell-group">
+                <% if (item.group) { %><a href="/ransomfeed?group=<%= encodeURIComponent(item.group) %>" class="rf-group-badge"><%= item.group %></a>
+                <% } else { %><span class="rf-unknown">Unknown</span><% } %>
+              </td>
+              <td class="rf-cell-country">
+                <% if (item.country) { %><a href="/ransomfeed?country=<%= encodeURIComponent(item.country) %>" class="rf-country-badge"><%= item.country %></a>
+                <% } else { %><span class="rf-unknown">&mdash;</span><% } %>
+              </td>
+              <td class="rf-cell-link">
+                <% if (item.link) { %>
+                  <a href="<%= item.link %>" target="_blank" rel="noopener noreferrer" class="rf-detail-link">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15,3 21,3 21,9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                  </a>
+                <% } %>
+              </td>
+            </tr>
+          <% }); %>
+        <% } %>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="rf-attribution">
+  Data source: <a href="https://ransomfeed.it" target="_blank" rel="noopener noreferrer">ransomfeed.it</a> by Dario Fadda, licensed under <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener noreferrer">CC BY 4.0</a>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<script>
+(function() {
+  var chartColors = ['#ef4444','#f97316','#fbbf24','#22c55e','#22d3ee','#3b82f6','#a78bfa','#f472b6','#34d399','#818cf8'];
+
+  // --- Timeline area chart ---
+  var timelineData = <%- JSON.stringify(timelineDays) %>;
+  new Chart(document.getElementById('rf-timeline-chart').getContext('2d'), {
+    type: 'line',
+    data: {
+      labels: timelineData.map(function(d) { return d.date.slice(5); }),
+      datasets: [{
+        data: timelineData.map(function(d) { return d.count; }),
+        borderColor: '#ef4444',
+        backgroundColor: 'rgba(239,68,68,0.08)',
+        fill: true,
+        tension: 0.35,
+        pointRadius: 0,
+        pointHoverRadius: 5,
+        pointHoverBackgroundColor: '#ef4444',
+        borderWidth: 2,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: {
+        backgroundColor: 'rgba(0,0,0,0.8)', titleColor: '#fff', bodyColor: '#fff',
+        padding: 8, cornerRadius: 6, displayColors: false,
+        callbacks: { title: function(t) { return t[0].label; }, label: function(t) { return t.parsed.y + ' claims'; } }
+      }},
+      scales: {
+        y: { display: false, beginAtZero: true },
+        x: { ticks: { color: '#71717a', font: { size: 10 }, maxTicksLimit: 10 }, grid: { display: false } }
+      }
+    }
+  });
+
+  // --- Top Groups horizontal bar ---
+  var groupLabels = <%- JSON.stringify(topGroups10.map(function(g) { return g[0]; })) %>;
+  var groupData = <%- JSON.stringify(topGroups10.map(function(g) { return g[1]; })) %>;
+  new Chart(document.getElementById('rf-groups-chart').getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels: groupLabels,
+      datasets: [{ data: groupData, backgroundColor: chartColors, borderRadius: 5, borderSkipped: false }]
+    },
+    options: {
+      indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: {
+        backgroundColor: 'rgba(0,0,0,0.8)', padding: 8, cornerRadius: 6,
+        callbacks: { label: function(t) { return t.parsed.x + ' claims'; } }
+      }},
+      scales: {
+        x: { beginAtZero: true, ticks: { color: '#71717a' }, grid: { color: 'rgba(255,255,255,0.04)' } },
+        y: { ticks: { color: '#a1a1aa', font: { size: 11, weight: 600 } }, grid: { display: false } }
+      }
+    }
+  });
+
+  // --- Countries doughnut ---
+  var countryLabels = <%- JSON.stringify(topCountries10.map(function(c) { return c[0]; })) %>;
+  var countryData = <%- JSON.stringify(topCountries10.map(function(c) { return c[1]; })) %>;
+  new Chart(document.getElementById('rf-countries-chart').getContext('2d'), {
+    type: 'doughnut',
+    data: {
+      labels: countryLabels,
+      datasets: [{ data: countryData, backgroundColor: chartColors, borderWidth: 0, hoverOffset: 6 }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, cutout: '62%',
+      plugins: {
+        legend: { position: 'right', labels: { color: '#a1a1aa', font: { size: 11 }, padding: 10, boxWidth: 12, boxHeight: 12, borderRadius: 3 } },
+        tooltip: { backgroundColor: 'rgba(0,0,0,0.8)', padding: 8, cornerRadius: 6,
+          callbacks: { label: function(t) { return t.label + ': ' + t.parsed + ' claims'; } }
+        }
+      }
+    }
+  });
+
+  // --- Filter logic ---
+  window.applyFilters = function() {
+    var group = document.getElementById('rf-group-filter').value;
+    var country = document.getElementById('rf-country-filter').value;
+    var params = [];
+    if (group) params.push('group=' + encodeURIComponent(group));
+    if (country) params.push('country=' + encodeURIComponent(country));
+    window.location.href = '/ransomfeed' + (params.length ? '?' + params.join('&') : '');
+  };
+})();
+</script>
+
+<%- include('partials/footer') %>
