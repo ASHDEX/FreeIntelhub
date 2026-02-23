@@ -1109,7 +1109,6 @@ a:hover { color: #67e8f9; }
 }
 .rf-attribution a { color: var(--accent); text-decoration: none; }
 .rf-attribution a:hover { text-decoration: underline; }
-
 @media (max-width: 768px) {
   .vuln-hero { min-height: calc(50vh - 60px); padding: 1.5rem 0; }
   .vuln-hero-title { font-size: 1.3rem; }
