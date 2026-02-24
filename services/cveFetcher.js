@@ -59,8 +59,17 @@ async function getLatestCVEs() {
 
 // Direct CVE lookup by ID (e.g. CVE-2024-1234)
 const CVE_ID_REGEX = /^CVE-\d{4}-\d{4,}$/i;
+const MAX_CACHE_SIZE = 500;
 const lookupCache = new Map();
 const LOOKUP_CACHE_TTL = 15 * 60 * 1000; // 15 minutes
+
+// Prune oldest entries when cache exceeds max size
+function pruneCache(cache) {
+  if (cache.size <= MAX_CACHE_SIZE) return;
+  const entries = [...cache.entries()].sort((a, b) => a[1].fetchedAt - b[1].fetchedAt);
+  const toRemove = entries.slice(0, cache.size - MAX_CACHE_SIZE);
+  for (const [key] of toRemove) cache.delete(key);
+}
 
 // Generic HTTPS JSON fetcher with timeout
 function fetchJSON(url, timeout = 8000) {
@@ -271,6 +280,7 @@ function lookupCVE(cveId) {
 
   return fetchNVD(id).then(result => {
     lookupCache.set(id, { data: result, fetchedAt: Date.now() });
+    pruneCache(lookupCache);
     return result;
   });
 }
@@ -343,6 +353,7 @@ async function fullCVELookup(cveId) {
   };
 
   fullLookupCache.set(id, { data: result, fetchedAt: Date.now() });
+  pruneCache(fullLookupCache);
   return result;
 }
 
