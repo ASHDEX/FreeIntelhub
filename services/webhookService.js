@@ -4,6 +4,11 @@
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
 
+function safeParse(json) {
+  if (!json) return null;
+  try { return JSON.parse(json); } catch (_) { return null; }
+}
+
 /**
  * Build a plain-text summary for a list of articles.
  */
@@ -117,8 +122,8 @@ async function sendCustomWebhook(webhookUrl, articles) {
       category: a.category || null,
       vendor: a.vendor || null,
       sector: a.sector || null,
-      mitre_techniques: a.mitre_techniques ? JSON.parse(a.mitre_techniques) : null,
-      iocs: a.iocs ? JSON.parse(a.iocs) : null,
+      mitre_techniques: safeParse(a.mitre_techniques),
+      iocs: safeParse(a.iocs),
       published_at: a.published_at,
     })),
   };

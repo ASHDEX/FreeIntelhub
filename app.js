@@ -1,4 +1,5 @@
 const express = require('express');
+const fs = require('fs');
 const path = require('path');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
@@ -6,6 +7,12 @@ const routes = require('./routes');
 const { fetchAllFeeds } = require('./services/rssFetcher');
 const { startNewsletterCron } = require('./services/newsletter');
 const { cleanupOldArticles } = require('./services/articleCleanup');
+
+// Restrict .env file permissions (owner read/write only)
+try {
+  const envPath = path.join(__dirname, '.env');
+  if (fs.existsSync(envPath)) fs.chmodSync(envPath, 0o600);
+} catch (_) {}
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -33,9 +40,9 @@ app.use(helmet({
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
-// Body parsing
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
+// Body parsing with size limits
+app.use(express.json({ limit: '50kb' }));
+app.use(express.urlencoded({ extended: false, limit: '50kb' }));
 
 // Static files
 app.use(express.static(path.join(__dirname, 'public')));

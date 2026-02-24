@@ -27,17 +27,31 @@ function safeHref(url) {
 }
 
 // Validate webhook URLs — block SSRF to internal/private networks
+function isPrivateIP(ip) {
+  // Normalize IPv4-mapped IPv6 (::ffff:127.0.0.1 → 127.0.0.1)
+  const v4 = ip.replace(/^::ffff:/i, '');
+  if (v4 === '127.0.0.1' || v4 === '0.0.0.0' || v4 === '::1' || v4 === '0') return true;
+  if (/^10\./.test(v4)) return true;
+  if (/^172\.(1[6-9]|2\d|3[01])\./.test(v4)) return true;
+  if (/^192\.168\./.test(v4)) return true;
+  if (/^169\.254\./.test(v4)) return true;
+  if (/^(fc|fd|fe80)/i.test(ip)) return true; // IPv6 private/link-local
+  return false;
+}
+
 function isValidWebhookUrl(urlStr) {
   try {
     const parsed = new URL(urlStr);
     if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return false;
-    const hostname = parsed.hostname.toLowerCase();
-    if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]') return false;
-    if (hostname === '0.0.0.0' || hostname === '169.254.169.254') return false;
-    if (/^10\./.test(hostname)) return false;
-    if (/^172\.(1[6-9]|2\d|3[01])\./.test(hostname)) return false;
-    if (/^192\.168\./.test(hostname)) return false;
+    const hostname = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, '');
+    if (hostname === 'localhost') return false;
     if (/^(metadata|internal|consul|vault|etcd|kubernetes)/i.test(hostname)) return false;
+    // Block raw IP addresses (decimal, hex, octal encodings)
+    if (/^\d+$/.test(hostname)) return false; // decimal IP like 2130706433
+    if (/^0x/i.test(hostname)) return false;  // hex IP like 0x7f000001
+    if (/^0\d/.test(hostname)) return false;  // octal IP like 0177.0.0.1
+    // Check if hostname is an IP and validate it
+    if (/^[\d.:[\]]+$/.test(hostname) && isPrivateIP(hostname)) return false;
     return true;
   } catch (_) {
     return false;
@@ -239,7 +253,7 @@ const stmts = {
   getSubscriberByToken: db.prepare(`SELECT * FROM subscribers WHERE token = ?`),
   getSubscriberByVerifyToken: db.prepare(`SELECT * FROM subscribers WHERE verify_token = ?`),
   verifySubscriber: db.prepare(`UPDATE subscribers SET verified = 1, verify_token = NULL WHERE id = ?`),
-  resendVerification: db.prepare(`UPDATE subscribers SET verify_token = @verify_token WHERE id = ?`),
+  resendVerification: db.prepare(`UPDATE subscribers SET verify_token = @verify_token WHERE id = @id`),
   insertAlertRule: db.prepare(`
     INSERT OR IGNORE INTO alert_rules (subscriber_id, rule_type, rule_value)
     VALUES (@subscriber_id, @rule_type, @rule_value)
@@ -605,6 +619,7 @@ router.post('/alerts/subscribe', emailLimiter, async (req, res) => {
     if (!values) continue;
     const arr = Array.isArray(values) ? values : [values];
     for (const val of arr) {
+      if (typeof val !== 'string') continue;
       const v = val.trim().slice(0, 200);
       if (v) stmts.insertAlertRule.run({ subscriber_id: subscriber.id, rule_type: type, rule_value: v });
     }
@@ -699,8 +714,13 @@ router.post('/alerts/resend-verify', emailLimiter, async (req, res) => {
   }
 
   const newVerifyToken = generateToken();
-  stmts.resendVerification.run({ verify_token: newVerifyToken }, subscriber.id);
-  await sendVerification(subscriber.email, newVerifyToken);
+  stmts.resendVerification.run({ verify_token: newVerifyToken, id: subscriber.id });
+  try {
+    await sendVerification(subscriber.email, newVerifyToken);
+  } catch (err) {
+    console.error(`[Alerts] Failed to send verification to ${maskEmail(subscriber.email)}: ${err.message}`);
+    return res.redirect(`/alerts?token=${encodeURIComponent(token)}&error=email_failed`);
+  }
   res.redirect(`/alerts?token=${encodeURIComponent(token)}&success=verification_sent`);
 });
 
