@@ -253,7 +253,7 @@ const stmts = {
   getSubscriberByToken: db.prepare(`SELECT * FROM subscribers WHERE token = ?`),
   getSubscriberByVerifyToken: db.prepare(`SELECT * FROM subscribers WHERE verify_token = ?`),
   verifySubscriber: db.prepare(`UPDATE subscribers SET verified = 1, verify_token = NULL WHERE id = ?`),
-  resendVerification: db.prepare(`UPDATE subscribers SET verify_token = @verify_token WHERE id = ?`),
+  resendVerification: db.prepare(`UPDATE subscribers SET verify_token = @verify_token WHERE id = @id`),
   insertAlertRule: db.prepare(`
     INSERT OR IGNORE INTO alert_rules (subscriber_id, rule_type, rule_value)
     VALUES (@subscriber_id, @rule_type, @rule_value)
@@ -619,6 +619,7 @@ router.post('/alerts/subscribe', emailLimiter, async (req, res) => {
     if (!values) continue;
     const arr = Array.isArray(values) ? values : [values];
     for (const val of arr) {
+      if (typeof val !== 'string') continue;
       const v = val.trim().slice(0, 200);
       if (v) stmts.insertAlertRule.run({ subscriber_id: subscriber.id, rule_type: type, rule_value: v });
     }
@@ -713,8 +714,13 @@ router.post('/alerts/resend-verify', emailLimiter, async (req, res) => {
   }
 
   const newVerifyToken = generateToken();
-  stmts.resendVerification.run({ verify_token: newVerifyToken }, subscriber.id);
-  await sendVerification(subscriber.email, newVerifyToken);
+  stmts.resendVerification.run({ verify_token: newVerifyToken, id: subscriber.id });
+  try {
+    await sendVerification(subscriber.email, newVerifyToken);
+  } catch (err) {
+    console.error(`[Alerts] Failed to send verification to ${maskEmail(subscriber.email)}: ${err.message}`);
+    return res.redirect(`/alerts?token=${encodeURIComponent(token)}&error=email_failed`);
+  }
   res.redirect(`/alerts?token=${encodeURIComponent(token)}&success=verification_sent`);
 });
 

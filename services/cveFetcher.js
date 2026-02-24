@@ -23,9 +23,9 @@ function fetchFromNVD() {
             const metrics = cve.metrics || {};
             let severity = '';
             if (metrics.cvssMetricV31 && metrics.cvssMetricV31.length) {
-              severity = metrics.cvssMetricV31[0].cvssData.baseSeverity || '';
+              severity = (metrics.cvssMetricV31[0].cvssData && metrics.cvssMetricV31[0].cvssData.baseSeverity) || '';
             } else if (metrics.cvssMetricV2 && metrics.cvssMetricV2.length) {
-              severity = metrics.cvssMetricV2[0].baseSeverity || '';
+              severity = (metrics.cvssMetricV2[0].cvssData && metrics.cvssMetricV2[0].cvssData.baseSeverity) || metrics.cvssMetricV2[0].baseSeverity || '';
             }
             return { id, description: description.slice(0, 120), link, severity };
           });
@@ -98,14 +98,16 @@ function fetchNVD(id) {
     const refs = (cve.references || []).map(r => ({ url: r.url, source: r.source || '' }));
     const metrics = cve.metrics || {};
     let severity = '', score = null, vector = '';
-    if (metrics.cvssMetricV31 && metrics.cvssMetricV31.length) {
-      severity = metrics.cvssMetricV31[0].cvssData.baseSeverity || '';
-      score = metrics.cvssMetricV31[0].cvssData.baseScore || null;
-      vector = metrics.cvssMetricV31[0].cvssData.vectorString || '';
-    } else if (metrics.cvssMetricV2 && metrics.cvssMetricV2.length) {
-      severity = metrics.cvssMetricV2[0].baseSeverity || '';
-      score = metrics.cvssMetricV2[0].cvssData.baseScore || null;
-      vector = metrics.cvssMetricV2[0].cvssData.vectorString || '';
+    const cvss31 = metrics.cvssMetricV31 && metrics.cvssMetricV31.length && metrics.cvssMetricV31[0].cvssData;
+    const cvss2 = metrics.cvssMetricV2 && metrics.cvssMetricV2.length && metrics.cvssMetricV2[0].cvssData;
+    if (cvss31) {
+      severity = cvss31.baseSeverity || '';
+      score = cvss31.baseScore || null;
+      vector = cvss31.vectorString || '';
+    } else if (cvss2) {
+      severity = cvss2.baseSeverity || metrics.cvssMetricV2[0].baseSeverity || '';
+      score = cvss2.baseScore || null;
+      vector = cvss2.vectorString || '';
     }
     const weaknesses = (cve.weaknesses || []).flatMap(w => (w.description || []).map(d => d.value)).filter(v => v !== 'NVD-CWE-noinfo');
     return {
