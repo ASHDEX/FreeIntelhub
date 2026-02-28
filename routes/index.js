@@ -591,7 +591,6 @@ router.get('/api/intel/search', apiLimiter, (req, res) => {
   });
 });
 
-
 // Trending page
 router.get('/trending', (req, res) => {
   res.render('trending', { pageTitle: 'Trending' });
