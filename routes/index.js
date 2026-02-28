@@ -9,7 +9,7 @@ const { sendVerification, isConfigured: smtpConfigured } = require('../services/
 const { getLatestCVEs, lookupCVE, fullCVELookup, CVE_ID_REGEX } = require('../services/cveFetcher');
 const { generateRSS } = require('../services/feedGenerator');
 const { lookupThreatIntel } = require('../services/threatIntel');
-const { fetchRansomFeed } = require('../services/ransomfeedFetcher');
+
 const threatmapConfig = require('../config/threatmap.json');
 const router = express.Router();
 
@@ -453,45 +453,6 @@ router.get('/vulnerability', (req, res) => {
   res.render('vulnlookup', { pageTitle: 'Vulnerability & Exploit Lookup', query: '' });
 });
 
-
-// Ransomfeed page
-router.get('/ransomfeed', async (req, res) => {
-  const group = (req.query.group || '').trim();
-  const country = (req.query.country || '').trim();
-  let items = [];
-  let error = null;
-  try {
-    items = await fetchRansomFeed();
-  } catch (err) {
-    error = 'Failed to fetch ransomware feed. Try again later.';
-  }
-  // Collect unique groups and countries for filters
-  const groups = [...new Set(items.map(i => i.group).filter(Boolean))].sort();
-  const countries = [...new Set(items.map(i => i.country).filter(Boolean))].sort();
-  // Apply filters
-  let filtered = items;
-  if (group) filtered = filtered.filter(i => i.group.toLowerCase() === group.toLowerCase());
-  if (country) filtered = filtered.filter(i => i.country.toLowerCase() === country.toLowerCase());
-  res.render('ransomfeed', {
-    pageTitle: 'Ransomfeed',
-    items: filtered,
-    total: items.length,
-    groups, countries,
-    activeGroup: group,
-    activeCountry: country,
-    error,
-  });
-});
-
-// Ransomfeed API (JSON)
-router.get('/api/ransomfeed', async (req, res) => {
-  try {
-    const items = await fetchRansomFeed();
-    res.json({ total: items.length, items });
-  } catch (err) {
-    res.status(502).json({ error: 'Failed to fetch ransomware feed.' });
-  }
-});
 
 // Trending page
 router.get('/trending', (req, res) => {
