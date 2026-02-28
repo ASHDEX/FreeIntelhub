@@ -1,0 +1,375 @@
+<%- include('partials/head', { pageTitle: 'Indicator Intelligence' }) %>
+
+<!-- Hero Search -->
+<div id="intel-hero" class="intel-hero">
+  <div class="intel-hero-inner">
+    <div class="intel-hero-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><circle cx="12" cy="8" r="0.5" fill="currentColor"/><path d="M4.93 4.93l2.83 2.83"/><path d="M16.24 16.24l2.83 2.83"/><path d="M2 12h3"/><path d="M19 12h3"/></svg>
+    </div>
+    <h1 class="intel-hero-title">Indicator Intelligence</h1>
+    <p class="intel-hero-subtitle">Search any domain, IP, hash, CVE, or keyword across all ingested threat feeds.</p>
+
+    <div class="intel-search-box">
+      <div class="intel-search-wrapper">
+        <svg class="intel-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <input type="text" id="intel-input" placeholder="e.g. 192.168.1.1, evil.com, CVE-2024-3400, d41d8cd98f..." autocomplete="off" spellcheck="false">
+        <button id="intel-search-btn" class="intel-search-btn" disabled>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+        </button>
+      </div>
+      <div class="intel-search-tags">
+        <span class="intel-tag" data-q="CVE-2024-3400">CVE-2024-3400</span>
+        <span class="intel-tag" data-q="ransomware">ransomware</span>
+        <span class="intel-tag" data-q="phishing">phishing</span>
+        <span class="intel-tag" data-q="APT28">APT28</span>
+        <span class="intel-tag" data-q="Log4Shell">Log4Shell</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Loading -->
+<div id="intel-loading" class="intel-loading" style="display:none;">
+  <div class="intel-spinner"></div>
+  <p>Searching across threat intelligence feeds...</p>
+</div>
+
+<!-- Error -->
+<div id="intel-error" class="intel-error" style="display:none;"></div>
+
+<!-- Results -->
+<div id="intel-results" style="display:none;">
+
+  <!-- Summary Card -->
+  <div id="intel-summary" class="intel-card intel-summary-card"></div>
+
+  <!-- Stats Row -->
+  <div id="intel-stats-row" class="intel-stats-row"></div>
+
+  <!-- Timeline -->
+  <div id="intel-timeline-panel" class="intel-panel" style="display:none;">
+    <h2 class="intel-panel-title">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg>
+      Activity Timeline
+    </h2>
+    <div class="intel-timeline-chart"><canvas id="intel-timeline-canvas" height="80"></canvas></div>
+  </div>
+
+  <!-- Two column: Categories + Sectors -->
+  <div id="intel-breakdown-row" class="intel-breakdown-row" style="display:none;">
+    <div class="intel-panel">
+      <h2 class="intel-panel-title">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
+        Threat Categories
+      </h2>
+      <div id="intel-categories" class="intel-bar-list"></div>
+    </div>
+    <div class="intel-panel">
+      <h2 class="intel-panel-title">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+        Affected Sectors
+      </h2>
+      <div id="intel-sectors" class="intel-bar-list"></div>
+    </div>
+  </div>
+
+  <!-- Threat Intel (for CVEs) -->
+  <div id="intel-threat-panel" class="intel-panel" style="display:none;">
+    <h2 class="intel-panel-title">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      Threat Intelligence
+    </h2>
+    <div id="intel-threat-content"></div>
+  </div>
+
+  <!-- MITRE Techniques -->
+  <div id="intel-mitre-panel" class="intel-panel" style="display:none;">
+    <h2 class="intel-panel-title">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      MITRE ATT&CK Techniques
+    </h2>
+    <div id="intel-mitre-tags" class="intel-mitre-tags"></div>
+  </div>
+
+  <!-- Related Indicators -->
+  <div id="intel-related-panel" class="intel-panel" style="display:none;">
+    <h2 class="intel-panel-title">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+      Related Indicators
+    </h2>
+    <div id="intel-related-list" class="intel-related-list"></div>
+  </div>
+
+  <!-- Articles -->
+  <div id="intel-articles-panel" class="intel-panel">
+    <h2 class="intel-panel-title">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+      <span id="intel-articles-title">Related Articles</span>
+    </h2>
+    <div id="intel-articles-list" class="intel-articles-list"></div>
+  </div>
+
+  <!-- Mentions (title/summary matches) -->
+  <div id="intel-mentions-panel" class="intel-panel" style="display:none;">
+    <h2 class="intel-panel-title">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      Additional Mentions
+    </h2>
+    <div id="intel-mentions-list" class="intel-articles-list"></div>
+  </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<script>
+(function() {
+  var input = document.getElementById('intel-input');
+  var btn = document.getElementById('intel-search-btn');
+  var hero = document.getElementById('intel-hero');
+  var loading = document.getElementById('intel-loading');
+  var errorEl = document.getElementById('intel-error');
+  var results = document.getElementById('intel-results');
+  var timelineChart = null;
+
+  function esc(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+  // Enable/disable button
+  input.addEventListener('input', function() {
+    btn.disabled = input.value.trim().length < 2;
+  });
+
+  // Enter to search
+  input.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' && input.value.trim().length >= 2) doSearch(input.value.trim());
+  });
+  btn.addEventListener('click', function() {
+    if (input.value.trim().length >= 2) doSearch(input.value.trim());
+  });
+
+  // Tag clicks
+  document.querySelectorAll('.intel-tag').forEach(function(tag) {
+    tag.addEventListener('click', function() {
+      input.value = tag.dataset.q;
+      btn.disabled = false;
+      doSearch(tag.dataset.q);
+    });
+  });
+
+  function doSearch(q) {
+    hero.classList.add('intel-hero-compact');
+    loading.style.display = 'flex';
+    errorEl.style.display = 'none';
+    results.style.display = 'none';
+
+    fetch('/api/intel/search?q=' + encodeURIComponent(q))
+      .then(function(r) { if (!r.ok) throw new Error('Search failed'); return r.json(); })
+      .then(function(data) { renderResults(data); })
+      .catch(function(err) {
+        loading.style.display = 'none';
+        errorEl.style.display = 'block';
+        errorEl.innerHTML = '<p>Failed to search: ' + esc(err.message) + '</p>';
+      });
+  }
+
+  function renderResults(data) {
+    loading.style.display = 'none';
+    results.style.display = 'block';
+
+    // Summary card
+    var hasIOC = data.total > 0;
+    var summaryHtml = '<div class="intel-summary-header">';
+    summaryHtml += '<div class="intel-summary-indicator"><code>' + esc(data.query) + '</code></div>';
+    summaryHtml += '<div class="intel-summary-verdict ' + (hasIOC ? 'intel-verdict-found' : 'intel-verdict-none') + '">';
+    summaryHtml += hasIOC ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg> Found in ' + data.total + ' article' + (data.total !== 1 ? 's' : '')
+                          : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></svg> No IOC matches';
+    summaryHtml += '</div></div>';
+    if (data.mentions.length > 0 && !hasIOC) {
+      summaryHtml += '<p class="intel-summary-note">Found ' + data.mentions.length + ' article' + (data.mentions.length !== 1 ? 's' : '') + ' mentioning this term.</p>';
+    }
+    document.getElementById('intel-summary').innerHTML = summaryHtml;
+
+    // Stats row
+    var stats = data.iocSummary;
+    var statsHtml = '';
+    var statItems = [
+      { label: 'Articles', value: data.total, color: 'accent', icon: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>' },
+      { label: 'CVEs', value: stats.cves, color: 'red', icon: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>' },
+      { label: 'IPs', value: stats.ips, color: 'amber', icon: '<circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>' },
+      { label: 'Domains', value: stats.domains, color: 'purple', icon: '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>' },
+      { label: 'Hashes', value: stats.hashes, color: 'teal', icon: '<rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>' },
+      { label: 'Sources', value: data.stats.sources.length, color: 'green', icon: '<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/>' },
+    ];
+    statItems.forEach(function(s) {
+      statsHtml += '<div class="intel-stat intel-stat-' + s.color + '">';
+      statsHtml += '<div class="intel-stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">' + s.icon + '</svg></div>';
+      statsHtml += '<div class="intel-stat-data"><span class="intel-stat-num">' + s.value + '</span><span class="intel-stat-label">' + s.label + '</span></div>';
+      statsHtml += '</div>';
+    });
+    document.getElementById('intel-stats-row').innerHTML = statsHtml;
+
+    // Timeline
+    var tlPanel = document.getElementById('intel-timeline-panel');
+    if (data.timeline.length > 1) {
+      tlPanel.style.display = 'block';
+      var ctx = document.getElementById('intel-timeline-canvas').getContext('2d');
+      if (timelineChart) timelineChart.destroy();
+      timelineChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: data.timeline.map(function(d) { return d.date.slice(5); }),
+          datasets: [{
+            data: data.timeline.map(function(d) { return d.count; }),
+            borderColor: '#22d3ee', backgroundColor: 'rgba(34,211,238,0.08)',
+            fill: true, tension: 0.35, pointRadius: 2, pointHoverRadius: 5,
+            pointHoverBackgroundColor: '#22d3ee', borderWidth: 2,
+          }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: false }, tooltip: {
+            backgroundColor: 'rgba(0,0,0,0.8)', padding: 8, cornerRadius: 6, displayColors: false,
+            callbacks: { label: function(t) { return t.parsed.y + ' articles'; } }
+          }},
+          scales: {
+            y: { display: false, beginAtZero: true },
+            x: { ticks: { color: '#71717a', font: { size: 10 }, maxTicksLimit: 10 }, grid: { display: false } }
+          }
+        }
+      });
+    } else { tlPanel.style.display = 'none'; }
+
+    // Categories & Sectors
+    var brow = document.getElementById('intel-breakdown-row');
+    if (data.stats.categories.length > 0 || data.stats.sectors.length > 0) {
+      brow.style.display = 'grid';
+      renderBarList('intel-categories', data.stats.categories);
+      renderBarList('intel-sectors', data.stats.sectors);
+    } else { brow.style.display = 'none'; }
+
+    // Threat Intel
+    var threatPanel = document.getElementById('intel-threat-panel');
+    if (data.threatIntel) {
+      threatPanel.style.display = 'block';
+      var ti = data.threatIntel;
+      var tiHtml = '<div class="intel-threat-name">' + esc(ti.vulnName) + '</div>';
+      if (ti.actors && ti.actors.length) {
+        tiHtml += '<h3 class="intel-subsection">Threat Actors</h3><div class="intel-actor-grid">';
+        ti.actors.forEach(function(a) {
+          tiHtml += '<div class="intel-actor-card">';
+          tiHtml += '<div class="intel-actor-name">' + esc(a.name) + '</div>';
+          if (a.aliases && a.aliases.length) tiHtml += '<div class="intel-actor-aliases">' + a.aliases.map(esc).join(', ') + '</div>';
+          tiHtml += '<div class="intel-actor-meta">';
+          if (a.origin) tiHtml += '<span class="intel-actor-origin">' + esc(a.origin) + '</span>';
+          if (a.motivation) tiHtml += '<span class="intel-actor-motiv">' + esc(a.motivation) + '</span>';
+          tiHtml += '</div></div>';
+        });
+        tiHtml += '</div>';
+      }
+      if (ti.incidents && ti.incidents.length) {
+        tiHtml += '<h3 class="intel-subsection">Known Incidents</h3><div class="intel-incidents-list">';
+        ti.incidents.forEach(function(inc) {
+          tiHtml += '<div class="intel-incident">';
+          tiHtml += '<div class="intel-incident-name">' + esc(inc.name) + '</div>';
+          tiHtml += '<div class="intel-incident-meta">';
+          if (inc.date) tiHtml += '<span>' + esc(inc.date) + '</span>';
+          if (inc.type) tiHtml += '<span>' + esc(inc.type) + '</span>';
+          tiHtml += '</div>';
+          if (inc.impact) tiHtml += '<div class="intel-incident-impact">' + esc(inc.impact) + '</div>';
+          tiHtml += '</div>';
+        });
+        tiHtml += '</div>';
+      }
+      document.getElementById('intel-threat-content').innerHTML = tiHtml;
+    } else { threatPanel.style.display = 'none'; }
+
+    // MITRE
+    var mitrePanel = document.getElementById('intel-mitre-panel');
+    if (data.stats.mitre.length > 0) {
+      mitrePanel.style.display = 'block';
+      document.getElementById('intel-mitre-tags').innerHTML = data.stats.mitre.map(function(t) {
+        return '<a href="/mitre?technique=' + encodeURIComponent(t) + '" class="intel-mitre-tag">' + esc(t) + '</a>';
+      }).join('');
+    } else { mitrePanel.style.display = 'none'; }
+
+    // Related indicators
+    var relPanel = document.getElementById('intel-related-panel');
+    if (data.stats.relatedIndicators.length > 0) {
+      relPanel.style.display = 'block';
+      document.getElementById('intel-related-list').innerHTML = data.stats.relatedIndicators.slice(0, 30).map(function(ind) {
+        return '<span class="intel-related-chip" data-q="' + esc(ind) + '">' + esc(ind) + '</span>';
+      }).join('');
+      // Click to search related
+      document.querySelectorAll('.intel-related-chip').forEach(function(chip) {
+        chip.addEventListener('click', function() {
+          input.value = chip.dataset.q;
+          btn.disabled = false;
+          doSearch(chip.dataset.q);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
+      });
+    } else { relPanel.style.display = 'none'; }
+
+    // Articles
+    document.getElementById('intel-articles-title').textContent = 'IOC Articles (' + data.articles.length + ')';
+    document.getElementById('intel-articles-list').innerHTML = data.articles.length > 0
+      ? data.articles.map(renderArticle).join('')
+      : '<div class="intel-empty">No articles with matching IOCs found.</div>';
+
+    // Mentions
+    var mentionsPanel = document.getElementById('intel-mentions-panel');
+    if (data.mentions.length > 0) {
+      mentionsPanel.style.display = 'block';
+      document.getElementById('intel-mentions-list').innerHTML = data.mentions.map(renderArticle).join('');
+    } else { mentionsPanel.style.display = 'none'; }
+  }
+
+  function renderArticle(a) {
+    var html = '<div class="intel-article">';
+    html += '<div class="intel-article-meta">';
+    if (a.source) html += '<span class="badge badge-source">' + esc(a.source) + '</span>';
+    if (a.category) html += '<span class="badge badge-category">' + esc(a.category) + '</span>';
+    if (a.sector) html += '<span class="intel-article-sector">' + esc(a.sector) + '</span>';
+    if (a.published_at) html += '<time>' + new Date(a.published_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) + '</time>';
+    html += '</div>';
+    html += '<h3 class="intel-article-title"><a href="' + esc(a.link) + '" target="_blank" rel="noopener noreferrer">' + esc(a.title) + '</a></h3>';
+    if (a.summary) html += '<p class="intel-article-summary">' + esc(a.summary) + '</p>';
+    // Show IOC badges
+    if (a.iocs) {
+      html += '<div class="intel-article-iocs">';
+      if (a.iocs.cves) a.iocs.cves.slice(0, 5).forEach(function(c) { html += '<span class="badge badge-ioc-cve">' + esc(c) + '</span>'; });
+      if (a.iocs.ipv4) a.iocs.ipv4.slice(0, 3).forEach(function(ip) { html += '<span class="badge badge-ioc-ip">' + esc(ip) + '</span>'; });
+      if (a.iocs.domains) a.iocs.domains.slice(0, 3).forEach(function(d) { html += '<span class="badge badge-ioc-domain">' + esc(d) + '</span>'; });
+      var hashes = [].concat(a.iocs.md5 || [], a.iocs.sha1 || [], a.iocs.sha256 || []);
+      hashes.slice(0, 2).forEach(function(h) { html += '<span class="badge badge-ioc-hash" title="' + esc(h) + '">' + esc(h.substring(0, 12)) + '...</span>'; });
+      html += '</div>';
+    }
+    html += '</div>';
+    return html;
+  }
+
+  function renderBarList(id, entries) {
+    var el = document.getElementById(id);
+    if (!entries || entries.length === 0) { el.innerHTML = '<div class="intel-empty">No data</div>'; return; }
+    var max = entries[0][1];
+    el.innerHTML = entries.slice(0, 8).map(function(e) {
+      var pct = Math.max((e[1] / max) * 100, 4);
+      return '<div class="intel-bar-item">' +
+        '<span class="intel-bar-label">' + esc(e[0]) + '</span>' +
+        '<div class="intel-bar-track"><div class="intel-bar-fill" style="width:' + pct + '%"></div></div>' +
+        '<span class="intel-bar-count">' + e[1] + '</span></div>';
+    }).join('');
+  }
+
+  // Auto-search from URL param
+  var urlQ = new URLSearchParams(window.location.search).get('q');
+  if (urlQ) {
+    input.value = urlQ;
+    btn.disabled = false;
+    doSearch(urlQ);
+  }
+
+  input.focus();
+})();
+</script>
+
+<%- include('partials/footer') %>

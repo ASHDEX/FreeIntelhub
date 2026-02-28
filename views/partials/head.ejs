@@ -68,18 +68,24 @@
         </div>
 
         <div class="nav-dropdown">
-          <a href="/trending" class="nav-tab<%= currentPath === '/trending' || currentPath === '/bookmarks' || currentPath === '/mitre' || currentPath === '/iocs' || currentPath === '/heatmap' ? ' active' : '' %>">Tools <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></a>
+          <a href="/trending" class="nav-tab<%= currentPath === '/trending' || currentPath === '/bookmarks' || currentPath === '/mitre' || currentPath === '/iocs' || currentPath === '/heatmap' || currentPath === '/intel' ? ' active' : '' %>">Tools <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></a>
           <div class="dropdown-menu">
             <a href="/trending" class="dropdown-item">Trending</a>
             <a href="/heatmap" class="dropdown-item">Threat Heatmap</a>
             <a href="/mitre" class="dropdown-item">MITRE ATT&CK</a>
             <a href="/iocs" class="dropdown-item">IOC Feed</a>
+            <a href="/intel" class="dropdown-item">Indicator Intel</a>
             <a href="/bookmarks" class="dropdown-item">Bookmarks</a>
             <div class="dropdown-divider"></div>
             <a href="/feed/all.xml" class="dropdown-item">RSS Feed</a>
             <a href="/api/articles" class="dropdown-item">API</a>
           </div>
         </div>
+
+        <a href="/intel" class="nav-tab nav-tab-intel<%= currentPath === '/intel' ? ' active' : '' %>">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><circle cx="12" cy="8" r="0.5" fill="currentColor"/></svg>
+          Intel
+        </a>
 
         <a href="/alerts" class="nav-tab nav-tab-alert<%= currentPath === '/alerts' ? ' active' : '' %>">
           <svg class="alert-bell" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>

@@ -268,6 +268,19 @@ const stmts = {
   `),
   getWebhooks: db.prepare(`SELECT * FROM webhooks WHERE subscriber_id = ?`),
   deleteWebhook: db.prepare(`DELETE FROM webhooks WHERE id = ? AND subscriber_id = ?`),
+  // Indicator intelligence: search IOCs column for a specific indicator
+  searchIOC: db.prepare(`
+    SELECT * FROM articles WHERE iocs LIKE ? ORDER BY published_at DESC LIMIT ? OFFSET ?
+  `),
+  searchIOCCount: db.prepare(`
+    SELECT COUNT(*) as count FROM articles WHERE iocs LIKE ?
+  `),
+  // Search articles by title/summary for an indicator keyword
+  searchIndicatorText: db.prepare(`
+    SELECT * FROM articles WHERE (title LIKE ? OR summary LIKE ?) AND id NOT IN (
+      SELECT id FROM articles WHERE iocs LIKE ?
+    ) ORDER BY published_at DESC LIMIT ?
+  `),
 };
 
 // --- Inject nav data and helpers into all views ---
@@ -451,6 +464,131 @@ router.get('/heatmap', (req, res) => {
 // Vulnerability & Exploit Lookup page
 router.get('/vulnerability', (req, res) => {
   res.render('vulnlookup', { pageTitle: 'Vulnerability & Exploit Lookup', query: '' });
+});
+
+// Indicator Intelligence page
+router.get('/intel', (req, res) => {
+  res.render('intel', { pageTitle: 'Indicator Intelligence', query: '' });
+});
+
+// Indicator Intelligence API
+router.get('/api/intel/search', apiLimiter, (req, res) => {
+  const q = (req.query.q || '').trim();
+  if (!q || q.length < 2 || q.length > 200) {
+    return res.status(400).json({ error: 'Query must be 2-200 characters' });
+  }
+
+  const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+  const limit = 50;
+  const like = '%' + q + '%';
+
+  // 1. Search IOC fields for exact indicator matches
+  const iocTotal = stmts.searchIOCCount.get(like).count;
+  const iocArticles = stmts.searchIOC.all(like, limit, (page - 1) * limit);
+
+  // 2. Search title/summary for mentions (excluding IOC matches to avoid dupes)
+  const mentionArticles = stmts.searchIndicatorText.all(like, like, like, 20);
+
+  // 3. Parse IOC data and compute stats
+  const iocTypes = { cves: [], ipv4: [], domains: [], urls: [], md5: [], sha1: [], sha256: [], emails: [] };
+  const sourceMap = {};
+  const categoryMap = {};
+  const sectorMap = {};
+  const timelineMap = {};
+  const mitreSet = new Set();
+  const relatedIndicators = new Set();
+
+  iocArticles.forEach(a => {
+    // Source/category/sector stats
+    if (a.source) sourceMap[a.source] = (sourceMap[a.source] || 0) + 1;
+    if (a.category) categoryMap[a.category] = (categoryMap[a.category] || 0) + 1;
+    if (a.sector) sectorMap[a.sector] = (sectorMap[a.sector] || 0) + 1;
+
+    // Timeline
+    if (a.published_at) {
+      const d = a.published_at.slice(0, 10);
+      timelineMap[d] = (timelineMap[d] || 0) + 1;
+    }
+
+    // MITRE techniques
+    if (a.mitre_techniques) {
+      try {
+        JSON.parse(a.mitre_techniques).forEach(t => mitreSet.add(typeof t === 'string' ? t : t.id || t.name));
+      } catch (_) {}
+    }
+
+    // Collect all IOCs from matching articles
+    if (a.iocs) {
+      try {
+        const parsed = JSON.parse(a.iocs);
+        Object.keys(iocTypes).forEach(k => {
+          if (parsed[k]) {
+            parsed[k].forEach(v => {
+              if (v.toLowerCase() !== q.toLowerCase()) relatedIndicators.add(v);
+              if (!iocTypes[k].includes(v)) iocTypes[k].push(v);
+            });
+          }
+        });
+      } catch (_) {}
+    }
+  });
+
+  // Build sorted timeline
+  const timeline = Object.entries(timelineMap)
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([date, count]) => ({ date, count }));
+
+  // Check threat intel for CVE matches
+  let threatIntel = null;
+  const cveMatch = q.match(/^CVE-\d{4}-\d{4,}$/i);
+  if (cveMatch) {
+    threatIntel = lookupThreatIntel(q.toUpperCase());
+  }
+
+  // Format articles for response
+  const formatArticle = a => ({
+    id: a.id,
+    title: a.title,
+    link: a.link,
+    summary: a.summary,
+    source: a.source,
+    category: a.category,
+    vendor: a.vendor,
+    sector: a.sector,
+    published_at: a.published_at,
+    iocs: (() => { try { return JSON.parse(a.iocs); } catch (_) { return null; } })(),
+    mitre: (() => { try { return JSON.parse(a.mitre_techniques); } catch (_) { return null; } })(),
+  });
+
+  res.json({
+    query: q,
+    total: iocTotal,
+    page,
+    articles: iocArticles.map(formatArticle),
+    mentions: mentionArticles.map(formatArticle),
+    stats: {
+      sources: Object.entries(sourceMap).sort((a, b) => b[1] - a[1]),
+      categories: Object.entries(categoryMap).sort((a, b) => b[1] - a[1]),
+      sectors: Object.entries(sectorMap).sort((a, b) => b[1] - a[1]),
+      mitre: Array.from(mitreSet),
+      relatedIndicators: Array.from(relatedIndicators).slice(0, 50),
+    },
+    iocSummary: {
+      cves: iocTypes.cves.length,
+      ips: iocTypes.ipv4.length,
+      domains: iocTypes.domains.length,
+      hashes: iocTypes.md5.length + iocTypes.sha1.length + iocTypes.sha256.length,
+      urls: iocTypes.urls.length,
+      emails: iocTypes.emails.length,
+    },
+    timeline,
+    threatIntel: threatIntel ? {
+      vulnName: threatIntel.vulnName,
+      actors: threatIntel.actors,
+      incidents: threatIntel.incidents,
+      sectorHeatmap: threatIntel.sectorHeatmap,
+    } : null,
+  });
 });
 
 
