@@ -1,0 +1,394 @@
+<%- include('partials/head', { pageTitle: 'IP & Domain Reputation Lookup' }) %>
+
+<!-- Hero search section -->
+<div id="iprep-hero" class="iprep-hero">
+  <div class="iprep-hero-inner">
+    <div class="iprep-hero-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="40" height="40"><circle cx="12" cy="12" r="10"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/><path d="M2 12h20"/></svg>
+    </div>
+    <h1 class="iprep-hero-title">IP &amp; Domain Reputation Lookup</h1>
+    <p class="iprep-hero-subtitle">Check any IP address, domain, or URL against threat intelligence feeds including URLHaus, AbuseIPDB, and geolocation data.</p>
+
+    <div class="iprep-search-box">
+      <div class="iprep-search-wrapper">
+        <svg class="iprep-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <input type="text" id="iprep-input" placeholder="Enter IP, domain, or URL (e.g. 8.8.8.8 or example.com)..." autocomplete="off" spellcheck="false">
+        <button id="iprep-btn" class="iprep-search-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+        </button>
+      </div>
+      <p class="iprep-search-hint">Supports IPv4, IPv6, domains, and URLs &mdash; press Enter or click the arrow to search</p>
+      <div id="iprep-history" class="iprep-history" style="display:none;"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Loading state -->
+<div id="iprep-loading" class="iprep-loading" style="display:none;">
+  <div class="iprep-spinner"></div>
+  <p>Querying threat intelligence feeds...</p>
+  <div class="iprep-loading-chips">
+    <span class="iprep-chip">ip-api.com</span>
+    <span class="iprep-chip">URLHaus</span>
+    <span class="iprep-chip">AbuseIPDB</span>
+    <span class="iprep-chip">DNS Lookup</span>
+  </div>
+</div>
+
+<!-- Error state -->
+<div id="iprep-error" class="iprep-error" style="display:none;"></div>
+
+<!-- Results -->
+<div id="iprep-results" style="display:none;">
+
+  <!-- Risk Summary Card -->
+  <div class="iprep-card iprep-summary-card">
+    <div class="iprep-summary-left">
+      <div class="iprep-risk-gauge" id="iprep-gauge">
+        <div class="iprep-gauge-ring" id="iprep-gauge-ring">
+          <span class="iprep-gauge-score" id="iprep-gauge-score">0</span>
+          <span class="iprep-gauge-label">Risk Score</span>
+        </div>
+      </div>
+    </div>
+    <div class="iprep-summary-right">
+      <div class="iprep-summary-header">
+        <span class="iprep-query-label" id="iprep-query-label"></span>
+        <span class="iprep-risk-badge" id="iprep-risk-badge"></span>
+      </div>
+      <div class="iprep-resolved-ip" id="iprep-resolved-ip" style="display:none;"></div>
+      <div class="iprep-factors" id="iprep-factors"></div>
+    </div>
+  </div>
+
+  <!-- Two-column grid for details -->
+  <div class="iprep-grid">
+
+    <!-- Geolocation Card -->
+    <div class="iprep-card" id="iprep-geo-card" style="display:none;">
+      <h3 class="iprep-card-title">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+        Geolocation &amp; Network
+      </h3>
+      <div class="iprep-geo-grid" id="iprep-geo-grid"></div>
+    </div>
+
+    <!-- AbuseIPDB Card -->
+    <div class="iprep-card" id="iprep-abuse-card" style="display:none;">
+      <h3 class="iprep-card-title">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        AbuseIPDB
+      </h3>
+      <div id="iprep-abuse-content"></div>
+    </div>
+
+  </div>
+
+  <!-- URLHaus Panel -->
+  <div class="iprep-panel" id="iprep-urlhaus-panel" style="display:none;">
+    <h2 class="iprep-panel-title">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+      URLHaus Threat Feed
+    </h2>
+    <div id="iprep-urlhaus-content"></div>
+  </div>
+
+  <!-- Source status row -->
+  <div class="iprep-panel">
+    <h2 class="iprep-panel-title">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+      Intelligence Sources
+    </h2>
+    <div class="iprep-sources-grid" id="iprep-sources-grid"></div>
+  </div>
+
+  <!-- External lookup links -->
+  <div class="iprep-panel iprep-panel-links">
+    <h2 class="iprep-panel-title">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15,3 21,3 21,9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+      Lookup in External Tools
+    </h2>
+    <div class="iprep-ext-grid" id="iprep-ext-grid"></div>
+  </div>
+
+</div>
+
+<script>
+(function() {
+  var input = document.getElementById('iprep-input');
+  var btn = document.getElementById('iprep-btn');
+  var hero = document.getElementById('iprep-hero');
+  var loading = document.getElementById('iprep-loading');
+  var errorEl = document.getElementById('iprep-error');
+  var results = document.getElementById('iprep-results');
+  var historyEl = document.getElementById('iprep-history');
+
+  var HISTORY_KEY = 'iprep_history';
+  var MAX_HISTORY = 8;
+
+  function esc(s) { var d = document.createElement('div'); d.textContent = String(s); return d.innerHTML; }
+
+  // ===== History =====
+  function getHistory() {
+    try { return JSON.parse(localStorage.getItem(HISTORY_KEY)) || []; } catch (e) { return []; }
+  }
+
+  function addHistory(q, level) {
+    var h = getHistory().filter(function(x) { return x.q !== q; });
+    h.unshift({ q: q, level: level || 'unknown', time: Date.now() });
+    if (h.length > MAX_HISTORY) h = h.slice(0, MAX_HISTORY);
+    try { localStorage.setItem(HISTORY_KEY, JSON.stringify(h)); } catch (e) {}
+    renderHistory();
+  }
+
+  function renderHistory() {
+    var h = getHistory();
+    if (!h.length) { historyEl.style.display = 'none'; return; }
+    historyEl.style.display = 'flex';
+    var html = '<span class="iprep-history-label">Recent:</span>';
+    h.forEach(function(x) {
+      html += '<button class="iprep-history-chip iprep-hist-' + esc(x.level) + '" data-q="' + esc(x.q) + '">' + esc(x.q) + '</button>';
+    });
+    historyEl.innerHTML = html;
+  }
+
+  historyEl.addEventListener('click', function(e) {
+    var chip = e.target.closest('[data-q]');
+    if (chip) { input.value = chip.getAttribute('data-q'); doLookup(input.value); }
+  });
+
+  renderHistory();
+
+  // ===== Lookup =====
+  function doLookup(q) {
+    q = q.trim();
+    if (!q) return;
+    hero.classList.add('iprep-hero-compact');
+    loading.style.display = 'flex';
+    errorEl.style.display = 'none';
+    results.style.display = 'none';
+
+    history.replaceState(null, '', '/iprep?q=' + encodeURIComponent(q));
+
+    fetch('/api/iprep?q=' + encodeURIComponent(q))
+      .then(function(r) {
+        if (!r.ok) return r.json().then(function(j) { throw new Error(j.error || 'Lookup failed'); });
+        return r.json();
+      })
+      .then(function(json) {
+        loading.style.display = 'none';
+        addHistory(q, json.data.riskLevel);
+        renderResults(json.data);
+      })
+      .catch(function(err) {
+        loading.style.display = 'none';
+        errorEl.style.display = 'block';
+        errorEl.innerHTML = '<p>' + esc(err.message || 'Something went wrong. Please try again.') + '</p>';
+      });
+  }
+
+  input.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') { e.preventDefault(); doLookup(input.value); }
+  });
+  btn.addEventListener('click', function() { doLookup(input.value); });
+
+  // ===== Render =====
+  function renderResults(data) {
+    results.style.display = 'block';
+
+    // Risk gauge
+    var score = data.riskScore || 0;
+    var level = data.riskLevel || 'unknown';
+    var gaugeRing = document.getElementById('iprep-gauge-ring');
+    gaugeRing.className = 'iprep-gauge-ring iprep-gauge-' + level;
+    document.getElementById('iprep-gauge-score').textContent = score;
+
+    // Query label
+    document.getElementById('iprep-query-label').textContent = data.query;
+
+    // Risk badge
+    var badgeEl = document.getElementById('iprep-risk-badge');
+    var badgeLabels = { high: 'High Risk', medium: 'Medium Risk', low: 'Low Risk', clean: 'Clean', unknown: 'Unknown' };
+    badgeEl.textContent = badgeLabels[level] || level;
+    badgeEl.className = 'iprep-risk-badge iprep-badge-' + level;
+
+    // Resolved IP
+    var resolvedEl = document.getElementById('iprep-resolved-ip');
+    if (data.ip && data.type !== 'ip') {
+      resolvedEl.style.display = 'block';
+      resolvedEl.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="m9 18 6-6-6-6"/></svg> Resolved to <strong>' + esc(data.ip) + '</strong>';
+    } else {
+      resolvedEl.style.display = 'none';
+    }
+
+    // Risk factors
+    var factorsEl = document.getElementById('iprep-factors');
+    factorsEl.innerHTML = (data.riskFactors || []).map(function(f) {
+      return '<span class="iprep-factor iprep-factor-' + esc(f.level) + '">' + esc(f.label) + '</span>';
+    }).join('');
+
+    // Geo card
+    var geoCard = document.getElementById('iprep-geo-card');
+    if (data.geo) {
+      var g = data.geo;
+      geoCard.style.display = 'block';
+      var fields = [
+        ['Country', g.country + (g.countryCode ? ' (' + g.countryCode + ')' : '')],
+        ['Region', g.regionName],
+        ['City', g.city],
+        ['Timezone', g.timezone],
+        ['ISP', g.isp],
+        ['Organization', g.org],
+        ['ASN', g.as],
+        ['AS Name', g.asname],
+        ['Coordinates', g.lat && g.lon ? g.lat + ', ' + g.lon : null],
+        ['Proxy/VPN', g.proxy ? 'Yes' : 'No'],
+        ['Hosting', g.hosting ? 'Yes' : 'No'],
+        ['Mobile', g.mobile ? 'Yes' : 'No'],
+      ];
+      document.getElementById('iprep-geo-grid').innerHTML = fields
+        .filter(function(f) { return f[1]; })
+        .map(function(f) {
+          return '<div class="iprep-geo-row"><span class="iprep-geo-key">' + esc(f[0]) + '</span><span class="iprep-geo-val">' + esc(f[1]) + '</span></div>';
+        }).join('');
+    } else {
+      geoCard.style.display = 'none';
+    }
+
+    // AbuseIPDB card
+    var abuseCard = document.getElementById('iprep-abuse-card');
+    if (data.abuseipdb) {
+      abuseCard.style.display = 'block';
+      var a = data.abuseipdb;
+      var conf = a.abuseConfidenceScore || 0;
+      var confLevel = conf >= 75 ? 'high' : conf >= 25 ? 'medium' : conf > 0 ? 'low' : 'clean';
+      document.getElementById('iprep-abuse-content').innerHTML =
+        '<div class="iprep-abuse-score">'
+        + '<div class="iprep-abuse-bar-bg"><div class="iprep-abuse-bar iprep-abuse-bar-' + confLevel + '" style="width:' + conf + '%"></div></div>'
+        + '<span class="iprep-abuse-pct iprep-abuse-pct-' + confLevel + '">' + conf + '% Abuse Confidence</span>'
+        + '</div>'
+        + '<div class="iprep-abuse-stats">'
+        + '<div class="iprep-abuse-stat"><span class="iprep-abuse-stat-label">Total Reports</span><span class="iprep-abuse-stat-val">' + esc(a.totalReports || 0) + '</span></div>'
+        + '<div class="iprep-abuse-stat"><span class="iprep-abuse-stat-label">Distinct Users</span><span class="iprep-abuse-stat-val">' + esc(a.numDistinctUsers || 0) + '</span></div>'
+        + '<div class="iprep-abuse-stat"><span class="iprep-abuse-stat-label">Usage Type</span><span class="iprep-abuse-stat-val">' + esc(a.usageType || 'Unknown') + '</span></div>'
+        + '<div class="iprep-abuse-stat"><span class="iprep-abuse-stat-label">Domain</span><span class="iprep-abuse-stat-val">' + esc(a.domain || '—') + '</span></div>'
+        + '</div>';
+    } else if (!data.abuseipdbAvailable) {
+      abuseCard.style.display = 'block';
+      document.getElementById('iprep-abuse-content').innerHTML =
+        '<p class="iprep-abuse-nokey">AbuseIPDB lookup requires an API key. Set <code>ABUSEIPDB_KEY</code> in your <code>.env</code> file to enable this source.</p>';
+    } else {
+      abuseCard.style.display = 'none';
+    }
+
+    // URLHaus panel
+    var urlhausPanel = document.getElementById('iprep-urlhaus-panel');
+    if (data.urlhaus && data.urlhaus.found) {
+      urlhausPanel.style.display = 'block';
+      var u = data.urlhaus;
+      var bl = u.blacklists || {};
+      var blHtml = '';
+      if (bl.surbl) blHtml += '<span class="iprep-bl-badge iprep-bl-' + (bl.surbl === 'not listed' ? 'ok' : 'bad') + '">SURBL: ' + esc(bl.surbl) + '</span>';
+      if (bl.spamhaus_dbl) blHtml += '<span class="iprep-bl-badge iprep-bl-' + (bl.spamhaus_dbl === 'not listed' ? 'ok' : 'bad') + '">Spamhaus DBL: ' + esc(bl.spamhaus_dbl) + '</span>';
+
+      var urlRows = (u.urls || []).map(function(url) {
+        var statusClass = url.status === 'online' ? 'iprep-url-online' : 'iprep-url-offline';
+        return '<div class="iprep-url-row">'
+          + '<span class="iprep-url-status ' + statusClass + '">' + esc(url.status || 'unknown') + '</span>'
+          + '<span class="iprep-url-threat">' + esc(url.threat || '') + '</span>'
+          + '<code class="iprep-url-val">' + esc(url.url || '') + '</code>'
+          + (url.dateAdded ? '<span class="iprep-url-date">' + esc(url.dateAdded.split(' ')[0]) + '</span>' : '')
+          + '</div>';
+      }).join('');
+
+      document.getElementById('iprep-urlhaus-content').innerHTML =
+        '<div class="iprep-urlhaus-summary">'
+        + '<div class="iprep-urlhaus-stat"><span class="iprep-urlhaus-stat-n">' + esc(u.urlCount) + '</span><span class="iprep-urlhaus-stat-l">Malware URLs</span></div>'
+        + '<div class="iprep-urlhaus-bls">' + (blHtml || '<span class="iprep-no-bl">No additional blacklists</span>') + '</div>'
+        + '</div>'
+        + (urlRows ? '<div class="iprep-url-list"><h4 class="iprep-url-list-title">Sample Malware URLs</h4>' + urlRows + '</div>' : '');
+    } else if (data.urlhaus && !data.urlhaus.found) {
+      urlhausPanel.style.display = 'block';
+      document.getElementById('iprep-urlhaus-content').innerHTML =
+        '<div class="iprep-urlhaus-clean"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg> Not found in URLHaus malware feed</div>';
+    } else {
+      urlhausPanel.style.display = 'none';
+    }
+
+    // Sources status
+    var sourcesHtml = [
+      {
+        name: 'ip-api.com',
+        found: !!data.geo,
+        desc: data.geo ? data.geo.isp || 'Geolocation data available' : 'No geolocation data',
+        icon: '<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>',
+      },
+      {
+        name: 'URLHaus (abuse.ch)',
+        found: data.urlhaus ? data.urlhaus.found : false,
+        notQueried: !data.urlhaus,
+        desc: data.urlhaus ? (data.urlhaus.found ? data.urlhaus.urlCount + ' malware URLs found' : 'Not listed in feed') : 'Query failed',
+        icon: '<path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>',
+      },
+      {
+        name: 'AbuseIPDB',
+        found: !!data.abuseipdb,
+        notQueried: !data.abuseipdbAvailable,
+        desc: data.abuseipdb
+          ? data.abuseipdb.abuseConfidenceScore + '% abuse confidence'
+          : (data.abuseipdbAvailable ? 'Query failed' : 'API key not configured'),
+        icon: '<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>',
+      },
+    ].map(function(s) {
+      var cls = s.notQueried ? 'iprep-src-skip' : (s.found ? 'iprep-src-found' : 'iprep-src-miss');
+      var badge = s.notQueried ? 'Skipped' : (s.found ? 'Found' : 'Not Found');
+      var badgeCls = s.notQueried ? 'iprep-src-badge-skip' : (s.found ? 'iprep-src-badge-found' : 'iprep-src-badge-miss');
+      return '<div class="iprep-source-card ' + cls + '">'
+        + '<div class="iprep-src-header">'
+        + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">' + s.icon + '</svg>'
+        + '<span class="iprep-src-name">' + esc(s.name) + '</span>'
+        + '<span class="iprep-src-badge ' + badgeCls + '">' + badge + '</span>'
+        + '</div>'
+        + '<p class="iprep-src-desc">' + esc(s.desc) + '</p>'
+        + '</div>';
+    }).join('');
+    document.getElementById('iprep-sources-grid').innerHTML = sourcesHtml;
+
+    // External links
+    var q = encodeURIComponent(data.query);
+    var extLinks = [
+      { name: 'VirusTotal', url: 'https://www.virustotal.com/gui/search/' + q },
+      { name: 'Shodan', url: 'https://www.shodan.io/search?query=' + q },
+      { name: 'Censys', url: 'https://search.censys.io/search?resource=hosts&q=' + q },
+      { name: 'AbuseIPDB', url: 'https://www.abuseipdb.com/check/' + q },
+      { name: 'urlscan.io', url: 'https://urlscan.io/search/#' + q },
+      { name: 'Cisco Talos', url: 'https://talosintelligence.com/reputation_center/lookup?search=' + q },
+      { name: 'MXToolbox', url: 'https://mxtoolbox.com/SuperTool.aspx?action=blacklist%3a' + q },
+      { name: 'URLVoid', url: 'https://www.urlvoid.com/scan/' + q },
+      { name: 'IPVoid', url: 'https://www.ipvoid.com/ip-blacklist-check/?ip=' + q },
+      { name: 'Spamhaus', url: 'https://check.spamhaus.org/listed/?searchterm=' + q },
+      { name: 'ThreatBook', url: 'https://threatbook.io/ip/' + q },
+      { name: 'GreyNoise', url: 'https://viz.greynoise.io/ip/' + q },
+    ];
+    document.getElementById('iprep-ext-grid').innerHTML = extLinks.map(function(l) {
+      return '<a href="' + esc(l.url) + '" target="_blank" rel="noopener noreferrer" class="iprep-ext-link">'
+        + '<span class="iprep-ext-name">' + esc(l.name) + '</span>'
+        + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="11" height="11"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15,3 21,3 21,9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>'
+        + '</a>';
+    }).join('');
+
+    // Scroll to results
+    document.getElementById('iprep-results').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  // Auto-lookup from URL param
+  var params = new URLSearchParams(window.location.search);
+  var pre = params.get('q');
+  if (pre) {
+    input.value = pre;
+    doLookup(pre);
+  }
+})();
+</script>
+
+<%- include('partials/footer') %>

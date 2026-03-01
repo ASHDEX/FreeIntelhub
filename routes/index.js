@@ -9,6 +9,7 @@ const { sendVerification, isConfigured: smtpConfigured } = require('../services/
 const { getLatestCVEs, lookupCVE, fullCVELookup, CVE_ID_REGEX } = require('../services/cveFetcher');
 const { generateRSS } = require('../services/feedGenerator');
 const { lookupThreatIntel } = require('../services/threatIntel');
+const { lookupReputation } = require('../services/ipRepService');
 
 const threatmapConfig = require('../config/threatmap.json');
 const router = express.Router();
@@ -453,6 +454,11 @@ router.get('/vulnerability', (req, res) => {
   res.render('vulnlookup', { pageTitle: 'Vulnerability & Exploit Lookup', query: '' });
 });
 
+
+// IP & Domain Reputation Lookup page
+router.get('/iprep', (req, res) => {
+  res.render('iprep', { pageTitle: 'IP & Domain Reputation Lookup' });
+});
 
 // Trending page
 router.get('/trending', (req, res) => {
@@ -1014,6 +1020,21 @@ router.get('/api/vuln/:id', async (req, res) => {
   } catch (err) {
     console.error('Vuln lookup error:', err.message);
     res.status(502).json({ error: 'Failed to fetch vulnerability data. Try again later.' });
+  }
+});
+
+// IP / Domain reputation lookup API
+router.get('/api/iprep', apiLimiter, async (req, res) => {
+  const q = (req.query.q || '').trim();
+  if (!q || q.length > 253) {
+    return res.status(400).json({ error: 'Provide a valid IP address, domain, or URL.' });
+  }
+  try {
+    const result = await lookupReputation(q);
+    res.json({ data: result });
+  } catch (err) {
+    console.error('[iprep] Lookup error:', err.message);
+    res.status(502).json({ error: 'Lookup failed. Try again later.' });
   }
 });
 
