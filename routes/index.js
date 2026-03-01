@@ -355,9 +355,12 @@ router.get('/search', async (req, res) => {
   const q = (req.query.q || '').trim();
   const page = getPage(req);
 
-  // If query is a CVE ID, redirect to the full vulnerability lookup page
-  if (q && CVE_ID_REGEX.test(q)) {
-    return res.redirect(`/vulnerability?cve=${encodeURIComponent(q.toUpperCase())}`);
+  // If query is a CVE ID, redirect to the full vulnerability lookup page.
+  // Use cveMatch[0] (the regex-matched token) rather than raw q so the
+  // redirect value is provably bounded to the CVE pattern — not user-controlled.
+  const cveMatch = q ? q.match(CVE_ID_REGEX) : null;
+  if (cveMatch) {
+    return res.redirect('/vulnerability?cve=' + encodeURIComponent(cveMatch[0].toUpperCase()));
   }
 
   let articles = [];
