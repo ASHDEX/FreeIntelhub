@@ -1,393 +1,480 @@
 <%- include('partials/head', { pageTitle: 'IP & Domain Reputation Lookup' }) %>
 
-<!-- Hero search section -->
-<div id="iprep-hero" class="iprep-hero">
-  <div class="iprep-hero-inner">
-    <div class="iprep-hero-icon">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="40" height="40"><circle cx="12" cy="12" r="10"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/><path d="M2 12h20"/></svg>
+<!-- Hero / Search -->
+<div id="iprep-hero" class="ir-hero">
+  <div class="ir-hero-inner">
+    <h1 class="ir-hero-title">IP &amp; Domain Reputation</h1>
+    <p class="ir-hero-sub">Check any IP address, domain, or URL against multiple threat intelligence feeds.</p>
+    <div class="ir-search-box">
+      <svg class="ir-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      <input id="ir-input" type="text" placeholder="Enter IP, domain, or URL (e.g. 8.8.8.8 or example.com)" autocomplete="off" spellcheck="false">
+      <button id="ir-btn" class="ir-search-btn" title="Lookup">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+      </button>
     </div>
-    <h1 class="iprep-hero-title">IP &amp; Domain Reputation Lookup</h1>
-    <p class="iprep-hero-subtitle">Check any IP address, domain, or URL against threat intelligence feeds including URLHaus, AbuseIPDB, and geolocation data.</p>
+    <div id="ir-history" class="ir-history" style="display:none"></div>
+  </div>
+</div>
 
-    <div class="iprep-search-box">
-      <div class="iprep-search-wrapper">
-        <svg class="iprep-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-        <input type="text" id="iprep-input" placeholder="Enter IP, domain, or URL (e.g. 8.8.8.8 or example.com)..." autocomplete="off" spellcheck="false">
-        <button id="iprep-btn" class="iprep-search-btn">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
-        </button>
+<!-- Loading -->
+<div id="ir-loading" class="ir-loading" style="display:none">
+  <span class="ir-spinner"></span>
+  <span class="ir-loading-text">Querying threat intelligence feeds…</span>
+</div>
+
+<!-- Error -->
+<div id="ir-error" class="ir-error" style="display:none"></div>
+
+<!-- ═══════════════ RESULTS ═══════════════ -->
+<div id="ir-results" style="display:none">
+
+  <!-- Top panel: Summary + Map -->
+  <div class="ir-top">
+
+    <!-- Left: Summary -->
+    <div class="ir-summary">
+      <div class="ir-summary-head">
+        <div class="ir-subject" id="ir-subject"></div>
+        <div class="ir-score-badge" id="ir-score-badge"></div>
       </div>
-      <p class="iprep-search-hint">Supports IPv4, IPv6, domains, and URLs &mdash; press Enter or click the arrow to search</p>
-      <div id="iprep-history" class="iprep-history" style="display:none;"></div>
+
+      <!-- Risk Rating bar -->
+      <div class="ir-section">
+        <div class="ir-section-label">Risk Rating</div>
+        <div class="ir-rating-bar-wrap">
+          <div class="ir-rating-bar">
+            <div class="ir-rating-fill"></div>
+            <div class="ir-rating-marker" id="ir-rating-marker"></div>
+          </div>
+          <div class="ir-rating-labels"><span>Low</span><span>High</span></div>
+        </div>
+      </div>
+
+      <!-- Factors -->
+      <div class="ir-section">
+        <div class="ir-section-label">Factors</div>
+        <div class="ir-factors" id="ir-factors"></div>
+      </div>
+
+      <!-- Categories -->
+      <div class="ir-row">
+        <span class="ir-row-label">Categories</span>
+        <span class="ir-row-val" id="ir-category"></span>
+      </div>
+
+      <!-- Popularity Rank -->
+      <div class="ir-row">
+        <span class="ir-row-label">Popularity Rank</span>
+        <span class="ir-row-val ir-muted" id="ir-rank">&lt;not in top 5M&gt;</span>
+      </div>
+
+      <!-- WHOIS Created -->
+      <div class="ir-row" id="ir-row-whois" style="display:none">
+        <span class="ir-row-label">Whois Date Created</span>
+        <span class="ir-row-val" id="ir-whois-created"></span>
+      </div>
+
+      <!-- Certificate -->
+      <div class="ir-row">
+        <span class="ir-row-label">Certificate</span>
+        <span class="ir-row-val" id="ir-cert-val">Unavailable</span>
+      </div>
+
+      <!-- IP Networks -->
+      <div class="ir-section" id="ir-section-networks">
+        <div class="ir-section-label">IP Networks</div>
+        <div id="ir-networks"></div>
+      </div>
+
+      <!-- Hosts on IP -->
+      <div class="ir-row" id="ir-row-hosts" style="display:none">
+        <span class="ir-row-label">Hosts on IP</span>
+        <span class="ir-row-val" id="ir-hosts-val"></span>
+      </div>
     </div>
-  </div>
-</div>
 
-<!-- Loading state -->
-<div id="iprep-loading" class="iprep-loading" style="display:none;">
-  <div class="iprep-spinner"></div>
-  <p>Querying threat intelligence feeds...</p>
-  <div class="iprep-loading-chips">
-    <span class="iprep-chip">ip-api.com</span>
-    <span class="iprep-chip">URLHaus</span>
-    <span class="iprep-chip">AbuseIPDB</span>
-    <span class="iprep-chip">DNS Lookup</span>
-  </div>
-</div>
-
-<!-- Error state -->
-<div id="iprep-error" class="iprep-error" style="display:none;"></div>
-
-<!-- Results -->
-<div id="iprep-results" style="display:none;">
-
-  <!-- Risk Summary Card -->
-  <div class="iprep-card iprep-summary-card">
-    <div class="iprep-summary-left">
-      <div class="iprep-risk-gauge" id="iprep-gauge">
-        <div class="iprep-gauge-ring" id="iprep-gauge-ring">
-          <span class="iprep-gauge-score" id="iprep-gauge-score">0</span>
-          <span class="iprep-gauge-label">Risk Score</span>
+    <!-- Right: World Map -->
+    <div class="ir-map-panel">
+      <div class="ir-map-wrap" id="ir-map-wrap">
+        <!-- Simplified SVG World Map (equirectangular, 1000×500) -->
+        <svg id="ir-worldmap" class="ir-worldmap" viewBox="0 0 1000 500" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <rect width="1000" height="500" fill="#0d1b2a"/>
+          <!-- North America -->
+          <path d="M42,83 L70,48 L105,38 L145,42 L170,52 L220,48 L255,50 L315,55 L355,108 L350,120 L322,130 L305,133 L278,178 L270,193 L258,208 L230,210 L205,195 L190,178 L175,170 L155,155 L152,135 L148,118 L132,97 L100,90 L72,88Z" fill="#16304a" stroke="#1e4d6e" stroke-width="0.8"/>
+          <!-- Greenland -->
+          <path d="M348,38 L375,18 L420,15 L450,20 L455,32 L448,52 L415,68 L378,64 L352,50Z" fill="#16304a" stroke="#1e4d6e" stroke-width="0.8"/>
+          <!-- Iceland -->
+          <path d="M440,72 L455,68 L465,74 L460,82 L445,83Z" fill="#16304a" stroke="#1e4d6e" stroke-width="0.8"/>
+          <!-- South America -->
+          <path d="M290,218 L322,214 L340,220 L362,240 L378,258 L400,265 L400,285 L390,305 L382,314 L370,330 L353,342 L340,360 L322,398 L308,403 L302,395 L298,375 L300,355 L295,342 L285,330 L278,310 L272,285 L270,265 L278,255 L285,245 L284,228Z" fill="#16304a" stroke="#1e4d6e" stroke-width="0.8"/>
+          <!-- Europe (W) -->
+          <path d="M472,148 L474,130 L478,118 L487,110 L493,108 L503,105 L510,98 L518,88 L515,80 L520,72 L532,60 L545,54 L556,52 L562,56 L574,55 L580,62 L578,78 L583,88 L582,110 L588,120 L592,130 L602,138 L608,148 L604,152 L596,150 L568,150 L545,150 L530,142 L518,130 L505,128 L493,132 L485,148Z" fill="#16304a" stroke="#1e4d6e" stroke-width="0.8"/>
+          <!-- Scandinavia separate -->
+          <path d="M518,88 L525,75 L530,60 L532,60 L520,72 L515,80Z" fill="#16304a" stroke="#1e4d6e" stroke-width="0.8"/>
+          <!-- UK+Ireland approx -->
+          <path d="M468,100 L474,96 L478,102 L474,112 L468,112Z" fill="#16304a" stroke="#1e4d6e" stroke-width="0.8"/>
+          <!-- Russia / N.Asia -->
+          <path d="M580,62 L615,50 L650,40 L690,35 L730,32 L780,32 L830,38 L875,45 L915,55 L950,65 L978,80 L992,100 L992,130 L980,150 L960,158 L940,162 L920,158 L895,158 L870,145 L848,145 L820,155 L800,165 L785,165 L768,158 L750,165 L730,178 L705,180 L688,170 L670,162 L650,158 L630,148 L610,148 L608,148 L602,138 L592,130 L588,120 L582,110 L583,88 L578,78 L580,62Z" fill="#16304a" stroke="#1e4d6e" stroke-width="0.8"/>
+          <!-- Middle East -->
+          <path d="M608,148 L630,148 L650,158 L660,168 L668,178 L672,195 L665,210 L650,220 L638,218 L625,210 L612,195 L608,178 L604,165 L608,155Z" fill="#16304a" stroke="#1e4d6e" stroke-width="0.8"/>
+          <!-- Africa -->
+          <path d="M480,148 L485,148 L493,132 L505,128 L518,130 L530,142 L545,150 L568,150 L596,150 L604,152 L610,165 L615,180 L618,200 L622,225 L628,255 L632,278 L630,302 L622,325 L612,342 L598,358 L578,368 L558,368 L538,360 L515,345 L500,325 L485,308 L472,285 L460,260 L450,235 L445,210 L448,195 L455,180 L462,165 L468,155 L472,148Z" fill="#16304a" stroke="#1e4d6e" stroke-width="0.8"/>
+          <!-- Madagascar -->
+          <path d="M618,255 L626,248 L632,258 L628,278 L620,282 L614,272Z" fill="#16304a" stroke="#1e4d6e" stroke-width="0.8"/>
+          <!-- South Asia (India + Sri Lanka) -->
+          <path d="M720,178 L750,165 L768,158 L785,165 L800,165 L815,165 L828,178 L835,200 L840,225 L835,250 L825,268 L808,278 L790,278 L772,265 L758,250 L748,235 L740,210 L730,195Z" fill="#16304a" stroke="#1e4d6e" stroke-width="0.8"/>
+          <!-- SE Asia / Indochina -->
+          <path d="M848,145 L870,145 L895,158 L910,170 L918,192 L912,215 L900,228 L882,238 L865,242 L850,238 L838,225 L828,210 L828,192 L832,175 L840,162Z" fill="#16304a" stroke="#1e4d6e" stroke-width="0.8"/>
+          <!-- Maritime SE Asia (Malay Peninsula + Sumatra rough) -->
+          <path d="M858,245 L875,250 L890,265 L892,285 L880,295 L862,290 L850,278 L850,262Z" fill="#16304a" stroke="#1e4d6e" stroke-width="0.8"/>
+          <!-- China / East Asia -->
+          <path d="M688,170 L705,180 L730,178 L750,165 L768,158 L785,165 L800,165 L820,155 L848,145 L840,162 L832,175 L828,192 L810,205 L795,220 L778,228 L758,225 L742,215 L730,200 L715,192 L700,195 L688,202 L675,195 L670,182 L672,172Z" fill="#16304a" stroke="#1e4d6e" stroke-width="0.8"/>
+          <!-- Korea / Japan -->
+          <path d="M895,158 L915,155 L928,155 L932,162 L922,170 L908,170 L895,165Z" fill="#16304a" stroke="#1e4d6e" stroke-width="0.8"/>
+          <path d="M942,135 L950,128 L960,132 L958,145 L948,150 L940,145Z" fill="#16304a" stroke="#1e4d6e" stroke-width="0.8"/>
+          <!-- Australia -->
+          <path d="M798,278 L840,268 L882,272 L918,285 L935,308 L938,335 L928,360 L905,372 L878,375 L848,368 L822,355 L802,332 L795,308 L795,292Z" fill="#16304a" stroke="#1e4d6e" stroke-width="0.8"/>
+          <!-- New Zealand -->
+          <path d="M952,345 L958,335 L966,340 L965,352 L958,358 L950,353Z" fill="#16304a" stroke="#1e4d6e" stroke-width="0.8"/>
+          <!-- Borneo -->
+          <path d="M880,235 L905,228 L920,238 L925,260 L912,278 L895,285 L875,275 L868,258 L870,242Z" fill="#16304a" stroke="#1e4d6e" stroke-width="0.8"/>
+          <!-- Philippines -->
+          <path d="M918,192 L928,185 L938,192 L932,205 L920,210 L912,202Z" fill="#16304a" stroke="#1e4d6e" stroke-width="0.8"/>
+          <!-- Japan main islands -->
+          <path d="M940,118 L952,108 L965,112 L970,125 L960,135 L945,132Z" fill="#16304a" stroke="#1e4d6e" stroke-width="0.8"/>
+          <!-- Equator & grid lines -->
+          <line x1="0" y1="250" x2="1000" y2="250" stroke="#1a3350" stroke-width="0.5" stroke-dasharray="4,4"/>
+          <line x1="500" y1="0" x2="500" y2="500" stroke="#1a3350" stroke-width="0.5" stroke-dasharray="4,4"/>
+          <!-- IP location pin (repositioned by JS) -->
+          <g id="ir-map-pin" style="display:none">
+            <circle r="12" fill="rgba(34,211,238,0.15)" class="ir-pin-pulse"/>
+            <circle r="6" fill="var(--accent)" stroke="#fff" stroke-width="1.5"/>
+            <circle r="2" fill="#fff"/>
+          </g>
+        </svg>
+        <div class="ir-map-info" id="ir-map-info" style="display:none">
+          <span class="ir-map-flag" id="ir-map-flag"></span>
+          <span class="ir-map-loc" id="ir-map-loc"></span>
         </div>
       </div>
     </div>
-    <div class="iprep-summary-right">
-      <div class="iprep-summary-header">
-        <span class="iprep-query-label" id="iprep-query-label"></span>
-        <span class="iprep-risk-badge" id="iprep-risk-badge"></span>
+
+  </div><!-- /.ir-top -->
+
+  <!-- Tab navigation -->
+  <div class="ir-tabs">
+    <button class="ir-tab ir-tab-active" data-tab="tab-overview">Overview</button>
+    <button class="ir-tab" data-tab="tab-dns">DNS</button>
+    <button class="ir-tab" data-tab="tab-whois">WHOIS</button>
+    <button class="ir-tab" data-tab="tab-cert">Certificate</button>
+    <button class="ir-tab" data-tab="tab-urlhaus">URLHaus</button>
+    <button class="ir-tab" data-tab="tab-related">Related Hosts</button>
+  </div>
+
+  <!-- Tab: Overview -->
+  <div class="ir-tab-panel" id="tab-overview">
+    <div class="ir-panel-grid">
+      <!-- Geolocation -->
+      <div class="ir-panel-card" id="ir-geo-card" style="display:none">
+        <div class="ir-card-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          Geolocation
+        </div>
+        <div id="ir-geo-rows"></div>
       </div>
-      <div class="iprep-resolved-ip" id="iprep-resolved-ip" style="display:none;"></div>
-      <div class="iprep-factors" id="iprep-factors"></div>
+      <!-- AbuseIPDB -->
+      <div class="ir-panel-card">
+        <div class="ir-card-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          AbuseIPDB
+        </div>
+        <div id="ir-abuse-body"></div>
+      </div>
+    </div>
+    <!-- External lookups -->
+    <div class="ir-ext-wrap">
+      <div class="ir-card-title" style="margin-bottom:.6rem">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15,3 21,3 21,9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+        Investigate Further
+      </div>
+      <div class="ir-ext-grid" id="ir-ext-grid"></div>
     </div>
   </div>
 
-  <!-- Two-column grid for details -->
-  <div class="iprep-grid">
-
-    <!-- Geolocation Card -->
-    <div class="iprep-card" id="iprep-geo-card" style="display:none;">
-      <h3 class="iprep-card-title">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-        Geolocation &amp; Network
-      </h3>
-      <div class="iprep-geo-grid" id="iprep-geo-grid"></div>
-    </div>
-
-    <!-- AbuseIPDB Card -->
-    <div class="iprep-card" id="iprep-abuse-card" style="display:none;">
-      <h3 class="iprep-card-title">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-        AbuseIPDB
-      </h3>
-      <div id="iprep-abuse-content"></div>
-    </div>
-
+  <!-- Tab: DNS -->
+  <div class="ir-tab-panel" id="tab-dns" style="display:none">
+    <div id="ir-dns-body" class="ir-dns-body"></div>
   </div>
 
-  <!-- URLHaus Panel -->
-  <div class="iprep-panel" id="iprep-urlhaus-panel" style="display:none;">
-    <h2 class="iprep-panel-title">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
-      URLHaus Threat Feed
-    </h2>
-    <div id="iprep-urlhaus-content"></div>
+  <!-- Tab: WHOIS -->
+  <div class="ir-tab-panel" id="tab-whois" style="display:none">
+    <div id="ir-whois-body"></div>
   </div>
 
-  <!-- Source status row -->
-  <div class="iprep-panel">
-    <h2 class="iprep-panel-title">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
-      Intelligence Sources
-    </h2>
-    <div class="iprep-sources-grid" id="iprep-sources-grid"></div>
+  <!-- Tab: Certificate -->
+  <div class="ir-tab-panel" id="tab-cert" style="display:none">
+    <div id="ir-cert-body"></div>
   </div>
 
-  <!-- External lookup links -->
-  <div class="iprep-panel iprep-panel-links">
-    <h2 class="iprep-panel-title">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15,3 21,3 21,9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-      Lookup in External Tools
-    </h2>
-    <div class="iprep-ext-grid" id="iprep-ext-grid"></div>
+  <!-- Tab: URLHaus -->
+  <div class="ir-tab-panel" id="tab-urlhaus" style="display:none">
+    <div id="ir-urlhaus-body"></div>
   </div>
 
-</div>
+  <!-- Tab: Related Hosts -->
+  <div class="ir-tab-panel" id="tab-related" style="display:none">
+    <div id="ir-related-body"></div>
+  </div>
+
+</div><!-- /#ir-results -->
+
+<style>
+@keyframes ir-pin-pulse { 0%,100%{r:12;opacity:.3} 50%{r:18;opacity:.1} }
+.ir-pin-pulse { animation: ir-pin-pulse 2s ease-in-out infinite; }
+</style>
 
 <script>
-(function() {
-  var input = document.getElementById('iprep-input');
-  var btn = document.getElementById('iprep-btn');
-  var hero = document.getElementById('iprep-hero');
-  var loading = document.getElementById('iprep-loading');
-  var errorEl = document.getElementById('iprep-error');
-  var results = document.getElementById('iprep-results');
-  var historyEl = document.getElementById('iprep-history');
+(function(){
+var $ = function(id){ return document.getElementById(id); };
+var input=$('ir-input'), btn=$('ir-btn'), hero=$('iprep-hero'), loading=$('ir-loading'),
+    errorEl=$('ir-error'), results=$('ir-results'), histEl=$('ir-history');
 
-  var HISTORY_KEY = 'iprep_history';
-  var MAX_HISTORY = 8;
+function esc(s){var d=document.createElement('div');d.textContent=String(s==null?'':s);return d.innerHTML;}
+function fmt(s){if(!s)return '—';var d=new Date(s);return isNaN(d)?s:d.toISOString().split('T')[0];}
+function ago(s){if(!s)return '';var ms=Date.now()-new Date(s);var d=Math.floor(ms/86400000);
+  if(d<1)return 'today';if(d<30)return d+' day'+(d>1?'s':'')+' ago';
+  var mo=Math.floor(d/30);if(mo<12)return mo+' month'+(mo>1?'s':'')+' ago';
+  var y=Math.floor(d/365);return y+' year'+(y>1?'s':'')+' ago';}
 
-  function esc(s) { var d = document.createElement('div'); d.textContent = String(s); return d.innerHTML; }
+// ── History ─────────────────────────────────────────────────────────────────
+var HIST_KEY='iprep_hist';
+function getHist(){try{return JSON.parse(localStorage.getItem(HIST_KEY))||[];}catch(e){return[];}}
+function addHist(q,lvl){var h=getHist().filter(function(x){return x.q!==q;});h.unshift({q:q,lvl:lvl||'unknown'});if(h.length>8)h=h.slice(0,8);try{localStorage.setItem(HIST_KEY,JSON.stringify(h));}catch(e){}renderHist();}
+function renderHist(){var h=getHist();if(!h.length){histEl.style.display='none';return;}histEl.style.display='flex';var html='<span class="ir-hist-label">Recent:</span>';h.forEach(function(x){html+='<button class="ir-hist-chip ir-hist-'+esc(x.lvl)+'" data-q="'+esc(x.q)+'">'+esc(x.q)+'</button>';});histEl.innerHTML=html;}
+histEl.addEventListener('click',function(e){var c=e.target.closest('[data-q]');if(c){input.value=c.getAttribute('data-q');doLookup(input.value);}});
+renderHist();
 
-  // ===== History =====
-  function getHistory() {
-    try { return JSON.parse(localStorage.getItem(HISTORY_KEY)) || []; } catch (e) { return []; }
+// ── Lookup ───────────────────────────────────────────────────────────────────
+function doLookup(q){
+  q=(q||'').trim();if(!q)return;
+  $('iprep-hero').classList.add('ir-hero-compact');
+  loading.style.display='flex';errorEl.style.display='none';results.style.display='none';
+  history.replaceState(null,'','/iprep?q='+encodeURIComponent(q));
+  fetch('/api/iprep?q='+encodeURIComponent(q))
+    .then(function(r){return r.ok?r.json():r.json().then(function(j){throw new Error(j.error||'Lookup failed');});})
+    .then(function(json){loading.style.display='none';addHist(q,json.data.riskLevel);render(json.data);})
+    .catch(function(err){loading.style.display='none';errorEl.style.display='block';errorEl.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> '+esc(err.message);});
+}
+input.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();doLookup(input.value);}});
+btn.addEventListener('click',function(){doLookup(input.value);});
+
+// ── Render ────────────────────────────────────────────────────────────────────
+function render(d){
+  results.style.display='block';
+
+  // ── Subject + Score ───────────────────────────────────────────────────────
+  var subj=$('ir-subject');
+  subj.innerHTML='<span class="ir-subject-host">'+esc(d.query)+'</span>'
+    +(d.type!=='ip'&&d.ip?' <span class="ir-subject-ip">→ '+esc(d.ip)+'</span>':'');
+
+  var lvl=d.riskLevel||'unknown';
+  var scoreEl=$('ir-score-badge');
+  scoreEl.textContent=d.riskScore.toFixed(2);
+  scoreEl.className='ir-score-badge ir-score-'+lvl;
+
+  // ── Risk rating bar ───────────────────────────────────────────────────────
+  var pct=Math.min((d.riskScore/10)*100,100);
+  $('ir-rating-marker').style.left=pct+'%';
+  $('ir-rating-marker').className='ir-rating-marker ir-marker-'+lvl;
+
+  // ── Factors ───────────────────────────────────────────────────────────────
+  var fEl=$('ir-factors');fEl.innerHTML='';
+  if(d.riskLow&&d.riskLow.length)   fEl.innerHTML+='<span class="ir-factor ir-f-low">'+d.riskLow.length+' Low Risk</span>';
+  if(d.riskWarning&&d.riskWarning.length) fEl.innerHTML+='<span class="ir-factor ir-f-warn">'+d.riskWarning.length+' Warning</span>';
+  if(d.riskHigh&&d.riskHigh.length)  fEl.innerHTML+='<span class="ir-factor ir-f-high">'+d.riskHigh.length+' High Risk</span>';
+  if(!fEl.innerHTML) fEl.innerHTML='<span class="ir-factor ir-f-clean">Clean</span>';
+
+  // ── Category ─────────────────────────────────────────────────────────────
+  $('ir-category').textContent=d.category||'Uncategorized';
+
+  // ── WHOIS Created ─────────────────────────────────────────────────────────
+  if(d.rdap&&d.rdap.created){
+    $('ir-row-whois').style.display='flex';
+    $('ir-whois-created').textContent=fmt(d.rdap.created)+' ('+ago(d.rdap.created)+')';
   }
 
-  function addHistory(q, level) {
-    var h = getHistory().filter(function(x) { return x.q !== q; });
-    h.unshift({ q: q, level: level || 'unknown', time: Date.now() });
-    if (h.length > MAX_HISTORY) h = h.slice(0, MAX_HISTORY);
-    try { localStorage.setItem(HISTORY_KEY, JSON.stringify(h)); } catch (e) {}
-    renderHistory();
+  // ── Certificate ──────────────────────────────────────────────────────────
+  var certEl=$('ir-cert-val');
+  if(d.certsh&&d.certsh.found){
+    var nb=d.certsh.latest&&d.certsh.latest.notAfter;
+    var expired=nb&&new Date(nb)<new Date();
+    certEl.innerHTML=(expired?'<span class="ir-cert-expired">Expired '+fmt(nb)+'</span>':'<span class="ir-cert-valid">Valid until '+fmt(nb)+'</span>');
+  }else{certEl.innerHTML='<span class="ir-muted">Unavailable</span>';}
+
+  // ── IP Networks ──────────────────────────────────────────────────────────
+  var netEl=$('ir-networks');netEl.innerHTML='';
+  if(d.ip){
+    var geo=d.geo;
+    var html='<div class="ir-network-row">';
+    html+='<span class="ir-net-score ir-score-sm ir-score-'+lvl+'">'+d.riskScore.toFixed(2)+'</span>';
+    html+='<span class="ir-net-ip">'+esc(d.ip)+'</span>';
+    if(geo&&geo.countryCode) html+='<span class="ir-net-flag" title="'+esc(geo.country)+'">'+countryFlag(geo.countryCode)+'</span>';
+    if(geo&&geo.org) html+='<span class="ir-net-org">'+esc(geo.org.replace(/^AS\d+\s*/,''))+'</span>';
+    html+='</div>';
+    netEl.innerHTML=html;
   }
 
-  function renderHistory() {
-    var h = getHistory();
-    if (!h.length) { historyEl.style.display = 'none'; return; }
-    historyEl.style.display = 'flex';
-    var html = '<span class="iprep-history-label">Recent:</span>';
-    h.forEach(function(x) {
-      html += '<button class="iprep-history-chip iprep-hist-' + esc(x.level) + '" data-q="' + esc(x.q) + '">' + esc(x.q) + '</button>';
-    });
-    historyEl.innerHTML = html;
+  // ── Hosts on IP ──────────────────────────────────────────────────────────
+  if(d.reverseIP){
+    $('ir-row-hosts').style.display='flex';
+    $('ir-hosts-val').textContent=d.reverseIP.count+' host'+(d.reverseIP.count!==1?'s':'');
   }
 
-  historyEl.addEventListener('click', function(e) {
-    var chip = e.target.closest('[data-q]');
-    if (chip) { input.value = chip.getAttribute('data-q'); doLookup(input.value); }
+  // ── World Map Pin ─────────────────────────────────────────────────────────
+  if(d.geo&&d.geo.lat!=null&&d.geo.lon!=null){
+    var px=((d.geo.lon+180)/360)*1000;
+    var py=((90-d.geo.lat)/180)*500;
+    var pin=$('ir-map-pin');
+    pin.setAttribute('transform','translate('+px.toFixed(1)+','+py.toFixed(1)+')');
+    pin.style.display='';
+    // Map info overlay
+    var mi=$('ir-map-info');
+    mi.style.display='flex';
+    $('ir-map-flag').textContent=countryFlag(d.geo.countryCode||'');
+    $('ir-map-loc').textContent=[d.geo.city,d.geo.countryCode].filter(Boolean).join(', ');
+  }
+
+  // ── Geo card (Overview tab) ───────────────────────────────────────────────
+  if(d.geo){
+    $('ir-geo-card').style.display='block';
+    var g=d.geo;
+    var rows=[['Country',g.country+(g.countryCode?' ('+g.countryCode+')':'')],['City',g.city],['Region',g.regionName],['Timezone',g.timezone],['ISP',g.isp],['Organization',g.org],['ASN',g.as],['Proxy/VPN',g.proxy?'Yes':'No'],['Hosting',g.hosting?'Yes':'No']];
+    $('ir-geo-rows').innerHTML=rows.filter(function(r){return r[1];}).map(function(r){return '<div class="ir-kv"><span class="ir-kv-k">'+esc(r[0])+'</span><span class="ir-kv-v">'+esc(r[1])+'</span></div>';}).join('');
+  }
+
+  // ── AbuseIPDB card ───────────────────────────────────────────────────────
+  var abuseEl=$('ir-abuse-body');
+  if(d.abuseipdb){
+    var a=d.abuseipdb,conf=a.abuseConfidenceScore||0;
+    var cl=conf>=75?'high':conf>=25?'medium':conf>0?'low':'clean';
+    abuseEl.innerHTML='<div class="ir-abuse-bar-bg"><div class="ir-abuse-bar ir-abuse-'+cl+'" style="width:'+conf+'%"></div></div>'
+      +'<div class="ir-abuse-pct ir-text-'+cl+'">'+conf+'% abuse confidence</div>'
+      +'<div class="ir-kv-grid">'
+      +'<div class="ir-kv"><span class="ir-kv-k">Reports</span><span class="ir-kv-v">'+esc(a.totalReports||0)+'</span></div>'
+      +'<div class="ir-kv"><span class="ir-kv-k">Users</span><span class="ir-kv-v">'+esc(a.numDistinctUsers||0)+'</span></div>'
+      +'<div class="ir-kv"><span class="ir-kv-k">Usage</span><span class="ir-kv-v">'+esc(a.usageType||'Unknown')+'</span></div>'
+      +'<div class="ir-kv"><span class="ir-kv-k">Domain</span><span class="ir-kv-v">'+esc(a.domain||'—')+'</span></div>'
+      +'</div>';
+  }else if(!d.abuseipdbAvailable){
+    abuseEl.innerHTML='<p class="ir-note">Set <code>ABUSEIPDB_KEY</code> in your <code>.env</code> to enable AbuseIPDB lookups.</p>';
+  }else{
+    abuseEl.innerHTML='<p class="ir-note">No AbuseIPDB data available.</p>';
+  }
+
+  // ── External links ───────────────────────────────────────────────────────
+  var q2=encodeURIComponent(d.query);
+  var links=[
+    ['VirusTotal','https://www.virustotal.com/gui/search/'+q2],
+    ['Shodan','https://www.shodan.io/search?query='+q2],
+    ['Censys','https://search.censys.io/search?resource=hosts&q='+q2],
+    ['AbuseIPDB','https://www.abuseipdb.com/check/'+q2],
+    ['urlscan.io','https://urlscan.io/search/#'+q2],
+    ['Talos','https://talosintelligence.com/reputation_center/lookup?search='+q2],
+    ['URLVoid','https://www.urlvoid.com/scan/'+q2],
+    ['GreyNoise','https://viz.greynoise.io/ip/'+q2],
+    ['Spamhaus','https://check.spamhaus.org/listed/?searchterm='+q2],
+    ['MXToolbox','https://mxtoolbox.com/SuperTool.aspx?action=blacklist%3a'+q2],
+  ];
+  $('ir-ext-grid').innerHTML=links.map(function(l){return '<a href="'+esc(l[1])+'" target="_blank" rel="noopener noreferrer" class="ir-ext-link">'+esc(l[0])+' <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="10" height="10"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15,3 21,3 21,9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>';}).join('');
+
+  // ── DNS tab ──────────────────────────────────────────────────────────────
+  var dnsEl=$('ir-dns-body');
+  if(d.dnsRecords){
+    var dr=d.dnsRecords,sections=[];
+    if(dr.a&&dr.a.length) sections.push({label:'A Records',rows:dr.a.map(function(ip){return [ip,''];})});
+    if(dr.aaaa&&dr.aaaa.length) sections.push({label:'AAAA Records',rows:dr.aaaa.map(function(ip){return [ip,''];})});
+    if(dr.ns&&dr.ns.length) sections.push({label:'NS Records',rows:dr.ns.map(function(ns){return [ns,''];})});
+    if(dr.mx&&dr.mx.length) sections.push({label:'MX Records',rows:dr.mx.map(function(m){return [m.exchange,'Priority '+m.priority];})});
+    if(dr.txt&&dr.txt.length) sections.push({label:'TXT Records',rows:dr.txt.map(function(t){return [t,''];})});
+    dnsEl.innerHTML=sections.map(function(s){
+      return '<div class="ir-dns-section"><div class="ir-dns-label">'+esc(s.label)+'</div>'
+        +s.rows.map(function(r){return '<div class="ir-dns-row"><code class="ir-dns-val">'+esc(r[0])+'</code>'+(r[1]?'<span class="ir-dns-note">'+esc(r[1])+'</span>':'')+'</div>';}).join('')+'</div>';
+    }).join('');
+  }else{dnsEl.innerHTML='<p class="ir-note">No DNS records available (IP lookups skip DNS resolution).</p>';}
+
+  // ── WHOIS tab ────────────────────────────────────────────────────────────
+  var whoisEl=$('ir-whois-body');
+  if(d.rdap){
+    var w=d.rdap;
+    var wrows=[['Registrar',w.registrar],['Created',fmt(w.created)+(w.created?' ('+ago(w.created)+')':'')],['Updated',fmt(w.updated)],['Expires',fmt(w.expires)+(w.expires?' ('+ago(w.expires)+')':'')],['Status',w.status&&w.status.join(', ')],['Name Servers',w.nameservers&&w.nameservers.join(', ')]];
+    whoisEl.innerHTML=wrows.filter(function(r){return r[1];}).map(function(r){return '<div class="ir-kv ir-kv-lg"><span class="ir-kv-k">'+esc(r[0])+'</span><span class="ir-kv-v">'+esc(r[1])+'</span></div>';}).join('');
+  }else{whoisEl.innerHTML='<p class="ir-note">No WHOIS/RDAP data available for this query.</p>';}
+
+  // ── Certificate tab ───────────────────────────────────────────────────────
+  var certBodyEl=$('ir-cert-body');
+  if(d.certsh&&d.certsh.found){
+    var cs=d.certsh,cl2=cs.latest;
+    certBodyEl.innerHTML='<div class="ir-cert-grid">'
+      +'<div class="ir-kv ir-kv-lg"><span class="ir-kv-k">Common Name</span><span class="ir-kv-v">'+esc(cl2.commonName||'—')+'</span></div>'
+      +'<div class="ir-kv ir-kv-lg"><span class="ir-kv-k">Issuer</span><span class="ir-kv-v">'+esc(cl2.issuer||'—')+'</span></div>'
+      +'<div class="ir-kv ir-kv-lg"><span class="ir-kv-k">Valid From</span><span class="ir-kv-v">'+esc(fmt(cl2.notBefore))+'</span></div>'
+      +'<div class="ir-kv ir-kv-lg"><span class="ir-kv-k">Valid Until</span><span class="ir-kv-v">'+esc(fmt(cl2.notAfter))+'</span></div>'
+      +'<div class="ir-kv ir-kv-lg"><span class="ir-kv-k">Certificates Found</span><span class="ir-kv-v">'+esc(cs.count)+'</span></div>'
+      +'<div class="ir-kv ir-kv-lg"><span class="ir-kv-k">crt.sh</span><span class="ir-kv-v"><a href="https://crt.sh/?id='+esc(cl2.id)+'" target="_blank" rel="noopener noreferrer">View on crt.sh</a></span></div>'
+      +'</div>';
+  }else{certBodyEl.innerHTML='<p class="ir-note">No certificate data found. IP addresses and unregistered domains will not have certificates.</p>';}
+
+  // ── URLHaus tab ───────────────────────────────────────────────────────────
+  var uhEl=$('ir-urlhaus-body');
+  if(d.urlhaus&&d.urlhaus.found){
+    var bl2=d.urlhaus.blacklists||{};
+    var blHtml='';
+    if(bl2.surbl) blHtml+='<span class="ir-bl '+(bl2.surbl==='not listed'?'ir-bl-ok':'ir-bl-bad')+'">SURBL: '+esc(bl2.surbl)+'</span>';
+    if(bl2.spamhaus_dbl) blHtml+='<span class="ir-bl '+(bl2.spamhaus_dbl==='not listed'?'ir-bl-ok':'ir-bl-bad')+'">Spamhaus DBL: '+esc(bl2.spamhaus_dbl)+'</span>';
+    uhEl.innerHTML='<div class="ir-uh-header"><span class="ir-uh-count">'+esc(d.urlhaus.urlCount)+'</span><span class="ir-uh-label"> Malware URLs Found</span></div>'
+      +(blHtml?'<div class="ir-bl-row">'+blHtml+'</div>':'')
+      +'<div class="ir-url-table">'+(d.urlhaus.urls||[]).map(function(u){
+        var sc=u.status==='online'?'ir-url-online':'ir-url-offline';
+        return '<div class="ir-url-row"><span class="ir-url-status '+sc+'">'+esc(u.status||'?')+'</span>'
+          +'<span class="ir-url-threat">'+esc(u.threat||'')+'</span>'
+          +'<code class="ir-url-val">'+esc(u.url||'')+'</code>'
+          +(u.dateAdded?'<span class="ir-url-date">'+esc(u.dateAdded.split(' ')[0])+'</span>':'')
+          +'</div>';
+      }).join('')+'</div>';
+  }else{uhEl.innerHTML='<div class="ir-uh-clean"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg> Not found in URLHaus malware feed.</div>';}
+
+  // ── Related Hosts tab ─────────────────────────────────────────────────────
+  var relEl=$('ir-related-body');
+  if(d.reverseIP&&d.reverseIP.hosts&&d.reverseIP.hosts.length){
+    relEl.innerHTML='<p class="ir-note" style="margin-bottom:.75rem">'+esc(d.reverseIP.count)+' host'+(d.reverseIP.count!==1?'s':'')+' share this IP (showing first '+esc(d.reverseIP.hosts.length)+').</p>'
+      +'<div class="ir-rel-table"><div class="ir-rel-head"><span>Hostname</span><span>IP</span></div>'
+      +d.reverseIP.hosts.map(function(h){return '<div class="ir-rel-row"><span class="ir-rel-host">'+esc(h)+'</span><span class="ir-rel-ip ir-muted">'+esc(d.ip||'—')+'</span></div>';}).join('')+'</div>';
+  }else{relEl.innerHTML='<p class="ir-note">No related hosts data available.</p>';}
+
+  // Scroll to results
+  results.scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+// ── Country code → flag emoji ─────────────────────────────────────────────
+function countryFlag(cc){
+  if(!cc||cc.length!==2)return '';
+  return String.fromCodePoint(cc.toUpperCase().charCodeAt(0)+127397,cc.toUpperCase().charCodeAt(1)+127397);
+}
+
+// ── Tab switching ─────────────────────────────────────────────────────────
+document.querySelectorAll('.ir-tab').forEach(function(tab){
+  tab.addEventListener('click',function(){
+    document.querySelectorAll('.ir-tab').forEach(function(t){t.classList.remove('ir-tab-active');});
+    document.querySelectorAll('.ir-tab-panel').forEach(function(p){p.style.display='none';});
+    tab.classList.add('ir-tab-active');
+    var panel=$(tab.getAttribute('data-tab'));
+    if(panel) panel.style.display='block';
   });
+});
 
-  renderHistory();
-
-  // ===== Lookup =====
-  function doLookup(q) {
-    q = q.trim();
-    if (!q) return;
-    hero.classList.add('iprep-hero-compact');
-    loading.style.display = 'flex';
-    errorEl.style.display = 'none';
-    results.style.display = 'none';
-
-    history.replaceState(null, '', '/iprep?q=' + encodeURIComponent(q));
-
-    fetch('/api/iprep?q=' + encodeURIComponent(q))
-      .then(function(r) {
-        if (!r.ok) return r.json().then(function(j) { throw new Error(j.error || 'Lookup failed'); });
-        return r.json();
-      })
-      .then(function(json) {
-        loading.style.display = 'none';
-        addHistory(q, json.data.riskLevel);
-        renderResults(json.data);
-      })
-      .catch(function(err) {
-        loading.style.display = 'none';
-        errorEl.style.display = 'block';
-        errorEl.innerHTML = '<p>' + esc(err.message || 'Something went wrong. Please try again.') + '</p>';
-      });
-  }
-
-  input.addEventListener('keydown', function(e) {
-    if (e.key === 'Enter') { e.preventDefault(); doLookup(input.value); }
-  });
-  btn.addEventListener('click', function() { doLookup(input.value); });
-
-  // ===== Render =====
-  function renderResults(data) {
-    results.style.display = 'block';
-
-    // Risk gauge
-    var score = data.riskScore || 0;
-    var level = data.riskLevel || 'unknown';
-    var gaugeRing = document.getElementById('iprep-gauge-ring');
-    gaugeRing.className = 'iprep-gauge-ring iprep-gauge-' + level;
-    document.getElementById('iprep-gauge-score').textContent = score;
-
-    // Query label
-    document.getElementById('iprep-query-label').textContent = data.query;
-
-    // Risk badge
-    var badgeEl = document.getElementById('iprep-risk-badge');
-    var badgeLabels = { high: 'High Risk', medium: 'Medium Risk', low: 'Low Risk', clean: 'Clean', unknown: 'Unknown' };
-    badgeEl.textContent = badgeLabels[level] || level;
-    badgeEl.className = 'iprep-risk-badge iprep-badge-' + level;
-
-    // Resolved IP
-    var resolvedEl = document.getElementById('iprep-resolved-ip');
-    if (data.ip && data.type !== 'ip') {
-      resolvedEl.style.display = 'block';
-      resolvedEl.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="m9 18 6-6-6-6"/></svg> Resolved to <strong>' + esc(data.ip) + '</strong>';
-    } else {
-      resolvedEl.style.display = 'none';
-    }
-
-    // Risk factors
-    var factorsEl = document.getElementById('iprep-factors');
-    factorsEl.innerHTML = (data.riskFactors || []).map(function(f) {
-      return '<span class="iprep-factor iprep-factor-' + esc(f.level) + '">' + esc(f.label) + '</span>';
-    }).join('');
-
-    // Geo card
-    var geoCard = document.getElementById('iprep-geo-card');
-    if (data.geo) {
-      var g = data.geo;
-      geoCard.style.display = 'block';
-      var fields = [
-        ['Country', g.country + (g.countryCode ? ' (' + g.countryCode + ')' : '')],
-        ['Region', g.regionName],
-        ['City', g.city],
-        ['Timezone', g.timezone],
-        ['ISP', g.isp],
-        ['Organization', g.org],
-        ['ASN', g.as],
-        ['AS Name', g.asname],
-        ['Coordinates', g.lat && g.lon ? g.lat + ', ' + g.lon : null],
-        ['Proxy/VPN', g.proxy ? 'Yes' : 'No'],
-        ['Hosting', g.hosting ? 'Yes' : 'No'],
-        ['Mobile', g.mobile ? 'Yes' : 'No'],
-      ];
-      document.getElementById('iprep-geo-grid').innerHTML = fields
-        .filter(function(f) { return f[1]; })
-        .map(function(f) {
-          return '<div class="iprep-geo-row"><span class="iprep-geo-key">' + esc(f[0]) + '</span><span class="iprep-geo-val">' + esc(f[1]) + '</span></div>';
-        }).join('');
-    } else {
-      geoCard.style.display = 'none';
-    }
-
-    // AbuseIPDB card
-    var abuseCard = document.getElementById('iprep-abuse-card');
-    if (data.abuseipdb) {
-      abuseCard.style.display = 'block';
-      var a = data.abuseipdb;
-      var conf = a.abuseConfidenceScore || 0;
-      var confLevel = conf >= 75 ? 'high' : conf >= 25 ? 'medium' : conf > 0 ? 'low' : 'clean';
-      document.getElementById('iprep-abuse-content').innerHTML =
-        '<div class="iprep-abuse-score">'
-        + '<div class="iprep-abuse-bar-bg"><div class="iprep-abuse-bar iprep-abuse-bar-' + confLevel + '" style="width:' + conf + '%"></div></div>'
-        + '<span class="iprep-abuse-pct iprep-abuse-pct-' + confLevel + '">' + conf + '% Abuse Confidence</span>'
-        + '</div>'
-        + '<div class="iprep-abuse-stats">'
-        + '<div class="iprep-abuse-stat"><span class="iprep-abuse-stat-label">Total Reports</span><span class="iprep-abuse-stat-val">' + esc(a.totalReports || 0) + '</span></div>'
-        + '<div class="iprep-abuse-stat"><span class="iprep-abuse-stat-label">Distinct Users</span><span class="iprep-abuse-stat-val">' + esc(a.numDistinctUsers || 0) + '</span></div>'
-        + '<div class="iprep-abuse-stat"><span class="iprep-abuse-stat-label">Usage Type</span><span class="iprep-abuse-stat-val">' + esc(a.usageType || 'Unknown') + '</span></div>'
-        + '<div class="iprep-abuse-stat"><span class="iprep-abuse-stat-label">Domain</span><span class="iprep-abuse-stat-val">' + esc(a.domain || '—') + '</span></div>'
-        + '</div>';
-    } else if (!data.abuseipdbAvailable) {
-      abuseCard.style.display = 'block';
-      document.getElementById('iprep-abuse-content').innerHTML =
-        '<p class="iprep-abuse-nokey">AbuseIPDB lookup requires an API key. Set <code>ABUSEIPDB_KEY</code> in your <code>.env</code> file to enable this source.</p>';
-    } else {
-      abuseCard.style.display = 'none';
-    }
-
-    // URLHaus panel
-    var urlhausPanel = document.getElementById('iprep-urlhaus-panel');
-    if (data.urlhaus && data.urlhaus.found) {
-      urlhausPanel.style.display = 'block';
-      var u = data.urlhaus;
-      var bl = u.blacklists || {};
-      var blHtml = '';
-      if (bl.surbl) blHtml += '<span class="iprep-bl-badge iprep-bl-' + (bl.surbl === 'not listed' ? 'ok' : 'bad') + '">SURBL: ' + esc(bl.surbl) + '</span>';
-      if (bl.spamhaus_dbl) blHtml += '<span class="iprep-bl-badge iprep-bl-' + (bl.spamhaus_dbl === 'not listed' ? 'ok' : 'bad') + '">Spamhaus DBL: ' + esc(bl.spamhaus_dbl) + '</span>';
-
-      var urlRows = (u.urls || []).map(function(url) {
-        var statusClass = url.status === 'online' ? 'iprep-url-online' : 'iprep-url-offline';
-        return '<div class="iprep-url-row">'
-          + '<span class="iprep-url-status ' + statusClass + '">' + esc(url.status || 'unknown') + '</span>'
-          + '<span class="iprep-url-threat">' + esc(url.threat || '') + '</span>'
-          + '<code class="iprep-url-val">' + esc(url.url || '') + '</code>'
-          + (url.dateAdded ? '<span class="iprep-url-date">' + esc(url.dateAdded.split(' ')[0]) + '</span>' : '')
-          + '</div>';
-      }).join('');
-
-      document.getElementById('iprep-urlhaus-content').innerHTML =
-        '<div class="iprep-urlhaus-summary">'
-        + '<div class="iprep-urlhaus-stat"><span class="iprep-urlhaus-stat-n">' + esc(u.urlCount) + '</span><span class="iprep-urlhaus-stat-l">Malware URLs</span></div>'
-        + '<div class="iprep-urlhaus-bls">' + (blHtml || '<span class="iprep-no-bl">No additional blacklists</span>') + '</div>'
-        + '</div>'
-        + (urlRows ? '<div class="iprep-url-list"><h4 class="iprep-url-list-title">Sample Malware URLs</h4>' + urlRows + '</div>' : '');
-    } else if (data.urlhaus && !data.urlhaus.found) {
-      urlhausPanel.style.display = 'block';
-      document.getElementById('iprep-urlhaus-content').innerHTML =
-        '<div class="iprep-urlhaus-clean"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg> Not found in URLHaus malware feed</div>';
-    } else {
-      urlhausPanel.style.display = 'none';
-    }
-
-    // Sources status
-    var sourcesHtml = [
-      {
-        name: 'ip-api.com',
-        found: !!data.geo,
-        desc: data.geo ? data.geo.isp || 'Geolocation data available' : 'No geolocation data',
-        icon: '<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>',
-      },
-      {
-        name: 'URLHaus (abuse.ch)',
-        found: data.urlhaus ? data.urlhaus.found : false,
-        notQueried: !data.urlhaus,
-        desc: data.urlhaus ? (data.urlhaus.found ? data.urlhaus.urlCount + ' malware URLs found' : 'Not listed in feed') : 'Query failed',
-        icon: '<path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>',
-      },
-      {
-        name: 'AbuseIPDB',
-        found: !!data.abuseipdb,
-        notQueried: !data.abuseipdbAvailable,
-        desc: data.abuseipdb
-          ? data.abuseipdb.abuseConfidenceScore + '% abuse confidence'
-          : (data.abuseipdbAvailable ? 'Query failed' : 'API key not configured'),
-        icon: '<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>',
-      },
-    ].map(function(s) {
-      var cls = s.notQueried ? 'iprep-src-skip' : (s.found ? 'iprep-src-found' : 'iprep-src-miss');
-      var badge = s.notQueried ? 'Skipped' : (s.found ? 'Found' : 'Not Found');
-      var badgeCls = s.notQueried ? 'iprep-src-badge-skip' : (s.found ? 'iprep-src-badge-found' : 'iprep-src-badge-miss');
-      return '<div class="iprep-source-card ' + cls + '">'
-        + '<div class="iprep-src-header">'
-        + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">' + s.icon + '</svg>'
-        + '<span class="iprep-src-name">' + esc(s.name) + '</span>'
-        + '<span class="iprep-src-badge ' + badgeCls + '">' + badge + '</span>'
-        + '</div>'
-        + '<p class="iprep-src-desc">' + esc(s.desc) + '</p>'
-        + '</div>';
-    }).join('');
-    document.getElementById('iprep-sources-grid').innerHTML = sourcesHtml;
-
-    // External links
-    var q = encodeURIComponent(data.query);
-    var extLinks = [
-      { name: 'VirusTotal', url: 'https://www.virustotal.com/gui/search/' + q },
-      { name: 'Shodan', url: 'https://www.shodan.io/search?query=' + q },
-      { name: 'Censys', url: 'https://search.censys.io/search?resource=hosts&q=' + q },
-      { name: 'AbuseIPDB', url: 'https://www.abuseipdb.com/check/' + q },
-      { name: 'urlscan.io', url: 'https://urlscan.io/search/#' + q },
-      { name: 'Cisco Talos', url: 'https://talosintelligence.com/reputation_center/lookup?search=' + q },
-      { name: 'MXToolbox', url: 'https://mxtoolbox.com/SuperTool.aspx?action=blacklist%3a' + q },
-      { name: 'URLVoid', url: 'https://www.urlvoid.com/scan/' + q },
-      { name: 'IPVoid', url: 'https://www.ipvoid.com/ip-blacklist-check/?ip=' + q },
-      { name: 'Spamhaus', url: 'https://check.spamhaus.org/listed/?searchterm=' + q },
-      { name: 'ThreatBook', url: 'https://threatbook.io/ip/' + q },
-      { name: 'GreyNoise', url: 'https://viz.greynoise.io/ip/' + q },
-    ];
-    document.getElementById('iprep-ext-grid').innerHTML = extLinks.map(function(l) {
-      return '<a href="' + esc(l.url) + '" target="_blank" rel="noopener noreferrer" class="iprep-ext-link">'
-        + '<span class="iprep-ext-name">' + esc(l.name) + '</span>'
-        + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="11" height="11"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15,3 21,3 21,9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>'
-        + '</a>';
-    }).join('');
-
-    // Scroll to results
-    document.getElementById('iprep-results').scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }
-
-  // Auto-lookup from URL param
-  var params = new URLSearchParams(window.location.search);
-  var pre = params.get('q');
-  if (pre) {
-    input.value = pre;
-    doLookup(pre);
-  }
+// ── Auto-run from URL param ────────────────────────────────────────────────
+var pre=new URLSearchParams(window.location.search).get('q');
+if(pre){input.value=pre;doLookup(pre);}
 })();
 </script>
 

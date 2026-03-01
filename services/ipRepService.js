@@ -4,64 +4,58 @@ const https = require('https');
 const http = require('http');
 const dns = require('dns').promises;
 
-// Parse raw query into { host, type, originalUrl }
+// ── Input parser ────────────────────────────────────────────────────────────
 function parseQuery(raw) {
   const q = raw.trim();
-  // Strip URL to hostname
   if (/^https?:\/\//i.test(q)) {
-    try {
-      const u = new URL(q);
-      return { host: u.hostname, type: 'url', originalUrl: q };
-    } catch (_) {}
+    try { const u = new URL(q); return { host: u.hostname, type: 'url', originalUrl: q }; }
+    catch (_) {}
   }
-  // IPv4
   if (/^(?:\d{1,3}\.){3}\d{1,3}$/.test(q)) return { host: q, type: 'ip' };
-  // IPv6 (simple check)
   if (/^[0-9a-fA-F:]+:[0-9a-fA-F:]+$/.test(q)) return { host: q, type: 'ip' };
-  // Domain
   return { host: q, type: 'domain' };
 }
 
-// Minimal HTTP/HTTPS fetcher — only calls fixed, hardcoded external URLs
-function fetchJSON(url, opts = {}) {
+// ── HTTP helper (only calls fixed, hardcoded external URLs) ──────────────────
+function request(url, opts = {}) {
   return new Promise((resolve, reject) => {
     const mod = url.startsWith('https') ? https : http;
     const { body, ...reqOpts } = opts;
-    const req = mod.request(url, { ...reqOpts, timeout: 8000 }, (res) => {
-      let data = '';
-      res.setEncoding('utf8');
-      res.on('data', (chunk) => { data += chunk; });
+    const req = mod.request(url, { ...reqOpts, timeout: 9000 }, (res) => {
+      const chunks = [];
+      res.on('data', c => chunks.push(c));
       res.on('end', () => {
-        try { resolve({ status: res.statusCode, body: JSON.parse(data) }); }
-        catch (_) { resolve({ status: res.statusCode, body: data }); }
+        const text = Buffer.concat(chunks).toString('utf8');
+        resolve({ status: res.statusCode, text, headers: res.headers });
       });
     });
-    req.setTimeout(8000, () => { req.destroy(new Error('Timeout')); });
+    req.setTimeout(9000, () => req.destroy(new Error('Timeout')));
     req.on('error', reject);
     if (body) req.write(body);
     req.end();
   });
 }
 
-// ip-api.com — free geolocation, no key needed
+async function fetchJSON(url, opts = {}) {
+  const r = await request(url, opts);
+  try { return { status: r.status, body: JSON.parse(r.text) }; }
+  catch (_) { return { status: r.status, body: null }; }
+}
+
+// ── Geolocation — ip-api.com (free, no key) ─────────────────────────────────
 async function queryIPGeo(ip) {
   try {
     const fields = 'status,message,country,countryCode,region,regionName,city,zip,lat,lon,timezone,isp,org,as,asname,mobile,proxy,hosting,query';
-    const res = await fetchJSON(
-      `http://ip-api.com/json/${encodeURIComponent(ip)}?fields=${fields}`
-    );
-    if (res.body && res.body.status === 'success') return res.body;
-    return null;
-  } catch (_) {
-    return null;
-  }
+    const r = await fetchJSON(`http://ip-api.com/json/${encodeURIComponent(ip)}?fields=${fields}`);
+    return (r.body && r.body.status === 'success') ? r.body : null;
+  } catch (_) { return null; }
 }
 
-// URLHaus (abuse.ch) — free, no key needed
+// ── URLHaus — abuse.ch (free, no key) ───────────────────────────────────────
 async function queryURLHaus(host) {
   try {
     const body = `host=${encodeURIComponent(host)}`;
-    const res = await fetchJSON('https://urlhaus-api.abuse.ch/v1/host/', {
+    const r = await fetchJSON('https://urlhaus-api.abuse.ch/v1/host/', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
@@ -70,154 +64,224 @@ async function queryURLHaus(host) {
       },
       body,
     });
-    if (!res.body || typeof res.body !== 'object') return null;
-    if (res.body.query_status === 'no_results') return { found: false };
-    if (res.body.query_status === 'is_host' || res.body.query_status === 'is_ip_address') {
+    if (!r.body) return null;
+    if (r.body.query_status === 'no_results') return { found: false };
+    if (r.body.query_status === 'is_host' || r.body.query_status === 'is_ip_address') {
       return {
         found: true,
-        urlCount: res.body.urls_count || 0,
-        blacklists: res.body.blacklists || {},
-        urls: (res.body.urls || []).slice(0, 5).map(u => ({
-          url: u.url,
-          status: u.url_status,
-          threat: u.threat,
-          dateAdded: u.date_added,
-          tags: u.tags || [],
+        urlCount: r.body.urls_count || 0,
+        blacklists: r.body.blacklists || {},
+        urls: (r.body.urls || []).slice(0, 8).map(u => ({
+          url: u.url, status: u.url_status, threat: u.threat,
+          dateAdded: u.date_added, tags: u.tags || [],
         })),
       };
     }
     return { found: false };
-  } catch (_) {
-    return null;
-  }
+  } catch (_) { return null; }
 }
 
-// AbuseIPDB — requires ABUSEIPDB_KEY env var (optional)
+// ── AbuseIPDB (optional: ABUSEIPDB_KEY env var) ──────────────────────────────
 async function queryAbuseIPDB(ip) {
   const apiKey = process.env.ABUSEIPDB_KEY;
   if (!apiKey) return null;
   try {
-    const res = await fetchJSON(
+    const r = await fetchJSON(
       `https://api.abuseipdb.com/api/v2/check?ipAddress=${encodeURIComponent(ip)}&maxAgeInDays=90`,
-      {
-        method: 'GET',
-        headers: {
-          'Key': apiKey,
-          'Accept': 'application/json',
-          'User-Agent': 'FreeIntelHub/1.0',
-        },
-      }
+      { method: 'GET', headers: { 'Key': apiKey, 'Accept': 'application/json', 'User-Agent': 'FreeIntelHub/1.0' } }
     );
-    if (res.status !== 200 || !res.body || !res.body.data) return null;
-    return res.body.data;
-  } catch (_) {
-    return null;
-  }
+    return (r.status === 200 && r.body && r.body.data) ? r.body.data : null;
+  } catch (_) { return null; }
 }
 
-async function lookupReputation(query) {
-  const parsed = parseQuery(query);
-  const { host, type } = parsed;
+// ── RDAP — domain registration info (free, no key) ──────────────────────────
+async function queryRDAP(domain) {
+  try {
+    const r = await fetchJSON(`https://rdap.org/domain/${encodeURIComponent(domain)}`, {
+      method: 'GET', headers: { 'Accept': 'application/rdap+json', 'User-Agent': 'FreeIntelHub/1.0' },
+    });
+    if (!r.body || r.body.errorCode) return null;
+    const obj = r.body;
 
-  const result = {
-    query: host,
-    type,
-    originalUrl: parsed.originalUrl || null,
-    ip: null,
-    geo: null,
-    urlhaus: null,
-    abuseipdb: null,
-    riskScore: 0,
-    riskLevel: 'unknown',
-    riskFactors: [],
-    abuseipdbAvailable: !!process.env.ABUSEIPDB_KEY,
-  };
-
-  // Resolve domain to IP
-  if (type === 'domain' || type === 'url') {
-    try {
-      const addr = await dns.lookup(host, { family: 4 });
-      result.ip = addr.address;
-    } catch (_) {
-      result.ip = null;
+    // Extract creation/expiry dates
+    let created = null, expires = null, updated = null;
+    for (const ev of (obj.events || [])) {
+      if (ev.eventAction === 'registration') created = ev.eventDate;
+      if (ev.eventAction === 'expiration') expires = ev.eventDate;
+      if (ev.eventAction === 'last changed') updated = ev.eventDate;
     }
-  } else {
-    result.ip = host;
-  }
 
-  // Run lookups in parallel
-  const [geo, urlhaus, abuseipdb] = await Promise.all([
-    result.ip ? queryIPGeo(result.ip) : Promise.resolve(null),
-    queryURLHaus(host),
-    result.ip ? queryAbuseIPDB(result.ip) : Promise.resolve(null),
+    // Registrar
+    let registrar = null;
+    for (const e of (obj.entities || [])) {
+      if ((e.roles || []).includes('registrar')) {
+        registrar = (e.vcardArray && e.vcardArray[1]) ? e.vcardArray[1].find(v => v[0] === 'fn')?.[3] : null;
+        if (!registrar && e.publicIds) registrar = e.publicIds[0]?.identifier;
+        break;
+      }
+    }
+
+    // Name servers
+    const nameservers = (obj.nameservers || []).map(ns => ns.ldhName).filter(Boolean).slice(0, 4);
+
+    return { created, expires, updated, registrar, nameservers, status: obj.status || [] };
+  } catch (_) { return null; }
+}
+
+// ── crt.sh — certificate transparency (free, no key) ───────────────────────
+async function queryCertSH(domain) {
+  try {
+    const r = await fetchJSON(
+      `https://crt.sh/?q=${encodeURIComponent(domain)}&output=json`,
+      { method: 'GET', headers: { 'User-Agent': 'FreeIntelHub/1.0' } }
+    );
+    if (!r.body || !Array.isArray(r.body) || r.body.length === 0) return { found: false };
+
+    // Sort by notBefore descending to get the most recent cert
+    const sorted = r.body.sort((a, b) => new Date(b.not_before) - new Date(a.not_before));
+    const latest = sorted[0];
+    const uniqueIssuers = [...new Set(sorted.map(c => c.issuer_name).filter(Boolean))].slice(0, 3);
+
+    return {
+      found: true,
+      count: r.body.length,
+      latest: {
+        commonName: latest.common_name,
+        issuer: latest.issuer_name,
+        notBefore: latest.not_before,
+        notAfter: latest.not_after,
+        id: latest.id,
+      },
+      issuers: uniqueIssuers,
+    };
+  } catch (_) { return null; }
+}
+
+// ── DNS records — built-in Node dns module ───────────────────────────────────
+async function queryDNSRecords(domain) {
+  const safe = async (fn) => { try { return await fn(); } catch (_) { return null; } };
+  const [a, aaaa, mx, ns, txt] = await Promise.all([
+    safe(() => dns.resolve4(domain)),
+    safe(() => dns.resolve6(domain)),
+    safe(() => dns.resolveMx(domain)),
+    safe(() => dns.resolveNs(domain)),
+    safe(() => dns.resolveTxt(domain)),
   ]);
+  return {
+    a: (a || []).slice(0, 10),
+    aaaa: (aaaa || []).slice(0, 5),
+    mx: (mx || []).sort((x, y) => x.priority - y.priority).slice(0, 5),
+    ns: (ns || []).slice(0, 6),
+    txt: (txt || []).map(r => r.join('')).slice(0, 8),
+  };
+}
 
-  result.geo = geo;
-  result.urlhaus = urlhaus;
-  result.abuseipdb = abuseipdb;
+// ── HackerTarget reverse IP (free, rate-limited) ─────────────────────────────
+async function queryReverseIP(ip) {
+  try {
+    const r = await request(`https://api.hackertarget.com/reverseiplookup/?q=${encodeURIComponent(ip)}`, {
+      method: 'GET', headers: { 'User-Agent': 'FreeIntelHub/1.0' },
+    });
+    if (!r.text || r.text.includes('error') || r.text.includes('API count')) return null;
+    const hosts = r.text.split('\n').map(h => h.trim()).filter(h => h && !h.startsWith('#'));
+    return { count: hosts.length, hosts: hosts.slice(0, 10) };
+  } catch (_) { return null; }
+}
 
-  // Calculate risk score
+// ── Risk scoring (0–10 scale) ────────────────────────────────────────────────
+function calcRisk(urlhaus, abuseipdb, geo) {
   let score = 0;
-  const factors = [];
+  const low = [], warning = [], high = [];
 
   if (urlhaus && urlhaus.found) {
-    score += 40;
-    factors.push({ label: 'Listed in URLHaus malware feed', level: 'high' });
+    score += 4.0; high.push('Listed in URLHaus malware feed');
     const bl = urlhaus.blacklists || {};
-    if (bl.surbl && bl.surbl !== 'not listed') {
-      score += 10;
-      factors.push({ label: `SURBL: ${bl.surbl}`, level: 'high' });
-    }
-    if (bl.spamhaus_dbl && bl.spamhaus_dbl !== 'not listed') {
-      score += 10;
-      factors.push({ label: `Spamhaus DBL: ${bl.spamhaus_dbl}`, level: 'high' });
-    }
-    if (urlhaus.urls && urlhaus.urls.some(u => u.status === 'online')) {
-      score += 15;
-      factors.push({ label: 'Active malware URLs detected', level: 'high' });
-    }
+    if (bl.surbl && bl.surbl !== 'not listed') { score += 1.0; high.push(`SURBL: ${bl.surbl}`); }
+    if (bl.spamhaus_dbl && bl.spamhaus_dbl !== 'not listed') { score += 1.0; high.push(`Spamhaus DBL: ${bl.spamhaus_dbl}`); }
+    if (urlhaus.urls && urlhaus.urls.some(u => u.status === 'online')) { score += 1.5; high.push('Active malware URLs online'); }
   }
 
   if (abuseipdb) {
     const conf = abuseipdb.abuseConfidenceScore || 0;
-    if (conf >= 75) {
-      score += 35;
-      factors.push({ label: `AbuseIPDB: ${conf}% abuse confidence`, level: 'high' });
-    } else if (conf >= 25) {
-      score += 20;
-      factors.push({ label: `AbuseIPDB: ${conf}% abuse confidence`, level: 'medium' });
-    } else if (conf > 0) {
-      score += 5;
-      factors.push({ label: `AbuseIPDB: ${conf}% abuse confidence`, level: 'low' });
-    }
-    if (abuseipdb.totalReports > 0) {
-      factors.push({
-        label: `${abuseipdb.totalReports} total abuse reports`,
-        level: abuseipdb.totalReports > 100 ? 'high' : 'medium',
-      });
-    }
+    if (conf >= 75) { score += 3.5; high.push(`AbuseIPDB: ${conf}% abuse confidence`); }
+    else if (conf >= 25) { score += 2.0; warning.push(`AbuseIPDB: ${conf}% abuse confidence`); }
+    else if (conf >= 10) { score += 0.5; warning.push(`AbuseIPDB: ${conf}% abuse confidence`); }
+    if (abuseipdb.totalReports > 100) warning.push(`${abuseipdb.totalReports} abuse reports`);
+    else if (abuseipdb.totalReports > 0) low.push(`${abuseipdb.totalReports} abuse report(s)`);
   }
 
   if (geo) {
-    if (geo.proxy) { score += 10; factors.push({ label: 'Proxy / VPN detected', level: 'medium' }); }
-    if (geo.hosting) { score += 5; factors.push({ label: 'Datacenter / hosting IP', level: 'low' }); }
-    if (geo.mobile) { factors.push({ label: 'Mobile network IP', level: 'info' }); }
+    if (geo.proxy) { score += 1.0; warning.push('Proxy / VPN detected'); }
+    if (geo.hosting) { score += 0.5; low.push('Datacenter / hosting IP'); }
+    if (geo.mobile) low.push('Mobile network');
   }
 
-  if (factors.length === 0) {
-    factors.push({ label: 'No threat indicators found', level: 'clean' });
+  score = Math.min(parseFloat(score.toFixed(2)), 10.0);
+  const level = score >= 7 ? 'high' : score >= 4 ? 'medium' : score >= 1 ? 'low' : 'clean';
+
+  return { score, level, low, warning, high };
+}
+
+// ── Category inference ───────────────────────────────────────────────────────
+function inferCategory(riskData, urlhaus, geo) {
+  if (riskData.high.length > 0) return 'Malicious';
+  if (riskData.warning.length > 0) return 'Suspicious';
+  if (geo && geo.hosting) return 'Hosting Provider';
+  if (geo && geo.proxy) return 'Proxy / Anonymizer';
+  return 'Uncategorized';
+}
+
+// ── Main lookup ──────────────────────────────────────────────────────────────
+async function lookupReputation(query) {
+  const parsed = parseQuery(query);
+  const { host, type } = parsed;
+
+  // DNS resolution for domains
+  let ip = type === 'ip' ? host : null;
+  let dnsRecords = null;
+
+  if (type === 'domain' || type === 'url') {
+    const [dnsRes, dnsRec] = await Promise.all([
+      (async () => { try { const a = await dns.lookup(host, { family: 4 }); return a.address; } catch (_) { return null; } })(),
+      queryDNSRecords(host),
+    ]);
+    ip = dnsRes;
+    dnsRecords = dnsRec;
   }
 
-  score = Math.min(score, 100);
-  result.riskScore = score;
-  result.riskFactors = factors;
+  // Parallel external lookups
+  const [geo, urlhaus, abuseipdb, rdap, certsh, reverseIP] = await Promise.all([
+    ip ? queryIPGeo(ip) : null,
+    queryURLHaus(host),
+    ip ? queryAbuseIPDB(ip) : null,
+    (type === 'domain' || type === 'url') ? queryRDAP(host) : null,
+    (type === 'domain' || type === 'url') ? queryCertSH(host) : null,
+    ip ? queryReverseIP(ip) : null,
+  ]);
 
-  if (score >= 70) result.riskLevel = 'high';
-  else if (score >= 40) result.riskLevel = 'medium';
-  else if (score >= 10) result.riskLevel = 'low';
-  else result.riskLevel = 'clean';
+  const risk = calcRisk(urlhaus, abuseipdb, geo);
+  const category = inferCategory(risk, urlhaus, geo);
 
-  return result;
+  return {
+    query: host,
+    type,
+    originalUrl: parsed.originalUrl || null,
+    ip,
+    geo,
+    urlhaus,
+    abuseipdb,
+    rdap,
+    certsh,
+    dnsRecords,
+    reverseIP,
+    riskScore: risk.score,
+    riskLevel: risk.level,
+    riskLow: risk.low,
+    riskWarning: risk.warning,
+    riskHigh: risk.high,
+    category,
+    abuseipdbAvailable: !!process.env.ABUSEIPDB_KEY,
+  };
 }
 
 module.exports = { lookupReputation };
