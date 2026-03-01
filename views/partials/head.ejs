@@ -102,4 +102,4 @@
       <button class="nav-toggle" onclick="document.getElementById('nav-tabs').classList.toggle('open')">&#9776;</button>
     </div>
   </nav>
-  <main class="container">
+  <main class="<%= (typeof noContainer !== 'undefined' && noContainer) ? 'no-container' : 'container' %>">

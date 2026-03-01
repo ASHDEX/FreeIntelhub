@@ -457,7 +457,7 @@ router.get('/vulnerability', (req, res) => {
 
 // IP & Domain Reputation Lookup page
 router.get('/iprep', (req, res) => {
-  res.render('iprep', { pageTitle: 'IP & Domain Reputation Lookup' });
+  res.render('iprep', { pageTitle: 'IP & Domain Reputation Lookup', noContainer: true });
 });
 
 // Trending page
