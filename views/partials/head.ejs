@@ -68,12 +68,13 @@
         </div>
 
         <div class="nav-dropdown">
-          <a href="/trending" class="nav-tab<%= currentPath === '/trending' || currentPath === '/bookmarks' || currentPath === '/mitre' || currentPath === '/iocs' || currentPath === '/heatmap' ? ' active' : '' %>">Tools <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></a>
+          <a href="/trending" class="nav-tab<%= currentPath === '/trending' || currentPath === '/bookmarks' || currentPath === '/mitre' || currentPath === '/iocs' || currentPath === '/heatmap' || currentPath === '/iprep' ? ' active' : '' %>">Tools <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></a>
           <div class="dropdown-menu">
             <a href="/trending" class="dropdown-item">Trending</a>
             <a href="/heatmap" class="dropdown-item">Threat Heatmap</a>
             <a href="/mitre" class="dropdown-item">MITRE ATT&CK</a>
             <a href="/iocs" class="dropdown-item">IOC Feed</a>
+            <a href="/iprep" class="dropdown-item">IP &amp; Domain Lookup</a>
             <a href="/bookmarks" class="dropdown-item">Bookmarks</a>
             <div class="dropdown-divider"></div>
             <a href="/feed/all.xml" class="dropdown-item">RSS Feed</a>
