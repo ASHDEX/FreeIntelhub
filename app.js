@@ -47,7 +47,10 @@ app.use(express.urlencoded({ extended: false, limit: '50kb' }));
 // Static files
 app.use(express.static(path.join(__dirname, 'public')));
 
-// CSRF protection: verify Origin/Referer on state-changing requests
+// CSRF protection: verify Origin/Referer on state-changing requests.
+// All modern browsers send at least one of these headers for cross-origin
+// POST requests. Requests missing both are rejected to prevent CSRF attacks
+// from legacy or misconfigured clients.
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
 app.use((req, res, next) => {
   if (req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS') {
@@ -68,8 +71,8 @@ app.use((req, res, next) => {
     } catch (_) {}
     return res.status(403).json({ error: 'CSRF check failed: invalid referer' });
   }
-  // No Origin or Referer — allow for non-browser clients (curl, API tools)
-  return next();
+  // No Origin or Referer header present — reject to prevent CSRF
+  return res.status(403).json({ error: 'CSRF check failed: missing origin/referer' });
 });
 
 // Rate limiting

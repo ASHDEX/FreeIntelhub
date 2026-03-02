@@ -355,7 +355,9 @@ router.get('/search', async (req, res) => {
   const q = (req.query.q || '').trim();
   const page = getPage(req);
 
-  // If query is a CVE ID, redirect to the full vulnerability lookup page
+  // If query is a CVE ID, redirect to the full vulnerability lookup page.
+  // Not an open redirect: q is validated against a strict anchored regex
+  // (CVE_ID_REGEX = /^CVE-\d{4}-\d{4,}$/i) and the destination path is hardcoded.
   if (q && CVE_ID_REGEX.test(q)) {
     return res.redirect(`/vulnerability?cve=${encodeURIComponent(q.toUpperCase())}`);
   }
