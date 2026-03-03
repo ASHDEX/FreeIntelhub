@@ -233,7 +233,7 @@
 .ir-pin-pulse { animation: ir-pin-pulse 2s ease-in-out infinite; }
 </style>
 
-<script>
+<script nonce="<%= nonce %>">
 (function(){
 var $ = function(id){ return document.getElementById(id); };
 var input=$('ir-input'), btn=$('ir-btn'), hero=$('iprep-hero'), loading=$('ir-loading'),
@@ -325,7 +325,7 @@ function render(d){
   }
 
   // ── Hosts on IP ──────────────────────────────────────────────────────────
-  if(d.reverseIP){
+  if(d.reverseIP&&!d.reverseIP.error){
     $('ir-row-hosts').style.display='flex';
     $('ir-hosts-val').textContent=d.reverseIP.count+' host'+(d.reverseIP.count!==1?'s':'');
   }
@@ -449,6 +449,9 @@ function render(d){
     relEl.innerHTML='<p class="ir-note" style="margin-bottom:.75rem">'+esc(d.reverseIP.count)+' host'+(d.reverseIP.count!==1?'s':'')+' share this IP (showing first '+esc(d.reverseIP.hosts.length)+').</p>'
       +'<div class="ir-rel-table"><div class="ir-rel-head"><span>Hostname</span><span>IP</span></div>'
       +d.reverseIP.hosts.map(function(h){return '<div class="ir-rel-row"><span class="ir-rel-host">'+esc(h)+'</span><span class="ir-rel-ip ir-muted">'+esc(d.ip||'—')+'</span></div>';}).join('')+'</div>';
+  }else if(d.reverseIP&&d.reverseIP.error){
+    var msg=d.reverseIP.rateLimited?'HackerTarget API rate limit reached — resets hourly.':'Reverse IP lookup unavailable.';
+    relEl.innerHTML='<p class="ir-note">'+esc(msg)+'</p>';
   }else{relEl.innerHTML='<p class="ir-note">No related hosts data available.</p>';}
 
   // Scroll to results
