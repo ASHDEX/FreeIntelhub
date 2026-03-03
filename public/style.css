@@ -1,5 +1,5 @@
 /* === Threat Intelligence Dark Theme === */
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
+/* Fonts loaded via <link> in head.ejs for parallel fetching (no @import waterfall) */
 
 :root {
   --bg: #09090b;
