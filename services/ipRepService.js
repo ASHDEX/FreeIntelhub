@@ -177,13 +177,27 @@ async function queryDNSRecords(domain) {
 }
 
 // ── HackerTarget reverse IP (free, rate-limited) ─────────────────────────────
+// Known error responses from HackerTarget's free tier:
+//   "error check your search parameter"
+//   "API count exceeded - Resets hourly"
+//   "error: The API is temporarily unavailable"
+//   "Too Many Requests"
+const HACKERTARGET_ERROR_PATTERNS = /^error|api count exceeded|too many requests|temporarily unavailable/i;
+
 async function queryReverseIP(ip) {
   try {
     const r = await request(`https://api.hackertarget.com/reverseiplookup/?q=${encodeURIComponent(ip)}`, {
       method: 'GET', headers: { 'User-Agent': 'FreeIntelHub/1.0' },
     });
-    if (!r.text || r.text.includes('error') || r.text.includes('API count')) return null;
+    if (!r.text) return null;
+    const firstLine = r.text.split('\n')[0].trim();
+    if (HACKERTARGET_ERROR_PATTERNS.test(firstLine)) {
+      // Distinguish rate-limit from other errors so callers can surface it
+      const rateLimited = /api count exceeded|too many requests/i.test(firstLine);
+      return { error: true, rateLimited, message: firstLine };
+    }
     const hosts = r.text.split('\n').map(h => h.trim()).filter(h => h && !h.startsWith('#'));
+    if (hosts.length === 0) return null;
     return { count: hosts.length, hosts: hosts.slice(0, 10) };
   } catch (_) { return null; }
 }

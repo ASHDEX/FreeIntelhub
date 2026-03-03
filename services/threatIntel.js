@@ -379,6 +379,115 @@ const CVE_THREAT_DB = {
     ],
     sectors: { Government: 4, Defense: 3, Finance: 3, Healthcare: 2, Energy: 2, Technology: 4, Telecom: 2, Education: 2, Manufacturing: 1, Retail: 1, Media: 1, Transportation: 1, Legal: 2, Aerospace: 1 },
   },
+
+  'CVE-2022-30190': {
+    name: 'Follina (MSDT RCE)',
+    actors: [
+      { name: 'APT28', aliases: ['Fancy Bear', 'Forest Blizzard'], origin: 'Russia (GRU)', motivation: 'Espionage', first_seen: '2022-06' },
+      { name: 'TA413', aliases: ['Lucky Cat'], origin: 'China', motivation: 'Espionage', first_seen: '2022-06' },
+      { name: 'UAC-0098', aliases: [], origin: 'Ukraine-adjacent', motivation: 'Espionage', first_seen: '2022-06' },
+    ],
+    incidents: [
+      { name: 'Tibetan diaspora targeting', date: '2022-06', type: 'Espionage Campaign', impact: 'Zero-click RCE via malicious Word documents' },
+      { name: 'European government targeting', date: '2022-06', type: 'Espionage Campaign', impact: 'Weaponized Office documents delivered via phishing' },
+    ],
+    sectors: { Government: 5, Defense: 4, Finance: 2, Healthcare: 1, Energy: 2, Technology: 3, Telecom: 2, Education: 2, Manufacturing: 1, Retail: 0, Media: 2, Transportation: 1, Legal: 1, Aerospace: 2 },
+  },
+
+  'CVE-2023-36884': {
+    name: 'Office/Windows HTML RCE',
+    actors: [
+      { name: 'Storm-0978', aliases: ['RomCom', 'UNC2596'], origin: 'Russia', motivation: 'Espionage, Financial', first_seen: '2023-07' },
+    ],
+    incidents: [
+      { name: 'NATO Summit phishing campaign', date: '2023-07', type: 'Espionage Campaign', impact: 'Malicious Word documents targeting NATO summit attendees' },
+      { name: 'Ukrainian government targeting', date: '2023-07', type: 'Espionage Campaign', impact: 'Credential theft and backdoor deployment' },
+    ],
+    sectors: { Government: 5, Defense: 5, Finance: 1, Healthcare: 0, Energy: 2, Technology: 2, Telecom: 1, Education: 1, Manufacturing: 0, Retail: 0, Media: 1, Transportation: 2, Legal: 1, Aerospace: 3 },
+  },
+
+  'CVE-2024-6387': {
+    name: 'regreSSHion (OpenSSH RCE)',
+    actors: [
+      { name: 'Mass scanning campaigns', aliases: [], origin: 'Multiple', motivation: 'Financial, Espionage', first_seen: '2024-07' },
+    ],
+    incidents: [
+      { name: 'Global mass scanning post-disclosure', date: '2024-07', type: 'Mass Exploitation', impact: 'Unauthenticated RCE on glibc-based Linux; 14M+ potentially vulnerable servers' },
+    ],
+    sectors: { Government: 4, Defense: 3, Finance: 4, Healthcare: 3, Energy: 4, Technology: 5, Telecom: 4, Education: 3, Manufacturing: 3, Retail: 2, Media: 2, Transportation: 2, Legal: 1, Aerospace: 2 },
+  },
+
+  'CVE-2024-27198': {
+    name: 'JetBrains TeamCity Auth Bypass',
+    actors: [
+      { name: 'BianLian', aliases: [], origin: 'Unknown', motivation: 'Financial (Ransomware)', first_seen: '2024-03' },
+      { name: 'Jasmin Ransomware', aliases: [], origin: 'Unknown', motivation: 'Financial (Ransomware)', first_seen: '2024-03' },
+      { name: 'APT29', aliases: ['Cozy Bear', 'Midnight Blizzard'], origin: 'Russia (SVR)', motivation: 'Espionage', first_seen: '2024-03' },
+    ],
+    incidents: [
+      { name: 'Mass exploitation of CI/CD pipelines', date: '2024-03', type: 'Mass Exploitation', impact: 'Unauthenticated admin account creation enabling supply chain access' },
+      { name: 'Software supply chain compromise attempts', date: '2024-03', type: 'Supply Chain', impact: 'Build pipeline access enabling malicious artifact injection' },
+    ],
+    sectors: { Government: 3, Defense: 2, Finance: 3, Healthcare: 2, Energy: 2, Technology: 5, Telecom: 2, Education: 2, Manufacturing: 3, Retail: 1, Media: 1, Transportation: 1, Legal: 1, Aerospace: 2 },
+  },
+
+  'CVE-2024-47575': {
+    name: 'FortiManager FGFM RCE (FortiJump)',
+    actors: [
+      { name: 'UNC5820', aliases: [], origin: 'Unknown', motivation: 'Espionage', first_seen: '2024-10' },
+    ],
+    incidents: [
+      { name: 'Zero-day exploitation before disclosure', date: '2024-10', type: 'Zero-day Campaign', impact: 'Unauthenticated code execution and data exfiltration from FortiManager' },
+      { name: '50+ exploited organizations notified by Fortinet', date: '2024-10', type: 'Mass Exploitation', impact: 'Config files, IPs, and credentials stolen from managed FortiGate devices' },
+    ],
+    sectors: { Government: 5, Defense: 5, Finance: 4, Healthcare: 2, Energy: 4, Technology: 4, Telecom: 3, Education: 1, Manufacturing: 3, Retail: 1, Media: 0, Transportation: 2, Legal: 1, Aerospace: 3 },
+  },
+
+  'CVE-2024-38094': {
+    name: 'SharePoint Deserialization RCE',
+    actors: [
+      { name: 'Unknown threat actor (ransomware pre-access)', aliases: [], origin: 'Unknown', motivation: 'Financial (Ransomware)', first_seen: '2024-09' },
+    ],
+    incidents: [
+      { name: 'Active exploitation enabling network-wide ransomware', date: '2024-09', type: 'Mass Exploitation', impact: 'Authenticated RCE used to pivot to domain controller and deploy ransomware' },
+    ],
+    sectors: { Government: 4, Defense: 3, Finance: 4, Healthcare: 3, Energy: 2, Technology: 5, Telecom: 2, Education: 4, Manufacturing: 3, Retail: 2, Media: 2, Transportation: 1, Legal: 3, Aerospace: 1 },
+  },
+
+  'CVE-2024-49138': {
+    name: 'Windows CLFS Elevation of Privilege',
+    actors: [
+      { name: 'RansomHub', aliases: [], origin: 'Unknown', motivation: 'Financial (Ransomware)', first_seen: '2024-12' },
+      { name: 'Play Ransomware', aliases: ['PlayCrypt'], origin: 'Unknown', motivation: 'Financial (Ransomware)', first_seen: '2024-12' },
+    ],
+    incidents: [
+      { name: 'Patch Tuesday zero-day, in-the-wild exploitation', date: '2024-12', type: 'Zero-day Campaign', impact: 'Local privilege escalation to SYSTEM, chained with RCE exploits for full compromise' },
+    ],
+    sectors: { Government: 4, Defense: 3, Finance: 4, Healthcare: 4, Energy: 3, Technology: 5, Telecom: 3, Education: 3, Manufacturing: 3, Retail: 2, Media: 2, Transportation: 2, Legal: 2, Aerospace: 2 },
+  },
+
+  'CVE-2023-44487': {
+    name: 'HTTP/2 Rapid Reset (DDoS)',
+    actors: [
+      { name: 'Multiple DDoS-for-hire services', aliases: [], origin: 'Multiple', motivation: 'Financial, Disruptive', first_seen: '2023-08' },
+    ],
+    incidents: [
+      { name: 'Largest DDoS attack on record (398M rps)', date: '2023-10', type: 'DDoS Campaign', impact: 'Google, Cloudflare, and AWS reported record-breaking floods; coordinated disclosure' },
+    ],
+    sectors: { Government: 3, Defense: 2, Finance: 4, Healthcare: 2, Energy: 3, Technology: 5, Telecom: 5, Education: 2, Manufacturing: 1, Retail: 4, Media: 4, Transportation: 2, Legal: 1, Aerospace: 1 },
+  },
+
+  'CVE-2025-0282': {
+    name: 'Ivanti Connect Secure Stack Overflow RCE',
+    actors: [
+      { name: 'UTA0178', aliases: [], origin: 'China (suspected)', motivation: 'Espionage', first_seen: '2025-01' },
+      { name: 'Volt Typhoon', aliases: ['Bronze Silhouette'], origin: 'China', motivation: 'Pre-positioning', first_seen: '2025-01' },
+    ],
+    incidents: [
+      { name: 'Zero-day exploitation before disclosure', date: '2025-01', type: 'Zero-day Campaign', impact: 'Unauthenticated RCE chained with CVE-2025-0283 for persistence; CISA emergency directive issued' },
+    ],
+    sectors: { Government: 5, Defense: 5, Finance: 3, Healthcare: 2, Energy: 4, Technology: 4, Telecom: 3, Education: 2, Manufacturing: 2, Retail: 0, Media: 0, Transportation: 1, Legal: 1, Aerospace: 3 },
+  },
 };
 
 /**
