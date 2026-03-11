@@ -1123,8 +1123,6 @@ router.get('/feed/iocs.xml', (req, res) => {
 // Threat Groups, Software & Campaigns
 // =============================================
 
-const db = require('../db');
-
 // Helper: daily article counts for the last N days (fills gaps with 0)
 function getDailyCounts(rows) {
   const map = {};
