@@ -9,6 +9,7 @@ const { sendVerification, isConfigured: smtpConfigured } = require('../services/
 const { getLatestCVEs, lookupCVE, fullCVELookup, CVE_ID_REGEX } = require('../services/cveFetcher');
 const { generateRSS } = require('../services/feedGenerator');
 const { lookupThreatIntel } = require('../services/threatIntel');
+const { hashToken, encryptWebhookUrl } = require('../services/crypto');
 
 const threatmapConfig = require('../config/threatmap.json');
 const router = express.Router();
@@ -277,6 +278,7 @@ router.use((req, res, next) => {
   res.locals.navSectors = NAV_SECTORS;
   res.locals.currentPath = req.path;
   res.locals.safeHref = safeHref;
+  res.locals.maskEmail = maskEmail;
   // Top vendors for navbar dropdown (cached per request)
   res.locals.vendors = stmts.vendorCounts.all().slice(0, 15);
   next();
@@ -465,7 +467,7 @@ router.get('/bookmarks', (req, res) => {
   let subscriber = null;
   let bookmarks = [];
   if (token) {
-    subscriber = stmts.getSubscriberByToken.get(token);
+    subscriber = stmts.getSubscriberByToken.get(hashToken(token));
     if (subscriber) {
       bookmarks = stmts.getBookmarks.all(subscriber.id);
     }
@@ -477,7 +479,7 @@ router.get('/bookmarks', (req, res) => {
 router.post('/bookmarks/add', (req, res) => {
   const token = req.body.token;
   const articleId = parseInt(req.body.article_id, 10);
-  const subscriber = token ? stmts.getSubscriberByToken.get(token) : null;
+  const subscriber = token ? stmts.getSubscriberByToken.get(hashToken(token)) : null;
   if (!subscriber) return res.status(401).json({ error: 'Invalid token' });
   stmts.insertBookmark.run(subscriber.id, articleId);
   res.json({ ok: true });
@@ -487,7 +489,7 @@ router.post('/bookmarks/add', (req, res) => {
 router.post('/bookmarks/remove', (req, res) => {
   const token = req.body.token;
   const articleId = parseInt(req.body.article_id, 10);
-  const subscriber = token ? stmts.getSubscriberByToken.get(token) : null;
+  const subscriber = token ? stmts.getSubscriberByToken.get(hashToken(token)) : null;
   if (!subscriber) return res.redirect('/bookmarks');
   stmts.deleteBookmark.run(subscriber.id, articleId);
   res.redirect(`/bookmarks?token=${encodeURIComponent(token)}`);
@@ -542,7 +544,7 @@ router.get('/alerts', (req, res) => {
   let rules = [];
   let webhooks = [];
   if (token) {
-    subscriber = stmts.getSubscriberByToken.get(token);
+    subscriber = stmts.getSubscriberByToken.get(hashToken(token));
     if (subscriber) {
       rules = stmts.getAlertRules.all(subscriber.id);
       webhooks = stmts.getWebhooks.all(subscriber.id);
@@ -566,12 +568,14 @@ router.post('/alerts/subscribe', emailLimiter, async (req, res) => {
   const newsletter = req.body.newsletter === 'on' ? 1 : 0;
   const token = generateToken();
   const verifyToken = generateToken();
+  const tokenHash = hashToken(token);
+  const verifyTokenHash = hashToken(verifyToken);
 
   // If SMTP is configured, require verification; otherwise auto-verify
   const verified = smtpConfigured() ? 0 : 1;
 
-  stmts.insertSubscriber.run({ email, newsletter, token, verified, verify_token: verifyToken });
-  const subscriber = stmts.getSubscriberByToken.get(token);
+  stmts.insertSubscriber.run({ email, newsletter, token: tokenHash, verified, verify_token: verifyTokenHash });
+  const subscriber = stmts.getSubscriberByToken.get(tokenHash);
 
   // Process alert rules from the form
   const types = ['vendor', 'category', 'sector', 'keyword'];
@@ -598,7 +602,7 @@ router.post('/alerts/subscribe', emailLimiter, async (req, res) => {
 // Add alert rule
 router.post('/alerts/add-rule', (req, res) => {
   const token = req.body.token;
-  const subscriber = token ? stmts.getSubscriberByToken.get(token) : null;
+  const subscriber = token ? stmts.getSubscriberByToken.get(hashToken(token)) : null;
   if (!subscriber) return res.redirect('/alerts?error=not_found');
 
   const type = req.body.rule_type;
@@ -613,7 +617,7 @@ router.post('/alerts/add-rule', (req, res) => {
 // Delete alert rule
 router.post('/alerts/delete-rule', (req, res) => {
   const token = req.body.token;
-  const subscriber = token ? stmts.getSubscriberByToken.get(token) : null;
+  const subscriber = token ? stmts.getSubscriberByToken.get(hashToken(token)) : null;
   if (!subscriber) return res.redirect('/alerts?error=not_found');
 
   stmts.deleteAlertRule.run(req.body.rule_id, subscriber.id);
@@ -623,7 +627,7 @@ router.post('/alerts/delete-rule', (req, res) => {
 // Add webhook
 router.post('/alerts/add-webhook', (req, res) => {
   const token = req.body.token;
-  const subscriber = token ? stmts.getSubscriberByToken.get(token) : null;
+  const subscriber = token ? stmts.getSubscriberByToken.get(hashToken(token)) : null;
   if (!subscriber) return res.redirect('/alerts?error=not_found');
 
   const webhookType = req.body.webhook_type;
@@ -638,36 +642,48 @@ router.post('/alerts/add-webhook', (req, res) => {
   if (!isTgShorthand && !isValidWebhookUrl(webhookUrl)) {
     return res.redirect(`/alerts?token=${encodeURIComponent(token)}&error=invalid_webhook`);
   }
-  stmts.insertWebhook.run({ subscriber_id: subscriber.id, webhook_type: webhookType, webhook_url: webhookUrl });
+  stmts.insertWebhook.run({ subscriber_id: subscriber.id, webhook_type: webhookType, webhook_url: encryptWebhookUrl(webhookUrl) });
   res.redirect(`/alerts?token=${encodeURIComponent(token)}&success=webhook_added`);
 });
 
 // Delete webhook
 router.post('/alerts/delete-webhook', (req, res) => {
   const token = req.body.token;
-  const subscriber = token ? stmts.getSubscriberByToken.get(token) : null;
+  const subscriber = token ? stmts.getSubscriberByToken.get(hashToken(token)) : null;
   if (!subscriber) return res.redirect('/alerts?error=not_found');
 
   stmts.deleteWebhook.run(req.body.webhook_id, subscriber.id);
   res.redirect(`/alerts?token=${encodeURIComponent(token)}&success=webhook_removed`);
 });
 
-// Verify email
+// Verify email — GET shows confirmation page (no state change, prevents bot auto-verification)
 router.get('/alerts/verify', (req, res) => {
   const verifyToken = req.query.token;
   if (!verifyToken) return res.redirect('/alerts?error=invalid_token');
 
-  const subscriber = stmts.getSubscriberByVerifyToken.get(verifyToken);
+  const subscriber = stmts.getSubscriberByVerifyToken.get(hashToken(verifyToken));
+  if (!subscriber) return res.redirect('/alerts?error=invalid_token');
+
+  res.render('verify', { pageTitle: 'Verify Email', verifyToken });
+});
+
+// Verify email — POST performs the actual verification
+router.post('/alerts/verify', (req, res) => {
+  const verifyToken = req.body.verify_token;
+  if (!verifyToken) return res.redirect('/alerts?error=invalid_token');
+
+  const subscriber = stmts.getSubscriberByVerifyToken.get(hashToken(verifyToken));
   if (!subscriber) return res.redirect('/alerts?error=invalid_token');
 
   stmts.verifySubscriber.run(subscriber.id);
-  res.redirect(`/alerts?token=${encodeURIComponent(subscriber.token)}&success=verified`);
+  // Do not expose the management token here — user should use their original management link
+  res.redirect('/alerts?success=verified');
 });
 
 // Resend verification email
 router.post('/alerts/resend-verify', emailLimiter, async (req, res) => {
   const token = req.body.token;
-  const subscriber = token ? stmts.getSubscriberByToken.get(token) : null;
+  const subscriber = token ? stmts.getSubscriberByToken.get(hashToken(token)) : null;
   if (!subscriber) return res.redirect('/alerts?error=not_found');
 
   if (subscriber.verified) {
@@ -675,7 +691,7 @@ router.post('/alerts/resend-verify', emailLimiter, async (req, res) => {
   }
 
   const newVerifyToken = generateToken();
-  stmts.resendVerification.run({ verify_token: newVerifyToken, id: subscriber.id });
+  stmts.resendVerification.run({ verify_token: hashToken(newVerifyToken), id: subscriber.id });
   try {
     await sendVerification(subscriber.email, newVerifyToken);
   } catch (err) {
@@ -689,7 +705,7 @@ router.post('/alerts/resend-verify', emailLimiter, async (req, res) => {
 router.get('/alerts/unsubscribe', (req, res) => {
   const token = req.query.token;
   if (!token) return res.redirect('/alerts');
-  const subscriber = stmts.getSubscriberByToken.get(token);
+  const subscriber = stmts.getSubscriberByToken.get(hashToken(token));
   if (subscriber) {
     res.render('unsubscribe', { pageTitle: 'Unsubscribe', subscriber });
   } else {
@@ -699,7 +715,7 @@ router.get('/alerts/unsubscribe', (req, res) => {
 
 router.post('/alerts/unsubscribe', (req, res) => {
   const token = req.body.token;
-  const subscriber = token ? stmts.getSubscriberByToken.get(token) : null;
+  const subscriber = token ? stmts.getSubscriberByToken.get(hashToken(token)) : null;
   if (subscriber) {
     db.prepare(`DELETE FROM alert_rules WHERE subscriber_id = ?`).run(subscriber.id);
     db.prepare(`DELETE FROM webhooks WHERE subscriber_id = ?`).run(subscriber.id);
@@ -1101,6 +1117,258 @@ router.get('/feed/iocs.xml', (req, res) => {
     `${BASE_URL}/feed/iocs.xml`,
     articles
   ));
+});
+
+// =============================================
+// Threat Groups, Software & Campaigns
+// =============================================
+
+const db = require('../db');
+
+// Helper: daily article counts for the last N days (fills gaps with 0)
+function getDailyCounts(rows) {
+  const map = {};
+  for (const r of rows) map[r.day] = r.count;
+  const result = [];
+  for (let i = 89; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const key = d.toISOString().slice(0, 10);
+    result.push({ day: key, count: map[key] || 0 });
+  }
+  return result;
+}
+
+// ── Threat Groups ─────────────────────────────────────────────────────────────
+
+const tgStmts = {
+  listAll: db.prepare(`
+    SELECT tg.*,
+      (SELECT COUNT(*) FROM article_threat_groups atg WHERE atg.threat_group_id = tg.id) as total_count,
+      (SELECT COUNT(*) FROM article_threat_groups atg
+        JOIN articles a ON a.id = atg.article_id
+        WHERE atg.threat_group_id = tg.id AND a.published_at >= datetime('now', '-90 days')
+      ) as recent_count
+    FROM threat_groups tg
+    ORDER BY total_count DESC
+  `),
+  getByName: db.prepare(`SELECT * FROM threat_groups WHERE name = ?`),
+  articleCount90: db.prepare(`
+    SELECT COUNT(*) as count FROM article_threat_groups atg
+    JOIN articles a ON a.id = atg.article_id
+    WHERE atg.threat_group_id = ? AND a.published_at >= datetime('now', '-90 days')
+  `),
+  articleCountAll: db.prepare(`
+    SELECT COUNT(*) as count FROM article_threat_groups atg
+    WHERE atg.threat_group_id = ?
+  `),
+  articles90: db.prepare(`
+    SELECT a.* FROM articles a
+    JOIN article_threat_groups atg ON atg.article_id = a.id
+    WHERE atg.threat_group_id = ? AND a.published_at >= datetime('now', '-90 days')
+    ORDER BY a.published_at DESC LIMIT ? OFFSET ?
+  `),
+  articlesAll: db.prepare(`
+    SELECT a.* FROM articles a
+    JOIN article_threat_groups atg ON atg.article_id = a.id
+    WHERE atg.threat_group_id = ?
+    ORDER BY a.published_at DESC LIMIT ? OFFSET ?
+  `),
+  dailyCounts: db.prepare(`
+    SELECT date(a.published_at) as day, COUNT(*) as count
+    FROM articles a JOIN article_threat_groups atg ON atg.article_id = a.id
+    WHERE atg.threat_group_id = ? AND a.published_at >= datetime('now', '-90 days')
+    GROUP BY day ORDER BY day
+  `),
+};
+
+router.get('/threat-groups', (req, res) => {
+  const groups = tgStmts.listAll.all();
+  res.render('threatgroups', { pageTitle: 'Threat Groups', groups });
+});
+
+router.get('/threat-group/:name', (req, res) => {
+  const name = req.params.name;
+  const group = tgStmts.getByName.get(name);
+  if (!group) return res.status(404).render('threatgroups', { pageTitle: 'Threat Groups', groups: tgStmts.listAll.all() });
+
+  const showAll = req.query.all === '1';
+  const page = getPage(req);
+  const total = showAll
+    ? tgStmts.articleCountAll.get(group.id).count
+    : tgStmts.articleCount90.get(group.id).count;
+  const articles = showAll
+    ? tgStmts.articlesAll.all(group.id, PER_PAGE, (page - 1) * PER_PAGE)
+    : tgStmts.articles90.all(group.id, PER_PAGE, (page - 1) * PER_PAGE);
+  const pages = Math.ceil(total / PER_PAGE);
+  const dailyCounts = getDailyCounts(tgStmts.dailyCounts.all(group.id));
+
+  const aliases = group.aliases ? JSON.parse(group.aliases) : [];
+  res.render('threatgroup', {
+    pageTitle: group.name,
+    group: { ...group, aliases },
+    articles, page, pages, total, showAll, dailyCounts,
+    baseUrl: `/threat-group/${encodeURIComponent(name)}`,
+  });
+});
+
+// ── Software & Malware ────────────────────────────────────────────────────────
+
+const swStmts = {
+  listAll: db.prepare(`
+    SELECT ms.*,
+      (SELECT COUNT(*) FROM article_malware_sw amsw WHERE amsw.malware_sw_id = ms.id) as total_count,
+      (SELECT COUNT(*) FROM article_malware_sw amsw
+        JOIN articles a ON a.id = amsw.article_id
+        WHERE amsw.malware_sw_id = ms.id AND a.published_at >= datetime('now', '-90 days')
+      ) as recent_count
+    FROM malware_software ms
+    ORDER BY total_count DESC
+  `),
+  getByName: db.prepare(`SELECT * FROM malware_software WHERE name = ?`),
+  articleCount90: db.prepare(`
+    SELECT COUNT(*) as count FROM article_malware_sw amsw
+    JOIN articles a ON a.id = amsw.article_id
+    WHERE amsw.malware_sw_id = ? AND a.published_at >= datetime('now', '-90 days')
+  `),
+  articleCountAll: db.prepare(`
+    SELECT COUNT(*) as count FROM article_malware_sw WHERE malware_sw_id = ?
+  `),
+  articles90: db.prepare(`
+    SELECT a.* FROM articles a
+    JOIN article_malware_sw amsw ON amsw.article_id = a.id
+    WHERE amsw.malware_sw_id = ? AND a.published_at >= datetime('now', '-90 days')
+    ORDER BY a.published_at DESC LIMIT ? OFFSET ?
+  `),
+  articlesAll: db.prepare(`
+    SELECT a.* FROM articles a
+    JOIN article_malware_sw amsw ON amsw.article_id = a.id
+    WHERE amsw.malware_sw_id = ?
+    ORDER BY a.published_at DESC LIMIT ? OFFSET ?
+  `),
+  dailyCounts: db.prepare(`
+    SELECT date(a.published_at) as day, COUNT(*) as count
+    FROM articles a JOIN article_malware_sw amsw ON amsw.article_id = a.id
+    WHERE amsw.malware_sw_id = ? AND a.published_at >= datetime('now', '-90 days')
+    GROUP BY day ORDER BY day
+  `),
+};
+
+router.get('/software', (req, res) => {
+  const software = swStmts.listAll.all();
+  res.render('software', { pageTitle: 'Software & Malware', software });
+});
+
+router.get('/software/:name', (req, res) => {
+  const name = req.params.name;
+  const sw = swStmts.getByName.get(name);
+  if (!sw) return res.status(404).render('software', { pageTitle: 'Software & Malware', software: swStmts.listAll.all() });
+
+  const showAll = req.query.all === '1';
+  const page = getPage(req);
+  const total = showAll
+    ? swStmts.articleCountAll.get(sw.id).count
+    : swStmts.articleCount90.get(sw.id).count;
+  const articles = showAll
+    ? swStmts.articlesAll.all(sw.id, PER_PAGE, (page - 1) * PER_PAGE)
+    : swStmts.articles90.all(sw.id, PER_PAGE, (page - 1) * PER_PAGE);
+  const pages = Math.ceil(total / PER_PAGE);
+  const dailyCounts = getDailyCounts(swStmts.dailyCounts.all(sw.id));
+
+  const aliases = sw.aliases ? JSON.parse(sw.aliases) : [];
+  res.render('softwaredetail', {
+    pageTitle: sw.name,
+    sw: { ...sw, aliases },
+    articles, page, pages, total, showAll, dailyCounts,
+    baseUrl: `/software/${encodeURIComponent(name)}`,
+  });
+});
+
+// ── Campaigns ─────────────────────────────────────────────────────────────────
+
+const campStmts = {
+  listAll: db.prepare(`
+    SELECT c.*,
+      (SELECT COUNT(*) FROM article_campaigns ac WHERE ac.campaign_id = c.id) as total_count,
+      (SELECT COUNT(*) FROM article_campaigns ac
+        JOIN articles a ON a.id = ac.article_id
+        WHERE ac.campaign_id = c.id AND a.published_at >= datetime('now', '-90 days')
+      ) as recent_count
+    FROM campaigns c
+    ORDER BY total_count DESC
+  `),
+  getByName: db.prepare(`SELECT * FROM campaigns WHERE name = ?`),
+  articleCount90: db.prepare(`
+    SELECT COUNT(*) as count FROM article_campaigns ac
+    JOIN articles a ON a.id = ac.article_id
+    WHERE ac.campaign_id = ? AND a.published_at >= datetime('now', '-90 days')
+  `),
+  articleCountAll: db.prepare(`
+    SELECT COUNT(*) as count FROM article_campaigns WHERE campaign_id = ?
+  `),
+  articles90: db.prepare(`
+    SELECT a.* FROM articles a
+    JOIN article_campaigns ac ON ac.article_id = a.id
+    WHERE ac.campaign_id = ? AND a.published_at >= datetime('now', '-90 days')
+    ORDER BY a.published_at DESC LIMIT ? OFFSET ?
+  `),
+  articlesAll: db.prepare(`
+    SELECT a.* FROM articles a
+    JOIN article_campaigns ac ON ac.article_id = a.id
+    WHERE ac.campaign_id = ?
+    ORDER BY a.published_at DESC LIMIT ? OFFSET ?
+  `),
+  dailyCounts: db.prepare(`
+    SELECT date(a.published_at) as day, COUNT(*) as count
+    FROM articles a JOIN article_campaigns ac ON ac.article_id = a.id
+    WHERE ac.campaign_id = ? AND a.published_at >= datetime('now', '-90 days')
+    GROUP BY day ORDER BY day
+  `),
+};
+
+router.get('/campaigns', (req, res) => {
+  const campaigns = campStmts.listAll.all();
+  res.render('campaigns', { pageTitle: 'Campaigns', campaigns });
+});
+
+router.get('/campaign/:name', (req, res) => {
+  const name = req.params.name;
+  const campaign = campStmts.getByName.get(name);
+  if (!campaign) return res.status(404).render('campaigns', { pageTitle: 'Campaigns', campaigns: campStmts.listAll.all() });
+
+  const showAll = req.query.all === '1';
+  const page = getPage(req);
+  const total = showAll
+    ? campStmts.articleCountAll.get(campaign.id).count
+    : campStmts.articleCount90.get(campaign.id).count;
+  const articles = showAll
+    ? campStmts.articlesAll.all(campaign.id, PER_PAGE, (page - 1) * PER_PAGE)
+    : campStmts.articles90.all(campaign.id, PER_PAGE, (page - 1) * PER_PAGE);
+  const pages = Math.ceil(total / PER_PAGE);
+  const dailyCounts = getDailyCounts(campStmts.dailyCounts.all(campaign.id));
+
+  const aliases = campaign.aliases ? JSON.parse(campaign.aliases) : [];
+  const associated = campaign.associated_groups ? JSON.parse(campaign.associated_groups) : [];
+  res.render('campaign', {
+    pageTitle: campaign.name,
+    campaign: { ...campaign, aliases, associated_groups: associated },
+    articles, page, pages, total, showAll, dailyCounts,
+    baseUrl: `/campaign/${encodeURIComponent(name)}`,
+  });
+});
+
+// ── Entity JSON APIs ──────────────────────────────────────────────────────────
+
+router.get('/api/threat-groups', (req, res) => {
+  res.json({ data: tgStmts.listAll.all() });
+});
+
+router.get('/api/software', (req, res) => {
+  res.json({ data: swStmts.listAll.all() });
+});
+
+router.get('/api/campaigns', (req, res) => {
+  res.json({ data: campStmts.listAll.all() });
 });
 
 module.exports = router;

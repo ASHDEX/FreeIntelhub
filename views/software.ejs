@@ -1,0 +1,67 @@
+<%- include('partials/head', { pageTitle: 'Software & Malware' }) %>
+
+<div class="page-header">
+  <h1>Software & Malware</h1>
+  <p>Malware families, attack tools, and offensive software tracked across all feeds</p>
+</div>
+
+<%
+  const swTypeOrder = ['ransomware','stealer','loader','rat','backdoor','c2','trojan','wiper','rootkit','spyware','keylogger','botnet','unknown'];
+  const swTypeLabel = {
+    ransomware:'Ransomware', stealer:'Stealer/Infostealer', loader:'Loader/Dropper',
+    rat:'RAT', backdoor:'Backdoor', c2:'C2 Framework', trojan:'Trojan',
+    wiper:'Wiper', rootkit:'Rootkit', spyware:'Spyware', keylogger:'Keylogger',
+    botnet:'Botnet', unknown:'Other/Unknown'
+  };
+  const swTypeColor = {
+    ransomware:'badge-red', stealer:'badge-orange', loader:'badge-yellow',
+    rat:'badge-blue', backdoor:'badge-purple', c2:'badge-red',
+    trojan:'badge-orange', wiper:'badge-red', rootkit:'badge-purple',
+    spyware:'badge-blue', keylogger:'badge-blue', botnet:'badge-orange', unknown:'badge-gray'
+  };
+%>
+
+<% if (software.length === 0) { %>
+  <p class="empty">No software/malware indexed yet. Articles are being processed.</p>
+<% } else { %>
+
+  <%
+    const byType = {};
+    for (const sw of software) {
+      const t = sw.type || 'unknown';
+      if (!byType[t]) byType[t] = [];
+      byType[t].push(sw);
+    }
+  %>
+
+  <% for (const type of swTypeOrder) { %>
+    <% if (!byType[type] || byType[type].length === 0) continue; %>
+    <section class="entity-section">
+      <h2 class="entity-section-title">
+        <span class="badge <%= swTypeColor[type] || 'badge-gray' %>"><%= swTypeLabel[type] || type %></span>
+      </h2>
+      <div class="entity-grid">
+        <% for (const sw of byType[type]) { %>
+          <a href="/software/<%= encodeURIComponent(sw.name) %>" class="entity-card<%= sw.is_auto_detected ? ' entity-card-auto' : '' %>">
+            <div class="entity-card-header">
+              <strong class="entity-name"><%= sw.name %></strong>
+              <span class="badge <%= swTypeColor[sw.type] || 'badge-gray' %> badge-xs"><%= swTypeLabel[sw.type] || sw.type %></span>
+            </div>
+            <% if (sw.description) { %>
+              <p class="entity-desc"><%= sw.description.slice(0, 100) %><%= sw.description.length > 100 ? '…' : '' %></p>
+            <% } %>
+            <div class="entity-stats">
+              <span class="stat-pill stat-total"><%= sw.total_count %> articles</span>
+              <% if (sw.recent_count > 0) { %>
+                <span class="stat-pill stat-recent"><%= sw.recent_count %> in 90d</span>
+              <% } %>
+              <% if (sw.is_auto_detected) { %><span class="stat-pill stat-auto">auto-detected</span><% } %>
+            </div>
+          </a>
+        <% } %>
+      </div>
+    </section>
+  <% } %>
+<% } %>
+
+<%- include('partials/footer') %>
