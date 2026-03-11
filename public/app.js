@@ -14,16 +14,6 @@
   }
 })();
 
-// Mobile nav toggle
-(function() {
-  var navToggle = document.querySelector('.nav-toggle');
-  if (navToggle) {
-    navToggle.addEventListener('click', function() {
-      document.getElementById('nav-tabs').classList.toggle('open');
-    });
-  }
-})();
-
 // Search suggestions
 (function () {
   const input = document.getElementById('hero-search');
