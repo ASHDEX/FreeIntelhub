@@ -6,7 +6,6 @@ const { categorize } = require('./categorizer');
 const { isNewsArticle } = require('./contentFilter');
 const { detectMitreTechniques } = require('./mitreMapper');
 const { extractIOCs } = require('./iocExtractor');
-const { extractEntities, linkArticle } = require('./entityExtractor');
 
 const parser = new RSSParser({ timeout: 10000 });
 
@@ -86,25 +85,16 @@ async function fetchFeed(feed) {
         const result = insertArticle.run(article);
         if (result.changes > 0) {
           const row = getArticleByLink.get(article.link);
-          if (row) newlyInserted.push({ row, fullText: `${article.title} ${article.summary || ''}` });
+          if (row) newlyInserted.push(row);
         }
       }
     });
     insert(articles);
 
-    // Extract and link entities for new articles
-    for (const { row, fullText } of newlyInserted) {
-      try {
-        linkArticle(row.id, extractEntities(fullText));
-      } catch (err) {
-        console.error(`[Entities] Failed for article ${row.id}: ${err.message}`);
-      }
-    }
-
     upsertHealth.run({ source: feed.name, url: feed.url, status: 'ok', success: 1, fail: 0 });
     const filtered = items.length - newsItems.length;
     console.log(`[RSS] ${feed.name}: ${articles.length} articles (${filtered} non-news filtered, ${newlyInserted.length} new)`);
-    return newlyInserted.map(({ row }) => row);
+    return newlyInserted;
   } catch (err) {
     // Sanitize error message — strip paths and internal details
     const safeMsg = (err.message || 'unknown error').replace(/\/[^\s:]+/g, '[path]').slice(0, 100);

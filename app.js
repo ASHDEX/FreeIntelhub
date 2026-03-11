@@ -8,7 +8,6 @@ const routes = require('./routes');
 const { fetchAllFeeds } = require('./services/rssFetcher');
 const { startNewsletterCron } = require('./services/newsletter');
 const { cleanupOldArticles } = require('./services/articleCleanup');
-const { seedEntities, backfillEntities } = require('./services/entityExtractor');
 
 // Restrict .env file permissions (owner read/write only)
 try {
@@ -18,26 +17,8 @@ try {
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const BIND_HOST = process.env.BIND_HOST || '127.0.0.1';
 const FETCH_INTERVAL = 15 * 60 * 1000; // 15 minutes
 const CLEANUP_INTERVAL = 24 * 60 * 60 * 1000; // 24 hours
-
-// Trust proxy — required when behind a reverse proxy/load balancer (nginx, Cloudflare, etc.)
-// Set TRUST_PROXY=1 in production for correct IP-based rate limiting
-if (process.env.TRUST_PROXY) {
-  const val = parseInt(process.env.TRUST_PROXY, 10);
-  app.set('trust proxy', isNaN(val) ? process.env.TRUST_PROXY : val);
-}
-
-// HTTPS redirect — enforce TLS in production when FORCE_HTTPS=true
-if (process.env.FORCE_HTTPS === 'true') {
-  app.use((req, res, next) => {
-    if (req.header('x-forwarded-proto') !== 'https') {
-      return res.redirect(301, `https://${req.header('host')}${req.url}`);
-    }
-    next();
-  });
-}
 
 // Generate a unique nonce per request for CSP
 app.use((req, res, next) => {
@@ -51,10 +32,10 @@ app.use(helmet({
     directives: {
       defaultSrc: ["'self'"],
       scriptSrc: ["'self'", (req, res) => `'nonce-${res.locals.nonce}'`, "https://cdn.jsdelivr.net"],
-      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
       imgSrc: ["'self'", "data:"],
       connectSrc: ["'self'"],
-      fontSrc: ["'self'", "https://fonts.gstatic.com"],
+      fontSrc: ["'self'"],
       objectSrc: ["'none'"],
       frameAncestors: ["'none'"],
     },
@@ -94,13 +75,7 @@ app.use((req, res, next) => {
     } catch (_) {}
     return res.status(403).json({ error: 'CSRF check failed: invalid referer' });
   }
-  // No Origin or Referer on a form-encoded POST — this is the browser CSRF vector.
-  // Reject it. JSON/API clients (curl, scripts) should use Content-Type: application/json.
-  const contentType = req.headers['content-type'] || '';
-  if (contentType.includes('application/x-www-form-urlencoded')) {
-    return res.status(403).json({ error: 'CSRF check failed: missing origin' });
-  }
-  // Non-form requests without Origin/Referer (JSON API clients) — allow
+  // No Origin or Referer — allow for non-browser clients (curl, API tools)
   return next();
 });
 
@@ -116,12 +91,8 @@ app.use(rateLimit({
 app.use('/', routes);
 
 // Start server
-app.listen(PORT, BIND_HOST, () => {
-  console.log(`FreeIntelHub running on http://${BIND_HOST}:${PORT}`);
-
-  // Seed curated entity data and backfill existing articles
-  seedEntities();
-  setTimeout(backfillEntities, 5000);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`FreeIntelHub running on http://localhost:${PORT}`);
 
   // Initial fetch after 2s, then every 15 min
   setTimeout(fetchAllFeeds, 2000);
