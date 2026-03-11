@@ -1663,3 +1663,54 @@ section { margin-bottom: 2.5rem; }
 
 /* Cert */
 .ir-cert-grid { display:flex; flex-direction:column; }
+
+
+/* ─── Entity Pages (Threat Groups / Software / Campaigns) ─────────────────── */
+.entity-section { margin-bottom: 2.5rem; }
+.entity-section-title { display: flex; align-items: center; gap: .6rem; font-size: 1rem; font-weight: 600; margin-bottom: 1rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: .05em; }
+.entity-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: .85rem; }
+.entity-card { display: flex; flex-direction: column; gap: .4rem; padding: 1rem; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); text-decoration: none; color: var(--text); transition: all var(--transition); }
+.entity-card:hover { border-color: var(--accent); background: var(--bg-elevated); transform: translateY(-1px); }
+.entity-card-auto { border-style: dashed; }
+.entity-card-dim { opacity: .75; }
+.entity-card-dim:hover { opacity: 1; }
+.entity-card-header { display: flex; align-items: flex-start; justify-content: space-between; gap: .5rem; }
+.entity-name { font-size: .88rem; font-weight: 600; line-height: 1.3; }
+.entity-country { font-size: .72rem; color: var(--text-muted); white-space: nowrap; }
+.entity-desc { font-size: .78rem; color: var(--text-secondary); line-height: 1.4; margin: 0; }
+.entity-stats { display: flex; flex-wrap: wrap; gap: .3rem; margin-top: .25rem; }
+
+.stat-pill { font-size: .7rem; font-weight: 600; padding: .15rem .45rem; border-radius: 99px; }
+.stat-total  { background: rgba(148,163,184,.1); color: var(--text-secondary); }
+.stat-recent { background: rgba(34,197,94,.1);   color: #22c55e; }
+.stat-auto   { background: rgba(251,191,36,.1);  color: var(--amber); font-style: italic; }
+
+/* Badge variants for entity types */
+.badge-red    { background: rgba(239,68,68,.12);  color: var(--red); }
+.badge-orange { background: rgba(251,146,60,.12); color: #fb923c; }
+.badge-yellow { background: rgba(251,191,36,.12); color: var(--amber); }
+.badge-blue   { background: rgba(96,165,250,.12); color: #60a5fa; }
+.badge-purple { background: rgba(167,139,250,.12); color: var(--purple); }
+.badge-gray   { background: rgba(148,163,184,.1);  color: var(--text-muted); }
+.badge-neutral { background: var(--bg-elevated); color: var(--text-secondary); border: 1px solid var(--border); }
+.badge-xs { font-size: .65rem; padding: .1rem .35rem; }
+
+/* Entity detail page */
+.entity-header { display: flex; flex-direction: column; gap: .75rem; }
+.entity-header-title { display: flex; flex-wrap: wrap; align-items: baseline; gap: .75rem; }
+.entity-header-title h1 { margin: 0; }
+.entity-badges { display: flex; flex-wrap: wrap; gap: .4rem; align-items: center; }
+.entity-description { font-size: .92rem; color: var(--text-secondary); line-height: 1.6; max-width: 72ch; margin: 0; }
+.entity-aliases { font-size: .82rem; color: var(--text-muted); margin: 0; }
+.entity-group-link { color: var(--accent); text-decoration: none; }
+.entity-group-link:hover { text-decoration: underline; }
+
+.activity-section { margin-bottom: 2rem; }
+.activity-section h2 { font-size: .9rem; text-transform: uppercase; letter-spacing: .05em; color: var(--text-secondary); margin-bottom: .75rem; }
+
+.entity-articles-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap; }
+.entity-articles-header h2 { margin: 0; font-size: 1.05rem; }
+.entity-count { font-weight: 400; color: var(--text-muted); font-size: .9rem; }
+.entity-toggle { display: flex; gap: .4rem; }
+
+.btn-sm { font-size: .78rem; padding: .3rem .7rem; }
