@@ -2,7 +2,7 @@ const Database = require('better-sqlite3');
 const fs = require('fs');
 const path = require('path');
 
-const DB_PATH = process.env.DB_PATH || path.join(__dirname, 'freeintelhub.sqlite');
+const DB_PATH = path.join(__dirname, 'freeintelhub.sqlite');
 const db = new Database(DB_PATH);
 
 // Set restrictive file permissions (owner read/write only)
@@ -113,79 +113,6 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_articles_source ON articles(source);
   CREATE INDEX IF NOT EXISTS idx_articles_sector ON articles(sector);
   CREATE INDEX IF NOT EXISTS idx_articles_dedup ON articles(dedup_hash);
-`);
-
-// Migration: entity extraction tracking flag
-try { db.exec(`ALTER TABLE articles ADD COLUMN entities_processed INTEGER DEFAULT 0`); } catch (_) {}
-
-// Entity tables: threat groups, malware/software, campaigns
-db.exec(`
-  CREATE TABLE IF NOT EXISTS threat_groups (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT UNIQUE NOT NULL,
-    type TEXT DEFAULT 'unknown',
-    country TEXT,
-    description TEXT,
-    mitre_group_id TEXT,
-    aliases TEXT,
-    is_auto_detected INTEGER DEFAULT 0,
-    first_seen TEXT,
-    created_at TEXT DEFAULT (datetime('now'))
-  );
-
-  CREATE TABLE IF NOT EXISTS malware_software (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT UNIQUE NOT NULL,
-    type TEXT DEFAULT 'unknown',
-    description TEXT,
-    aliases TEXT,
-    is_auto_detected INTEGER DEFAULT 0,
-    first_seen TEXT,
-    created_at TEXT DEFAULT (datetime('now'))
-  );
-
-  CREATE TABLE IF NOT EXISTS campaigns (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT UNIQUE NOT NULL,
-    associated_groups TEXT,
-    description TEXT,
-    aliases TEXT,
-    is_auto_detected INTEGER DEFAULT 0,
-    first_seen TEXT,
-    created_at TEXT DEFAULT (datetime('now'))
-  );
-
-  CREATE TABLE IF NOT EXISTS article_threat_groups (
-    article_id INTEGER NOT NULL,
-    threat_group_id INTEGER NOT NULL,
-    PRIMARY KEY (article_id, threat_group_id),
-    FOREIGN KEY (article_id) REFERENCES articles(id) ON DELETE CASCADE,
-    FOREIGN KEY (threat_group_id) REFERENCES threat_groups(id) ON DELETE CASCADE
-  );
-
-  CREATE TABLE IF NOT EXISTS article_malware_sw (
-    article_id INTEGER NOT NULL,
-    malware_sw_id INTEGER NOT NULL,
-    PRIMARY KEY (article_id, malware_sw_id),
-    FOREIGN KEY (article_id) REFERENCES articles(id) ON DELETE CASCADE,
-    FOREIGN KEY (malware_sw_id) REFERENCES malware_software(id) ON DELETE CASCADE
-  );
-
-  CREATE TABLE IF NOT EXISTS article_campaigns (
-    article_id INTEGER NOT NULL,
-    campaign_id INTEGER NOT NULL,
-    PRIMARY KEY (article_id, campaign_id),
-    FOREIGN KEY (article_id) REFERENCES articles(id) ON DELETE CASCADE,
-    FOREIGN KEY (campaign_id) REFERENCES campaigns(id) ON DELETE CASCADE
-  );
-`);
-
-// Entity junction indexes
-db.exec(`
-  CREATE INDEX IF NOT EXISTS idx_atg_group ON article_threat_groups(threat_group_id);
-  CREATE INDEX IF NOT EXISTS idx_amsw_sw ON article_malware_sw(malware_sw_id);
-  CREATE INDEX IF NOT EXISTS idx_acamp_camp ON article_campaigns(campaign_id);
-  CREATE INDEX IF NOT EXISTS idx_articles_ep ON articles(entities_processed);
 `);
 
 module.exports = db;
