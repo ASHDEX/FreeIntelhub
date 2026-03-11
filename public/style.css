@@ -206,6 +206,9 @@ a:hover { color: #67e8f9; }
 .suggestion-title mark { background: none; color: var(--accent); font-weight: 600; }
 .suggestion-badges { display: flex; gap: 0.35rem; flex-shrink: 0; }
 .suggestion-empty { padding: 0.75rem 1rem; color: var(--text-muted); font-size: 0.85rem; text-align: center; }
+.suggestion-loading { padding: 0.65rem 1rem; display: flex; justify-content: center; }
+.suggestion-spinner { width: 16px; height: 16px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; display: inline-block; }
+@keyframes spin { to { transform: rotate(360deg); } }
 
 /* === CVE Ticker === */
 .cve-ticker-section {
@@ -1007,8 +1010,22 @@ a:hover { color: #67e8f9; }
 .article-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; margin-bottom: 0.5rem; }
 .article-meta time { font-size: 0.7rem; color: var(--text-muted); margin-left: auto; font-weight: 500; }
 .article-card h3 { font-size: 0.95rem; margin-bottom: 0.35rem; font-weight: 600; letter-spacing: -0.01em; line-height: 1.4; }
-.article-card h3 a { color: var(--text); }
+.article-card h3 a { color: var(--text); display: inline; }
 .article-card h3 a:hover { color: var(--accent); text-decoration: none; }
+.ext-icon { width: 11px; height: 11px; display: inline; vertical-align: middle; margin-left: 4px; opacity: 0; transition: opacity var(--transition); flex-shrink: 0; color: var(--text-muted); }
+.article-card h3 a:hover .ext-icon { opacity: 1; }
+.badge-new {
+  font-size: 0.58rem; font-weight: 800; letter-spacing: 0.08em;
+  padding: 0.1rem 0.4rem; border-radius: 3px;
+  background: rgba(239, 68, 68, 0.15); color: var(--red);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  animation: new-pulse 2s ease-in-out infinite;
+  font-family: var(--font-mono);
+}
+@keyframes new-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
 .summary { font-size: 0.82rem; color: var(--text-muted); line-height: 1.55; }
 .read-more { font-size: 0.72rem; color: var(--text-muted); margin-top: 0.5rem; }
 .read-more a { color: var(--text-secondary); font-weight: 500; }
@@ -1200,6 +1217,15 @@ section { margin-bottom: 2.5rem; }
   .stats-row { gap: 0.5rem; }
   .stat-card { min-width: 90px; padding: 0.65rem 0.75rem; }
   .stat-card strong { font-size: 1.1rem; }
+  .nav-search { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cve-ticker-track { animation: none; }
+  .cve-ticker-track:hover { animation: none; }
+  @keyframes live-pulse { 0%, 100% { opacity: 1; } }
+  .badge-new { animation: none; }
+  main.container { animation: none; }
 }
 
 /* === Theme Toggle === */
