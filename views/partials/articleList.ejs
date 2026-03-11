@@ -4,6 +4,16 @@
   <div class="article-list">
     <% articles.forEach(function(a) { %>
       <article class="article-card">
+        <%
+          var ageMs = a.published_at ? (Date.now() - new Date(a.published_at).getTime()) : Infinity;
+          var ageMins = Math.floor(ageMs / 60000);
+          var relTime = ageMins < 1 ? 'just now'
+            : ageMins < 60 ? ageMins + 'm ago'
+            : ageMins < 1440 ? Math.floor(ageMins / 60) + 'h ago'
+            : ageMins < 10080 ? Math.floor(ageMins / 1440) + 'd ago'
+            : new Date(a.published_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+          var isNew = ageMs < 6 * 60 * 60 * 1000;
+        %>
         <div class="article-meta">
           <span class="badge badge-source"><%= a.source %></span>
           <% if (a.category) { %><span class="badge badge-category"><%= a.category %></span><% } %>
@@ -19,9 +29,10 @@
             } else if (a.vendor) { %>
               <a href="/vendor/<%= encodeURIComponent(a.vendor) %>" class="badge badge-vendor"><%= a.vendor %></a>
           <% } %>
-          <time><%= a.published_at ? new Date(a.published_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '' %></time>
+          <% if (isNew) { %><span class="badge-new">NEW</span><% } %>
+          <time datetime="<%= a.published_at || '' %>" title="<%= a.published_at ? new Date(a.published_at).toLocaleString() : '' %>"><%= a.published_at ? relTime : '' %></time>
         </div>
-        <h3><a href="<%= safeHref(a.link) %>" target="_blank" rel="noopener noreferrer"><%= a.title %></a></h3>
+        <h3><a href="<%= safeHref(a.link) %>" target="_blank" rel="noopener noreferrer"><%= a.title %><svg class="ext-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a></h3>
         <% if (a.summary) { %><p class="summary"><%= a.summary %></p><% } %>
         <%
           var mitreList = [];

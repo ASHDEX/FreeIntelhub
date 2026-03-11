@@ -61,6 +61,8 @@
   });
 
   function fetchSuggestions(q) {
+    box.innerHTML = '<div class="suggestion-loading"><span class="suggestion-spinner"></span></div>';
+    box.classList.add('open');
     fetch('/api/suggest?q=' + encodeURIComponent(q))
       .then(function (r) { return r.json(); })
       .then(function (data) { render(data, q); })
