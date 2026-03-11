@@ -1,0 +1,56 @@
+<%- include('partials/head', { pageTitle: 'Threat Groups' }) %>
+
+<div class="page-header">
+  <h1>Threat Groups</h1>
+  <p>Threat actors tracked across all RSS feeds — nation-states, ransomware gangs, and hacktivists</p>
+</div>
+
+<% const typeOrder = ['nation-state','cybercriminal','hacktivist','unknown']; %>
+<% const typeLabel = { 'nation-state':'Nation-State','cybercriminal':'Cybercriminal','hacktivist':'Hacktivist','unknown':'Unknown' }; %>
+<% const typeColor = { 'nation-state':'badge-red','cybercriminal':'badge-orange','hacktivist':'badge-blue','unknown':'badge-gray' }; %>
+
+<% if (groups.length === 0) { %>
+  <p class="empty">No threat groups indexed yet. Articles are being processed.</p>
+<% } else { %>
+
+  <%
+    const byType = {};
+    for (const g of groups) {
+      const t = g.type || 'unknown';
+      if (!byType[t]) byType[t] = [];
+      byType[t].push(g);
+    }
+  %>
+
+  <% for (const type of typeOrder) { %>
+    <% if (!byType[type] || byType[type].length === 0) continue; %>
+    <section class="entity-section">
+      <h2 class="entity-section-title">
+        <span class="badge <%= typeColor[type] %>"><%= typeLabel[type] %></span>
+        <%= typeLabel[type] %> Groups
+      </h2>
+      <div class="entity-grid">
+        <% for (const g of byType[type]) { %>
+          <a href="/threat-group/<%= encodeURIComponent(g.name) %>" class="entity-card<%= g.is_auto_detected ? ' entity-card-auto' : '' %>">
+            <div class="entity-card-header">
+              <strong class="entity-name"><%= g.name %></strong>
+              <% if (g.country) { %><span class="entity-country"><%= g.country %></span><% } %>
+            </div>
+            <% if (g.description) { %>
+              <p class="entity-desc"><%= g.description.slice(0, 100) %><%= g.description.length > 100 ? '…' : '' %></p>
+            <% } %>
+            <div class="entity-stats">
+              <span class="stat-pill stat-total" title="All-time articles"><%= g.total_count %> articles</span>
+              <% if (g.recent_count > 0) { %>
+                <span class="stat-pill stat-recent" title="Last 90 days"><%= g.recent_count %> in 90d</span>
+              <% } %>
+              <% if (g.is_auto_detected) { %><span class="stat-pill stat-auto">auto-detected</span><% } %>
+            </div>
+          </a>
+        <% } %>
+      </div>
+    </section>
+  <% } %>
+<% } %>
+
+<%- include('partials/footer') %>

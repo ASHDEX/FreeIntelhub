@@ -1,0 +1,212 @@
+[
+  {
+    "name": "Operation Aurora",
+    "associated_groups": ["APT17"],
+    "description": "2010 cyberattack campaign targeting Google, Adobe, Juniper Networks, and over 30 other companies, attributed to Chinese APT actors seeking source code and Gmail access.",
+    "aliases": ["operation aurora", "aurora attacks"],
+    "first_seen": "2010-01-01"
+  },
+  {
+    "name": "Operation Shady RAT",
+    "associated_groups": [],
+    "description": "Multi-year intrusion campaign discovered in 2011 targeting 72 organizations including governments, defense contractors, and international bodies. Attributed to Chinese actors.",
+    "aliases": ["operation shady rat", "shady rat"],
+    "first_seen": "2006-01-01"
+  },
+  {
+    "name": "Operation Night Dragon",
+    "associated_groups": [],
+    "description": "Coordinated cyber attacks against global oil, energy, and petrochemical companies targeting operational data, SCADA systems, and financial data.",
+    "aliases": ["night dragon", "operation night dragon"],
+    "first_seen": "2009-01-01"
+  },
+  {
+    "name": "Operation Cleaver",
+    "associated_groups": [],
+    "description": "Iranian-linked operation targeting critical infrastructure, transportation, airlines, and defense contractors across 16 countries.",
+    "aliases": ["operation cleaver", "cleaver operation"],
+    "first_seen": "2012-01-01"
+  },
+  {
+    "name": "Operation Pawn Storm",
+    "associated_groups": ["APT28 (Fancy Bear)"],
+    "description": "Long-running espionage campaign by APT28 targeting NATO governments, military, and political parties using spear-phishing and zero-day exploits.",
+    "aliases": ["pawn storm", "operation pawn storm"],
+    "first_seen": "2004-01-01"
+  },
+  {
+    "name": "SolarWinds Attack",
+    "associated_groups": ["APT29 (Cozy Bear)"],
+    "description": "Sophisticated supply chain attack compromising SolarWinds Orion software updates, affecting 18,000+ organizations including US government agencies and major tech companies.",
+    "aliases": ["solarwinds attack", "sunburst attack", "solorigate", "sunburst campaign", "solarwinds orion attack"],
+    "first_seen": "2020-01-01"
+  },
+  {
+    "name": "Operation Exchange Marauder",
+    "associated_groups": ["OceanLotus"],
+    "description": "HAFNIUM group exploitation of four zero-day vulnerabilities in Microsoft Exchange Server, affecting 250,000+ servers globally.",
+    "aliases": ["exchange marauder", "hafnium exchange attack", "proxylogon attack", "exchange server attack 2021"],
+    "first_seen": "2021-01-01"
+  },
+  {
+    "name": "Kaseya VSA Supply Chain Attack",
+    "associated_groups": ["REvil"],
+    "description": "REvil ransomware attack exploiting zero-day in Kaseya VSA remote management software, encrypting thousands of downstream MSP customers.",
+    "aliases": ["kaseya attack", "kaseya vsa attack", "kaseya ransomware attack"],
+    "first_seen": "2021-07-01"
+  },
+  {
+    "name": "Log4Shell Exploitation",
+    "associated_groups": [],
+    "description": "Mass exploitation campaign targeting the Log4j vulnerability (CVE-2021-44228), affecting millions of Java applications worldwide. Multiple APT groups and ransomware actors exploited.",
+    "aliases": ["log4shell campaign", "log4j exploitation", "log4shell attacks", "log4j attacks"],
+    "first_seen": "2021-12-01"
+  },
+  {
+    "name": "Colonial Pipeline Attack",
+    "associated_groups": ["DarkSide"],
+    "description": "DarkSide ransomware attack on Colonial Pipeline causing shutdown of the largest US fuel pipeline and widespread fuel shortages across the US East Coast.",
+    "aliases": ["colonial pipeline attack", "colonial pipeline ransomware", "darkside colonial pipeline"],
+    "first_seen": "2021-05-01"
+  },
+  {
+    "name": "JBS Foods Attack",
+    "associated_groups": ["REvil"],
+    "description": "REvil ransomware attack on JBS Foods, the world's largest meat processing company, disrupting operations across US, Canada, and Australia.",
+    "aliases": ["jbs attack", "jbs ransomware", "jbs foods attack"],
+    "first_seen": "2021-06-01"
+  },
+  {
+    "name": "Operation Triangulation",
+    "associated_groups": [],
+    "description": "Sophisticated iOS zero-click attack campaign using zero-day vulnerabilities to implant malware on iPhones, discovered by Kaspersky Lab targeting their own employees.",
+    "aliases": ["operation triangulation", "triangulation campaign"],
+    "first_seen": "2019-01-01"
+  },
+  {
+    "name": "MOVEit Transfer Campaign",
+    "associated_groups": ["Cl0p Gang"],
+    "description": "Cl0p ransomware group exploited zero-day vulnerability in MOVEit Transfer software, affecting 2,000+ organizations and 60+ million individuals including US government agencies.",
+    "aliases": ["moveit attack", "moveit campaign", "moveit transfer attack", "cl0p moveit", "clop moveit"],
+    "first_seen": "2023-05-01"
+  },
+  {
+    "name": "GoAnywhere Attack",
+    "associated_groups": ["Cl0p Gang"],
+    "description": "Cl0p exploitation of zero-day in Fortra's GoAnywhere MFT platform, affecting 130+ organizations including Procter & Gamble and Virgin Red.",
+    "aliases": ["goanywhere attack", "goanywhere campaign", "cl0p goanywhere"],
+    "first_seen": "2023-01-01"
+  },
+  {
+    "name": "3CX Supply Chain Attack",
+    "associated_groups": ["UNC4736", "Lazarus Group"],
+    "description": "North Korean-linked supply chain attack on 3CX VoIP software, marking the first recorded software supply chain attack leading to another supply chain attack (Trading Technologies).",
+    "aliases": ["3cx attack", "3cx supply chain", "smooth operator", "3cx compromise"],
+    "first_seen": "2023-03-01"
+  },
+  {
+    "name": "XZ Utils Backdoor",
+    "associated_groups": [],
+    "description": "Sophisticated multi-year social engineering campaign inserting a backdoor into XZ Utils (liblzma), affecting multiple Linux distributions. Nearly succeeded in compromising SSH authentication.",
+    "aliases": ["xz utils backdoor", "xz backdoor", "liblzma backdoor", "xz utils attack"],
+    "first_seen": "2024-03-01"
+  },
+  {
+    "name": "Change Healthcare Attack",
+    "associated_groups": ["BlackCat Operators"],
+    "description": "ALPHV/BlackCat ransomware attack on Change Healthcare causing the largest healthcare data breach in US history, affecting 100+ million Americans and disrupting prescription processing nationwide.",
+    "aliases": ["change healthcare attack", "change healthcare breach", "change healthcare ransomware", "optum attack"],
+    "first_seen": "2024-02-01"
+  },
+  {
+    "name": "NotPetya Campaign",
+    "associated_groups": ["Sandworm"],
+    "description": "Destructive malware masquerading as ransomware, initially targeting Ukraine via compromised accounting software M.E.Doc and spreading globally. Caused $10B+ in damages.",
+    "aliases": ["notpetya", "not petya", "petna", "expetr"],
+    "first_seen": "2017-06-01"
+  },
+  {
+    "name": "WannaCry Campaign",
+    "associated_groups": ["Lazarus Group"],
+    "description": "Global ransomware attack exploiting EternalBlue NSA exploit, affecting 200,000+ systems across 150 countries including the UK NHS. Linked to North Korean Lazarus Group.",
+    "aliases": ["wannacry", "wannacrypt", "wcry", "wanna cryptor"],
+    "first_seen": "2017-05-01"
+  },
+  {
+    "name": "Operation Soft Cell",
+    "associated_groups": [],
+    "description": "Multi-year espionage campaign targeting telecommunications providers globally to enable interception of mobile communications.",
+    "aliases": ["operation soft cell", "soft cell"],
+    "first_seen": "2012-01-01"
+  },
+  {
+    "name": "Volt Typhoon Infrastructure Campaign",
+    "associated_groups": ["Volt Typhoon"],
+    "description": "Pre-positioning operation by Chinese APT to establish persistent access to US critical infrastructure including water, power, and transportation sectors for potential future disruption.",
+    "aliases": ["volt typhoon campaign", "volt typhoon infrastructure", "volt typhoon critical infrastructure"],
+    "first_seen": "2021-01-01"
+  },
+  {
+    "name": "Salt Typhoon Telecom Campaign",
+    "associated_groups": ["Salt Typhoon"],
+    "description": "Chinese espionage campaign breaching major US telecommunications providers including AT&T, Verizon, and T-Mobile to access lawful intercept systems and senior officials' communications.",
+    "aliases": ["salt typhoon campaign", "salt typhoon telecom", "telecom breach 2024", "salt typhoon breach"],
+    "first_seen": "2024-01-01"
+  },
+  {
+    "name": "Operation GhostShell",
+    "associated_groups": ["MuddyWater"],
+    "description": "Iranian espionage campaign targeting aerospace and telecom sectors across Middle East, targeting sensitive business data and employee credentials.",
+    "aliases": ["operation ghostshell", "ghostshell campaign"],
+    "first_seen": "2021-01-01"
+  },
+  {
+    "name": "Midnight Blizzard Microsoft Attack",
+    "associated_groups": ["APT29 (Cozy Bear)"],
+    "description": "APT29 breach of Microsoft corporate email accounts including senior leadership, using password spray attacks and OAuth app abuse to steal emails and source code.",
+    "aliases": ["midnight blizzard microsoft", "microsoft breach 2024", "apt29 microsoft", "nobelium microsoft"],
+    "first_seen": "2024-01-01"
+  },
+  {
+    "name": "Operation Duck Hunt",
+    "associated_groups": [],
+    "description": "FBI-led international law enforcement operation that dismantled the QakBot botnet, seizing 52+ servers and deleting malware from 700,000+ infected machines.",
+    "aliases": ["operation duck hunt", "qakbot takedown", "qbot takedown"],
+    "first_seen": "2023-08-01"
+  },
+  {
+    "name": "Scattered Spider MGM Attack",
+    "associated_groups": ["Scattered Spider"],
+    "description": "Social engineering attack on MGM Resorts International using vishing to compromise Okta SSO, deploying BlackCat ransomware and causing $100M+ in losses.",
+    "aliases": ["mgm attack", "mgm resorts attack", "scattered spider mgm", "mgm ransomware"],
+    "first_seen": "2023-09-01"
+  },
+  {
+    "name": "Ivanti Zero-Day Campaign",
+    "associated_groups": [],
+    "description": "Mass exploitation of Ivanti Connect Secure VPN zero-day vulnerabilities (CVE-2023-46805, CVE-2024-21887) by multiple threat actors including Chinese APTs.",
+    "aliases": ["ivanti campaign", "ivanti zero-day", "ivanti vpn attack", "connectsecure attack"],
+    "first_seen": "2024-01-01"
+  },
+  {
+    "name": "Operation Medusa",
+    "associated_groups": ["Turla"],
+    "description": "FBI-led operation dismantling Turla's Snake malware network after two decades of operation, infecting computers in 50+ countries.",
+    "aliases": ["operation medusa fbi", "snake malware takedown", "turla snake operation"],
+    "first_seen": "2023-05-01"
+  },
+  {
+    "name": "CDK Global Attack",
+    "associated_groups": [],
+    "description": "Ransomware attack on CDK Global disrupting operations at thousands of US car dealerships for weeks, causing hundreds of millions in damages.",
+    "aliases": ["cdk global attack", "cdk global ransomware", "cdk auto ransomware"],
+    "first_seen": "2024-06-01"
+  },
+  {
+    "name": "Snowflake Customer Campaign",
+    "associated_groups": ["Scattered Spider"],
+    "description": "Credential-based attack campaign targeting Snowflake cloud storage customers using stolen credentials, compromising AT&T, Ticketmaster, LendingTree and 160+ other organizations.",
+    "aliases": ["snowflake breach", "snowflake campaign", "snowflake attack", "at&t snowflake"],
+    "first_seen": "2024-04-01"
+  }
+]

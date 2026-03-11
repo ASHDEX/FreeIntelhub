@@ -1,0 +1,102 @@
+<%- include('partials/head', { pageTitle: sw.name }) %>
+
+<%
+  const swTypeLabel = {
+    ransomware:'Ransomware', stealer:'Stealer/Infostealer', loader:'Loader/Dropper',
+    rat:'RAT', backdoor:'Backdoor', c2:'C2 Framework', trojan:'Trojan',
+    wiper:'Wiper', rootkit:'Rootkit', spyware:'Spyware', keylogger:'Keylogger',
+    botnet:'Botnet', unknown:'Other/Unknown'
+  };
+  const swTypeColor = {
+    ransomware:'badge-red', stealer:'badge-orange', loader:'badge-yellow',
+    rat:'badge-blue', backdoor:'badge-purple', c2:'badge-red',
+    trojan:'badge-orange', wiper:'badge-red', rootkit:'badge-purple',
+    spyware:'badge-blue', keylogger:'badge-blue', botnet:'badge-orange', unknown:'badge-gray'
+  };
+%>
+
+<div class="page-header">
+  <div class="entity-header">
+    <div class="entity-header-title">
+      <h1><%= sw.name %></h1>
+      <div class="entity-badges">
+        <span class="badge <%= swTypeColor[sw.type] || 'badge-gray' %>"><%= swTypeLabel[sw.type] || sw.type %></span>
+        <% if (sw.is_auto_detected) { %><span class="badge badge-gray">auto-detected</span><% } %>
+      </div>
+    </div>
+    <% if (sw.description) { %>
+      <p class="entity-description"><%= sw.description %></p>
+    <% } %>
+    <% if (sw.aliases && sw.aliases.length > 0) { %>
+      <p class="entity-aliases"><strong>Also known as:</strong> <%= sw.aliases.join(', ') %></p>
+    <% } %>
+  </div>
+</div>
+
+<!-- 90-Day Activity Chart -->
+<section class="activity-section">
+  <h2>90-Day Activity</h2>
+  <div class="chart-container chart-container-sm">
+    <canvas id="activity-chart"></canvas>
+  </div>
+</section>
+
+<!-- Articles -->
+<section>
+  <div class="entity-articles-header">
+    <h2>
+      <%= showAll ? 'All Articles' : 'Last 90 Days' %>
+      <span class="entity-count">(<%= total %>)</span>
+    </h2>
+    <div class="entity-toggle">
+      <% if (showAll) { %>
+        <a href="<%= baseUrl %>" class="btn btn-sm">Last 90 Days</a>
+        <span class="btn btn-sm btn-accent">All Time</span>
+      <% } else { %>
+        <span class="btn btn-sm btn-accent">Last 90 Days</span>
+        <a href="<%= baseUrl %>?all=1" class="btn btn-sm">All Time</a>
+      <% } %>
+    </div>
+  </div>
+
+  <% if (articles.length === 0) { %>
+    <p class="empty">No articles found for this period.</p>
+  <% } else { %>
+    <%- include('partials/articleList', { articles }) %>
+    <%- include('partials/pagination', { page, pages, baseUrl: showAll ? baseUrl + '?all=1' : baseUrl }) %>
+  <% } %>
+</section>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<script nonce="<%= nonce %>">
+(function() {
+  var days   = <%- JSON.stringify(dailyCounts.map(d => d.day.slice(5))) %>;
+  var counts = <%- JSON.stringify(dailyCounts.map(d => d.count)) %>;
+  var ctx = document.getElementById('activity-chart').getContext('2d');
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: days,
+      datasets: [{
+        label: 'Articles',
+        data: counts,
+        backgroundColor: 'rgba(251,146,60,0.6)',
+        borderColor: '#fb923c',
+        borderWidth: 1,
+        borderRadius: 2,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { maxTicksLimit: 10, color: '#94a3b8' }, grid: { color: 'rgba(148,163,184,0.1)' } },
+        y: { beginAtZero: true, ticks: { color: '#94a3b8', stepSize: 1 }, grid: { color: 'rgba(148,163,184,0.1)' } }
+      }
+    }
+  });
+})();
+</script>
+
+<%- include('partials/footer') %>

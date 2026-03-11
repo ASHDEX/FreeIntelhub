@@ -2,7 +2,40 @@
  * Webhook Service — Sends alerts to Slack, Discord, Telegram, and custom webhooks.
  */
 
+const dns = require('dns');
+const { decryptWebhookUrl } = require('./crypto');
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
+
+// ---------------------------------------------------------------------------
+// SSRF protection at fetch time (guards against DNS rebinding)
+// ---------------------------------------------------------------------------
+
+function isPrivateIP(ip) {
+  const v4 = ip.replace(/^::ffff:/i, '');
+  if (v4 === '127.0.0.1' || v4 === '0.0.0.0' || v4 === '::1' || v4 === '0') return true;
+  if (/^10\./.test(v4)) return true;
+  if (/^172\.(1[6-9]|2\d|3[01])\./.test(v4)) return true;
+  if (/^192\.168\./.test(v4)) return true;
+  if (/^169\.254\./.test(v4)) return true;
+  if (/^(fc|fd|fe80)/i.test(ip)) return true;
+  return false;
+}
+
+async function validateNoSsrfAtFetchTime(urlStr) {
+  const parsed = new URL(urlStr);
+  const hostname = parsed.hostname.replace(/^\[|\]$/g, '');
+  // Skip pure IP addresses (already validated at registration time)
+  if (/^[\d.:]+$/.test(hostname)) return;
+  try {
+    const { address } = await dns.promises.lookup(hostname);
+    if (isPrivateIP(address)) {
+      throw new Error(`SSRF: webhook hostname ${hostname} resolves to private IP ${address}`);
+    }
+  } catch (err) {
+    // Re-throw SSRF errors; for DNS resolution failures block the request to be safe
+    throw new Error(err.message.startsWith('SSRF:') ? err.message : `SSRF: could not resolve webhook hostname ${hostname}`);
+  }
+}
 
 function safeParse(json) {
   if (!json) return null;
@@ -138,13 +171,19 @@ async function sendCustomWebhook(webhookUrl, articles) {
 
 /**
  * Dispatch articles to a webhook based on its type.
+ * Decrypts the URL if encrypted, then validates against SSRF at fetch time.
  */
 async function sendWebhook(type, url, articles) {
+  const resolvedUrl = decryptWebhookUrl(url);
+  // Telegram tg:// URLs are constructed internally to api.telegram.org — no SSRF risk
+  if (type !== 'telegram') {
+    await validateNoSsrfAtFetchTime(resolvedUrl);
+  }
   switch (type) {
-    case 'slack': return sendSlack(url, articles);
-    case 'discord': return sendDiscord(url, articles);
-    case 'telegram': return sendTelegram(url, articles);
-    case 'webhook': return sendCustomWebhook(url, articles);
+    case 'slack': return sendSlack(resolvedUrl, articles);
+    case 'discord': return sendDiscord(resolvedUrl, articles);
+    case 'telegram': return sendTelegram(resolvedUrl, articles);
+    case 'webhook': return sendCustomWebhook(resolvedUrl, articles);
     default: throw new Error(`Unknown webhook type: ${type}`);
   }
 }
