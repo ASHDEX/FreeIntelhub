@@ -84,7 +84,7 @@
 <% } else { %>
   <section>
     <h2>Your Alerts</h2>
-    <p class="text-muted">Subscribed as <strong><%= subscriber.email %></strong>
+    <p class="text-muted">Subscribed as <strong><%= maskEmail(subscriber.email) %></strong>
       &mdash; Daily newsletter: <strong><%= subscriber.daily_newsletter ? 'On' : 'Off' %></strong>
       &mdash; Status: <strong class="<%= subscriber.verified ? 'status-ok' : 'status-pending' %>"><%= subscriber.verified ? 'Verified' : 'Pending verification' %></strong>
     </p>
