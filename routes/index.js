@@ -6,10 +6,11 @@ const feeds = require('../config/feeds.json');
 const { CATEGORY_PATTERNS } = require('../services/categorizer');
 const sectorConfig = require('../config/sectors.json');
 const { sendVerification, isConfigured: smtpConfigured } = require('../services/emailService');
-const { getLatestCVEs, lookupCVE, fullCVELookup, CVE_ID_REGEX } = require('../services/cveFetcher');
+const { getLatestCVEs, getTickerCVEs, lookupCVE, fullCVELookup, CVE_ID_REGEX } = require('../services/cveFetcher');
 const { generateRSS } = require('../services/feedGenerator');
 const { lookupThreatIntel } = require('../services/threatIntel');
 const { hashToken, encryptWebhookUrl } = require('../services/crypto');
+const { getAiContext } = require('../services/aiContext');
 
 const threatmapConfig = require('../config/threatmap.json');
 const router = express.Router();
@@ -269,7 +270,63 @@ const stmts = {
   `),
   getWebhooks: db.prepare(`SELECT * FROM webhooks WHERE subscriber_id = ?`),
   deleteWebhook: db.prepare(`DELETE FROM webhooks WHERE id = ? AND subscriber_id = ?`),
+  // Nav stats — pre-compiled so they're not re-parsed on every request
+  navArticles24h: db.prepare(`SELECT COUNT(*) as c FROM articles WHERE published_at >= datetime('now','-1 day')`),
+  navCveTotal:    db.prepare(`SELECT COUNT(*) as c FROM articles WHERE title LIKE '%CVE-%'`),
+  navHighCount:   db.prepare(`SELECT COUNT(*) as c FROM articles WHERE category IN ('Ransomware','Data Breach','Vulnerability','Exploit') AND published_at >= datetime('now','-7 days')`),
+  // Homepage metric cards
+  homepageArticles24h:  db.prepare(`SELECT COUNT(*) as c FROM articles WHERE published_at >= datetime('now','-1 day')`),
+  homepageIocArticles24h: db.prepare(`SELECT COUNT(*) as c FROM articles WHERE iocs IS NOT NULL AND published_at >= datetime('now','-1 day')`),
+  homepageGroups7d: db.prepare(`SELECT COUNT(DISTINCT atg.threat_group_id) as c FROM article_threat_groups atg JOIN articles a ON a.id = atg.article_id WHERE a.published_at >= datetime('now','-7 days')`),
+  // /api/suggest — entity typeahead
+  suggestGroups:   db.prepare(`SELECT name FROM threat_groups WHERE name LIKE ? ORDER BY name LIMIT 3`),
+  suggestSoftware: db.prepare(`SELECT name FROM malware_software WHERE name LIKE ? ORDER BY name LIMIT 3`),
+  suggestCampaigns: db.prepare(`SELECT name FROM campaigns WHERE name LIKE ? ORDER BY name LIMIT 3`),
+  // checkApiKey — API key validation and rate counting
+  apiKeyByHash:    db.prepare(`SELECT id, key_hash, requests_today, last_reset FROM api_keys WHERE key_hash = ?`),
+  apiKeyResetCount: db.prepare(`UPDATE api_keys SET requests_today = 1, last_reset = ? WHERE id = ?`),
+  apiKeyIncrCount:  db.prepare(`UPDATE api_keys SET requests_today = requests_today + 1 WHERE id = ?`),
+  // Search source list
+  allSources: db.prepare(`SELECT DISTINCT source FROM articles ORDER BY source`),
 };
+
+// Vendor list cache — 60 second TTL, eliminates full GROUP BY scan on every request
+let _vendorsCache = null;
+let _vendorsCachedAt = 0;
+function getNavVendors() {
+  const now = Date.now();
+  if (_vendorsCache && (now - _vendorsCachedAt) < 60000) return _vendorsCache;
+  try {
+    _vendorsCache = stmts.vendorCounts.all().slice(0, 15);
+  } catch (_) {
+    _vendorsCache = [];
+  }
+  _vendorsCachedAt = now;
+  return _vendorsCache;
+}
+
+// Nav stats cache — 60 second TTL, avoids running 3 count queries on every request
+let _navStatsCache = null;
+let _navStatsCachedAt = 0;
+function getNavStats() {
+  const now = Date.now();
+  if (_navStatsCache && (now - _navStatsCachedAt) < 60000) return _navStatsCache;
+  try {
+    _navStatsCache = {
+      articles24h: stmts.navArticles24h.get().c,
+      cveTotal:    stmts.navCveTotal.get().c,
+      highCount:   stmts.navHighCount.get().c,
+    };
+  } catch (_) {
+    _navStatsCache = { articles24h: 0, cveTotal: 0, highCount: 0 };
+  }
+  _navStatsCachedAt = now;
+  return _navStatsCache;
+}
+
+// API key check — applied to all /api/ routes (passthrough if no key header)
+// Uses wrapper so the hoisted function declaration is resolved at call time
+router.use('/api/', (req, res, next) => checkApiKey(req, res, next));
 
 // --- Inject nav data and helpers into all views ---
 router.use((req, res, next) => {
@@ -279,8 +336,10 @@ router.use((req, res, next) => {
   res.locals.currentPath = req.path;
   res.locals.safeHref = safeHref;
   res.locals.maskEmail = maskEmail;
-  // Top vendors for navbar dropdown (cached per request)
-  res.locals.vendors = stmts.vendorCounts.all().slice(0, 15);
+  // Top vendors for navbar dropdown (60s TTL cache)
+  res.locals.vendors = getNavVendors();
+  // Quick stats for sidebar top bar (served from 60s TTL cache)
+  res.locals.navStats = getNavStats();
   next();
 });
 
@@ -288,8 +347,16 @@ router.use((req, res, next) => {
 // Page Routes
 // =============================================
 
-// Homepage
-router.get('/', async (req, res) => {
+// Landing page
+router.get('/', (req, res) => {
+  const totalArticles = stmts.totalCount.get().count;
+  const threatGroupCount = db.prepare('SELECT COUNT(*) as count FROM threat_groups').get().count;
+  const sourceCount = feeds.length;
+  res.render('landing', { totalArticles, threatGroupCount, sourceCount });
+});
+
+// Threat Feed
+router.get('/feed', async (req, res) => {
   const page = parseInt(req.query.page, 10) || 1;
   const section = req.query.section;
 
@@ -311,13 +378,21 @@ router.get('/', async (req, res) => {
   const categories = stmts.categoryCounts.all();
   const { count } = stmts.totalCount.get();
 
-  // Fetch latest CVEs for ticker
-  const cves = await getLatestCVEs();
+  // Fetch recently-published CVEs for ticker (last 30 days, newest first)
+  const cves = await getTickerCVEs();
+
+  // Homepage metric cards
+  const articles24h = stmts.homepageArticles24h.get().c;
+  const iocArticles24h = stmts.homepageIocArticles24h.get().c;
+  const threatGroups7d = stmts.homepageGroups7d.get().c;
 
   res.render('index', {
+    pageTitle: 'Threat Feed',
     articles, newsPage, newsPages,
     breachArticles, breachPage, breachPages,
     vendors, categories, totalCount: count, cves,
+    articles24h, iocArticles24h, threatGroups7d,
+    cveCount: cves ? cves.length : 0,
   });
 });
 
@@ -328,7 +403,7 @@ router.get('/vendor/:vendor', (req, res) => {
   const total = stmts.vendorCount.get(vendor).count;
   const articles = stmts.articlesByVendor.all(vendor, PER_PAGE, (page - 1) * PER_PAGE);
   const pages = Math.ceil(total / PER_PAGE);
-  res.render('vendor', { vendor, articles, page, pages, baseUrl: `/vendor/${encodeURIComponent(vendor)}` });
+  res.render('vendor', { pageTitle: vendor, vendor, articles, page, pages, baseUrl: `/vendor/${encodeURIComponent(vendor)}` });
 });
 
 // Category page
@@ -338,7 +413,7 @@ router.get('/category/:category', (req, res) => {
   const total = stmts.categoryCount.get(category).count;
   const articles = stmts.articlesByCategory.all(category, PER_PAGE, (page - 1) * PER_PAGE);
   const pages = Math.ceil(total / PER_PAGE);
-  res.render('category', { category, articles, page, pages, baseUrl: `/category/${encodeURIComponent(category)}` });
+  res.render('category', { pageTitle: category, category, articles, page, pages, baseUrl: `/category/${encodeURIComponent(category)}` });
 });
 
 // Source page
@@ -348,13 +423,19 @@ router.get('/source/:source', (req, res) => {
   const total = stmts.sourceCount.get(source).count;
   const articles = stmts.articlesBySource.all(source, PER_PAGE, (page - 1) * PER_PAGE);
   const pages = Math.ceil(total / PER_PAGE);
-  res.render('source', { source, articles, page, pages, baseUrl: `/source/${encodeURIComponent(source)}` });
+  res.render('source', { pageTitle: source, source, articles, page, pages, baseUrl: `/source/${encodeURIComponent(source)}` });
 });
 
-// Search
+// Search (with advanced filters)
 router.get('/search', async (req, res) => {
   const q = (req.query.q || '').trim();
   const page = getPage(req);
+  const dateFrom = (req.query.dateFrom || '').trim();
+  const dateTo = (req.query.dateTo || '').trim();
+  const sector = (req.query.sector || '').trim();
+  const source = (req.query.source || '').trim();
+  const tlp = (req.query.tlp || '').trim().toUpperCase();
+  const highRiskOnly = req.query.highRisk === '1';
 
   // If query is a CVE ID, redirect to the full vulnerability lookup page
   if (q && CVE_ID_REGEX.test(q)) {
@@ -363,14 +444,63 @@ router.get('/search', async (req, res) => {
 
   let articles = [];
   let pages = 0;
+  let usedFTS = false;
+  const hasFilters = dateFrom || dateTo || sector || source || tlp || highRiskOnly;
 
-  if (q) {
-    const like = `%${q}%`;
-    const total = stmts.searchCount.get(like, like, like).count;
-    articles = stmts.searchArticles.all(like, like, like, PER_PAGE, (page - 1) * PER_PAGE);
+  const allSectors = stmts.sectorCounts.all().map(r => r.sector).filter(Boolean);
+  const allSources = stmts.allSources.all().map(r => r.source);
+
+  if (q || hasFilters) {
+    const conditions = [];
+    const params = [];
+
+    if (q) {
+      // Try FTS5 first for better full-text search
+      try {
+        // Sanitize FTS5 input to prevent query syntax injection (VULN-09)
+        const ftsQ = '"' + q.replace(/"/g, '').replace(/[*^]/g, '') + '"';
+        // Validate the FTS5 query by running a test first
+        db.prepare(`SELECT rowid FROM articles_fts WHERE articles_fts MATCH ? LIMIT 1`).get(ftsQ);
+        conditions.push(`id IN (SELECT rowid FROM articles_fts WHERE articles_fts MATCH ?)`);
+        params.push(ftsQ);
+        usedFTS = true;
+      } catch (_) {
+        // FTS5 query syntax error — fall back to LIKE
+        const like = `%${q}%`;
+        conditions.push(`(title LIKE ? OR summary LIKE ? OR vendor LIKE ?)`);
+        params.push(like, like, like);
+      }
+    }
+
+    if (dateFrom) { conditions.push(`published_at >= ?`); params.push(dateFrom + 'T00:00:00'); }
+    if (dateTo) { conditions.push(`published_at <= ?`); params.push(dateTo + 'T23:59:59'); }
+    if (sector) { conditions.push(`sector = ?`); params.push(sector); }
+    if (source) { conditions.push(`source = ?`); params.push(source); }
+    if (tlp && ['WHITE', 'GREEN', 'AMBER', 'RED'].includes(tlp)) { conditions.push(`tlp = ?`); params.push(tlp); }
+    if (highRiskOnly) { conditions.push(`(iocs IS NOT NULL OR mitre_techniques IS NOT NULL OR title LIKE ? OR category IN ('Ransomware','Data Breach','Vulnerability','Exploit'))`); params.push('%CVE-%'); }
+
+    const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+    const countRow = db.prepare(`SELECT COUNT(*) as count FROM articles ${where}`).get(...params);
+    const total = countRow.count;
+    articles = db.prepare(`SELECT * FROM articles ${where} ORDER BY published_at DESC LIMIT ? OFFSET ?`).all(...params, PER_PAGE, (page - 1) * PER_PAGE);
     pages = Math.ceil(total / PER_PAGE);
   }
-  res.render('search', { query: q, articles, page, pages, cveLookup: null, baseUrl: `/search?q=${encodeURIComponent(q)}` });
+
+  const filterParams = new URLSearchParams();
+  if (q) filterParams.set('q', q);
+  if (dateFrom) filterParams.set('dateFrom', dateFrom);
+  if (dateTo) filterParams.set('dateTo', dateTo);
+  if (sector) filterParams.set('sector', sector);
+  if (source) filterParams.set('source', source);
+  if (tlp) filterParams.set('tlp', tlp);
+  if (highRiskOnly) filterParams.set('highRisk', '1');
+
+  res.render('search', {
+    query: q, articles, page, pages, cveLookup: null, usedFTS,
+    baseUrl: `/search?${filterParams.toString()}`,
+    filters: { dateFrom, dateTo, sector, source, tlp, highRiskOnly },
+    allSectors, allSources
+  });
 });
 
 // Sector page
@@ -380,7 +510,7 @@ router.get('/sector/:sector', (req, res) => {
   const total = stmts.sectorCount.get(sector).count;
   const articles = stmts.articlesBySector.all(sector, PER_PAGE, (page - 1) * PER_PAGE);
   const pages = Math.ceil(total / PER_PAGE);
-  res.render('sector', { sector, articles, page, pages, baseUrl: `/sector/${encodeURIComponent(sector)}` });
+  res.render('sector', { pageTitle: sector, sector, articles, page, pages, baseUrl: `/sector/${encodeURIComponent(sector)}` });
 });
 
 // Sectors index
@@ -526,6 +656,7 @@ router.get('/sitemap.xml', (req, res) => {
 
   xml += '</urlset>';
   res.set('Content-Type', 'application/xml');
+  res.set('Cache-Control', 'public, max-age=3600');
   res.send(xml);
 });
 
@@ -592,8 +723,12 @@ router.post('/alerts/subscribe', emailLimiter, async (req, res) => {
 
   // Send verification email
   if (smtpConfigured()) {
-    await sendVerification(email, verifyToken);
-    res.redirect(`/alerts?token=${encodeURIComponent(token)}&success=subscribed_verify`);
+    try {
+      await sendVerification(email, verifyToken);
+      res.redirect(`/alerts?token=${encodeURIComponent(token)}&success=subscribed_verify`);
+    } catch (_) {
+      res.redirect(`/alerts?token=${encodeURIComponent(token)}&success=subscribed`);
+    }
   } else {
     res.redirect(`/alerts?token=${encodeURIComponent(token)}&success=subscribed`);
   }
@@ -791,16 +926,19 @@ router.get('/api/articles/:id', (req, res) => {
 
 // GET /api/vendors — Vendor list with counts
 router.get('/api/vendors', (req, res) => {
+  res.set('Cache-Control', 'public, max-age=300, stale-while-revalidate=60');
   res.json({ data: stmts.vendorCounts.all() });
 });
 
 // GET /api/categories — Category list with counts
 router.get('/api/categories', (req, res) => {
+  res.set('Cache-Control', 'public, max-age=300, stale-while-revalidate=60');
   res.json({ data: stmts.categoryCounts.all() });
 });
 
 // GET /api/sectors — Sector list with counts
 router.get('/api/sectors', (req, res) => {
+  res.set('Cache-Control', 'public, max-age=300, stale-while-revalidate=60');
   res.json({ data: stmts.sectorCounts.all() });
 });
 
@@ -854,13 +992,24 @@ router.get('/api/trending', (req, res) => {
   const categories = stmts.trendingCategories.all(safeDays);
   const vendors = stmts.trendingVendors.all(safeDays);
   const sources = stmts.trendingSources.all(safeDays);
+  res.set('Cache-Control', 'public, max-age=300, stale-while-revalidate=60');
   res.json({ categories, vendors, sources, days: safeDays });
 });
+
+// In-memory heatmap cache — keyed by safeDays, 15-min TTL
+const heatmapCache = {};
+const HEATMAP_TTL = 15 * 60 * 1000;
 
 // GET /api/heatmap — Malware family vs threat actor co-occurrence matrix
 router.get('/api/heatmap', (req, res) => {
   const days = parseInt(req.query.days, 10) || 90;
   const safeDays = Math.min(Math.max(days, 1), 365);
+
+  const cached = heatmapCache[safeDays];
+  if (cached && (Date.now() - cached.cachedAt) < HEATMAP_TTL) {
+    res.set('Cache-Control', 'public, max-age=300, stale-while-revalidate=60');
+    return res.json(cached.data);
+  }
 
   const articles = db.prepare(`
     SELECT id, title, summary FROM articles
@@ -964,7 +1113,7 @@ router.get('/api/heatmap', (req, res) => {
     }
   }
 
-  res.json({
+  const heatmapResult = {
     malware: finalMalware,
     actors: finalActors,
     matrix: compactMatrix,
@@ -973,7 +1122,10 @@ router.get('/api/heatmap', (req, res) => {
     maxCount,
     days: safeDays,
     totalArticles: articles.length,
-  });
+  };
+  heatmapCache[safeDays] = { data: heatmapResult, cachedAt: Date.now() };
+  res.set('Cache-Control', 'public, max-age=300, stale-while-revalidate=60');
+  res.json(heatmapResult);
 });
 
 // GET /api/articles/:id/similar — Find duplicate/similar articles
@@ -990,14 +1142,40 @@ router.get('/api/suggest', (req, res) => {
   const q = (req.query.q || '').trim();
   if (q.length < 2) return res.json([]);
   const like = `%${q}%`;
-  const results = stmts.suggestions.all(like, like);
-  res.json(results);
+
+  // Articles
+  const articles = stmts.suggestions.all(like, like)
+    .map(a => ({ type: 'article', title: a.title, vendor: a.vendor, category: a.category, link: a.link }));
+
+  // Local entity lookups
+  const groups = stmts.suggestGroups.all(like)
+    .map(r => ({ type: 'threat-group', title: r.name, link: `/threat-group/${encodeURIComponent(r.name)}` }));
+
+  const software = stmts.suggestSoftware.all(like)
+    .map(r => ({ type: 'software', title: r.name, link: `/software/${encodeURIComponent(r.name)}` }));
+
+  const campaigns = stmts.suggestCampaigns.all(like)
+    .map(r => ({ type: 'campaign', title: r.name, link: `/campaign/${encodeURIComponent(r.name)}` }));
+
+  // YARA shortcut — only show when we matched an entity (likely a malware/actor name)
+  const entityHits = groups.length + software.length + campaigns.length;
+  const yara = entityHits > 0
+    ? [{ type: 'yara', title: q, link: `/yara-rules?q=${encodeURIComponent(q)}` }]
+    : [];
+
+  // Entities first (most specific), then articles, YARA last
+  const results = [...groups, ...software, ...campaigns, ...articles.slice(0, 4), ...yara];
+  res.json(results.slice(0, 12));
 });
 
-// CVE ticker API (JSON)
+// CVE ticker API (JSON) — returns recently published CVEs newest-first
 router.get('/api/cves', async (req, res) => {
-  const cves = await getLatestCVEs();
-  res.json(cves);
+  try {
+    const cves = await getTickerCVEs();
+    res.json(cves);
+  } catch (_) {
+    res.json([]);
+  }
 });
 
 // Direct CVE lookup API (JSON) — basic NVD only
@@ -1202,11 +1380,24 @@ router.get('/threat-group/:name', (req, res) => {
   const dailyCounts = getDailyCounts(tgStmts.dailyCounts.all(group.id));
 
   const aliases = group.aliases ? JSON.parse(group.aliases) : [];
+
+  // Related malware (co-occurring in same articles) for relationship graph
+  const relatedMalware = db.prepare(`
+    SELECT ms.name, COUNT(DISTINCT ams.article_id) as count
+    FROM malware_software ms
+    JOIN article_malware_sw ams ON ams.malware_sw_id = ms.id
+    WHERE ams.article_id IN (
+      SELECT article_id FROM article_threat_groups WHERE threat_group_id = ?
+    )
+    GROUP BY ms.id ORDER BY count DESC LIMIT 6
+  `).all(group.id);
+
   res.render('threatgroup', {
     pageTitle: group.name,
     group: { ...group, aliases },
     articles, page, pages, total, showAll, dailyCounts,
     baseUrl: `/threat-group/${encodeURIComponent(name)}`,
+    relatedMalware,
   });
 });
 
@@ -1221,6 +1412,7 @@ const swStmts = {
         WHERE amsw.malware_sw_id = ms.id AND a.published_at >= datetime('now', '-90 days')
       ) as recent_count
     FROM malware_software ms
+    WHERE ms.is_auto_detected = 0 OR ms.malpedia_uuid IS NOT NULL
     ORDER BY total_count DESC
   `),
   getByName: db.prepare(`SELECT * FROM malware_software WHERE name = ?`),
@@ -1358,15 +1550,1006 @@ router.get('/campaign/:name', (req, res) => {
 // ── Entity JSON APIs ──────────────────────────────────────────────────────────
 
 router.get('/api/threat-groups', (req, res) => {
+  res.set('Cache-Control', 'public, max-age=300, stale-while-revalidate=60');
   res.json({ data: tgStmts.listAll.all() });
 });
 
 router.get('/api/software', (req, res) => {
+  res.set('Cache-Control', 'public, max-age=300, stale-while-revalidate=60');
   res.json({ data: swStmts.listAll.all() });
 });
 
 router.get('/api/campaigns', (req, res) => {
+  res.set('Cache-Control', 'public, max-age=300, stale-while-revalidate=60');
   res.json({ data: campStmts.listAll.all() });
+});
+
+// GET /api/ai-context/:type/:id — AI intelligence brief (Gemini, cached 24h)
+router.get('/api/ai-context/:type/:id', async (req, res) => {
+  const { type, id } = req.params;
+  const entityId = parseInt(id, 10);
+  const VALID_TYPES = ['threat-group', 'software', 'campaign'];
+  if (!VALID_TYPES.includes(type) || isNaN(entityId) || entityId <= 0) {
+    return res.status(400).json({ error: 'Invalid entity type or id' });
+  }
+
+  let entity, articles;
+  try {
+    if (type === 'threat-group') {
+      entity = db.prepare(`SELECT * FROM threat_groups WHERE id = ?`).get(entityId);
+      articles = db.prepare(`
+        SELECT a.title, a.summary FROM articles a
+        JOIN article_threat_groups atg ON atg.article_id = a.id
+        WHERE atg.threat_group_id = ? ORDER BY a.published_at DESC LIMIT 5
+      `).all(entityId);
+      if (entity) {
+        try { entity = { ...entity, aliases: JSON.parse(entity.aliases || '[]') }; } catch (_) { entity.aliases = []; }
+      }
+    } else if (type === 'software') {
+      entity = db.prepare(`SELECT * FROM malware_software WHERE id = ?`).get(entityId);
+      articles = db.prepare(`
+        SELECT a.title, a.summary FROM articles a
+        JOIN article_malware_sw ams ON ams.article_id = a.id
+        WHERE ams.malware_sw_id = ? ORDER BY a.published_at DESC LIMIT 5
+      `).all(entityId);
+      if (entity) {
+        try { entity = { ...entity, aliases: JSON.parse(entity.aliases || '[]') }; } catch (_) { entity.aliases = []; }
+      }
+    } else {
+      entity = db.prepare(`SELECT * FROM campaigns WHERE id = ?`).get(entityId);
+      articles = db.prepare(`
+        SELECT a.title, a.summary FROM articles a
+        JOIN article_campaigns ac ON ac.article_id = a.id
+        WHERE ac.campaign_id = ? ORDER BY a.published_at DESC LIMIT 5
+      `).all(entityId);
+      if (entity) {
+        try { entity = { ...entity, aliases: JSON.parse(entity.aliases || '[]') }; } catch (_) { entity.aliases = []; }
+        try { entity = { ...entity, associated_groups: JSON.parse(entity.associated_groups || '[]') }; } catch (_) { entity.associated_groups = []; }
+      }
+    }
+  } catch (_) {
+    return res.status(500).json({ error: 'Database error' });
+  }
+
+  if (!entity) return res.status(404).json({ error: 'Entity not found' });
+
+  try {
+    const result = await getAiContext(type, entityId, entity, articles || []);
+    res.json(result);
+  } catch (err) {
+    const msg = err.message || '';
+    const status = msg.includes('GEMINI_API_KEY') ? 503
+      : (err.status === 429) ? 503 : 503;
+    res.status(status).json({
+      error: msg.includes('GEMINI_API_KEY')
+        ? 'AI context not available — add GEMINI_API_KEY to .env'
+        : (err.status === 429)
+        ? 'AI context temporarily unavailable (rate limit)'
+        : 'AI context generation failed',
+      available: false,
+    });
+  }
+});
+
+// =============================================
+// Dashboard Page
+// =============================================
+
+const dashStmts = {
+  articles24h: db.prepare(`SELECT COUNT(*) as count FROM articles WHERE published_at >= datetime('now', '-1 day')`),
+  iocArticles24h: db.prepare(`SELECT COUNT(*) as count FROM articles WHERE iocs IS NOT NULL AND published_at >= datetime('now', '-1 day')`),
+  threatGroups7d: db.prepare(`
+    SELECT COUNT(DISTINCT atg.threat_group_id) as count FROM article_threat_groups atg
+    JOIN articles a ON a.id = atg.article_id
+    WHERE a.published_at >= datetime('now', '-7 days')
+  `),
+  topVendors7d: db.prepare(`
+    SELECT vendor, COUNT(*) as count FROM articles
+    WHERE published_at >= datetime('now', '-7 days') AND vendor IS NOT NULL
+    GROUP BY vendor ORDER BY count DESC LIMIT 6
+  `),
+  activity7d: db.prepare(`
+    SELECT DATE(published_at) as day, COUNT(*) as count FROM articles
+    WHERE published_at >= datetime('now', '-7 days')
+    GROUP BY day ORDER BY day ASC
+  `),
+  highRiskArticles: db.prepare(`
+    SELECT a.* FROM articles a
+    WHERE (a.mitre_techniques IS NOT NULL OR a.iocs IS NOT NULL)
+    ORDER BY a.published_at DESC LIMIT 15
+  `),
+  feedHealthSummary: db.prepare(`
+    SELECT
+      COUNT(*) as total,
+      SUM(CASE WHEN last_status = 'ok' THEN 1 ELSE 0 END) as healthy
+    FROM feed_health
+  `),
+  categoryDist: db.prepare(`
+    SELECT category, COUNT(*) as count FROM articles
+    WHERE category IS NOT NULL AND category != ''
+    GROUP BY category ORDER BY count DESC LIMIT 8
+  `),
+  totalCount: db.prepare(`SELECT COUNT(*) as count FROM articles`),
+};
+
+router.get('/dashboard', async (req, res) => {
+  const articles24h = dashStmts.articles24h.get().count;
+  const iocArticles24h = dashStmts.iocArticles24h.get().count;
+  const threatGroups7d = dashStmts.threatGroups7d.get().count;
+  const topVendors7d = dashStmts.topVendors7d.all();
+  const feedHealth = dashStmts.feedHealthSummary.get();
+
+  // Build 7-day activity array (fill missing days with 0)
+  const activityRows = dashStmts.activity7d.all();
+  const activityMap = {};
+  activityRows.forEach(r => { activityMap[r.day] = r.count; });
+  const activity7d = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const key = d.toISOString().slice(0, 10);
+    const label = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    activity7d.push({ day: key, label, count: activityMap[key] || 0 });
+  }
+
+  // Compute risk scores for recent articles and pick top 10 by score
+  const candidateArticles = dashStmts.highRiskArticles.all();
+  function computeRisk(a) {
+    let score = 0;
+    const mitre = (() => { try { return JSON.parse(a.mitre_techniques || '[]'); } catch (_) { return []; } })();
+    const iocData = (() => { try { return JSON.parse(a.iocs || 'null'); } catch (_) { return null; } })();
+    let iocTotal = 0;
+    if (iocData) Object.values(iocData).forEach(v => { if (Array.isArray(v)) iocTotal += v.length; });
+    if (iocTotal > 0) score += 20;
+    score += Math.min(mitre.length * 10, 30);
+    if (/CVE-\d{4}-\d+/i.test(a.title || '')) score += 15;
+    if (['Ransomware', 'Data Breach', 'Vulnerability', 'Exploit'].includes(a.category)) score += 15;
+    return Math.min(score, 100);
+  }
+  const highRiskArticles = candidateArticles
+    .map(a => ({ ...a, riskScore: computeRisk(a) }))
+    .filter(a => a.riskScore >= 25)
+    .sort((a, b) => b.riskScore - a.riskScore)
+    .slice(0, 8);
+
+  // Latest CVEs for dashboard widget
+  let latestCves = [];
+  try { latestCves = (await getLatestCVEs()).slice(0, 5); } catch (_) {}
+
+  const categoryDist = dashStmts.categoryDist.all();
+  const totalCount = dashStmts.totalCount.get().count;
+  res.render('dashboard', {
+    pageTitle: 'Dashboard',
+    articles24h, iocArticles24h, threatGroups7d,
+    topVendors7d, activity7d, feedHealth,
+    highRiskArticles, latestCves,
+    categoryDist, totalCount,
+  });
+});
+
+// =============================================
+// Unified Lookup Page (CVE / IP / Domain / Hash)
+// =============================================
+
+const { lookupIP, lookupDomain, lookupHash } = require('../services/threatIntel');
+const {
+  threatFoxLookup, malwareBazaarHash, malwareBazaarTag,
+  urlhausHost, syncSslBlacklist, getRecentSslBlacklist,
+  searchSslBlacklist, getSslBlacklistCount, getLastSslSync,
+} = require('../services/abusech');
+
+router.get('/lookup', (req, res) => {
+  res.render('lookup', { pageTitle: 'IOC Lookup' });
+});
+
+// API: IP lookup (AbuseIPDB + ThreatFox in parallel)
+router.get('/api/lookup/ip', async (req, res) => {
+  const q = (req.query.q || '').trim();
+  if (!q) return res.status(400).json({ error: 'IP address required' });
+  if (!/^(\d{1,3}\.){3}\d{1,3}$/.test(q) || q.split('.').some(o => parseInt(o, 10) > 255)) return res.status(400).json({ error: 'Invalid IPv4 address' });
+  const [abuseResult, tfResult] = await Promise.allSettled([
+    lookupIP(q),
+    threatFoxLookup(q),
+  ]);
+  if (abuseResult.status === 'rejected' && tfResult.status === 'rejected') {
+    return res.status(502).json({ error: 'Lookup failed' });
+  }
+  res.json({
+    data: abuseResult.status === 'fulfilled' ? abuseResult.value : null,
+    threatfox: tfResult.status === 'fulfilled' ? tfResult.value : [],
+  });
+});
+
+// API: Domain lookup (RDAP + ThreatFox + URLhaus in parallel)
+router.get('/api/lookup/domain', async (req, res) => {
+  const q = (req.query.q || '').trim().toLowerCase();
+  if (!q) return res.status(400).json({ error: 'Domain required' });
+  if (!/^[a-z0-9]([a-z0-9\-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9\-]{0,61}[a-z0-9])?)*\.[a-z]{2,}$/.test(q)) {
+    return res.status(400).json({ error: 'Invalid domain format' });
+  }
+  const [rdapResult, tfResult, uhResult] = await Promise.allSettled([
+    lookupDomain(q),
+    threatFoxLookup(q),
+    urlhausHost(q),
+  ]);
+  res.json({
+    data: rdapResult.status === 'fulfilled' ? rdapResult.value : null,
+    threatfox: tfResult.status === 'fulfilled' ? tfResult.value : [],
+    urlhaus: uhResult.status === 'fulfilled' ? uhResult.value : null,
+  });
+});
+
+// API: Hash lookup (VirusTotal + MalwareBazaar in parallel)
+router.get('/api/lookup/hash', async (req, res) => {
+  const q = (req.query.q || '').trim().toLowerCase();
+  if (!q) return res.status(400).json({ error: 'Hash required' });
+  if (!/^[a-f0-9]{32}$|^[a-f0-9]{40}$|^[a-f0-9]{64}$/.test(q)) {
+    return res.status(400).json({ error: 'Invalid hash (MD5/SHA1/SHA256 expected)' });
+  }
+  const [vtResult, mbResult] = await Promise.allSettled([
+    lookupHash(q),
+    malwareBazaarHash(q),
+  ]);
+  res.json({
+    data: vtResult.status === 'fulfilled' ? vtResult.value : null,
+    malwarebazaar: mbResult.status === 'fulfilled' ? mbResult.value : null,
+  });
+});
+
+// =============================================
+// YARA Rules (/yara-rules)
+// =============================================
+
+router.get('/yara-rules', (req, res) => {
+  res.render('yara', { pageTitle: 'YARA Rules' });
+});
+
+router.get('/api/yara-rules', async (req, res) => {
+  const q = (req.query.q || '').trim().slice(0, 100);
+  if (!q) return res.status(400).json({ error: 'Tag or malware name required' });
+  try {
+    const results = await malwareBazaarTag(q, 20);
+    res.json({ results, query: q });
+  } catch (err) {
+    console.error('[ERROR] YARA lookup:', err);
+    res.status(502).json({ error: 'YARA lookup failed' });
+  }
+});
+
+// =============================================
+// SSL Blacklist (/ssl-blacklist)
+// =============================================
+
+router.get('/ssl-blacklist', (req, res) => {
+  const entries = getRecentSslBlacklist(500);
+  const lastSync = getLastSslSync();
+  const total = getSslBlacklistCount();
+  res.render('sslblacklist', { pageTitle: 'SSL Blacklist', entries, lastSync, total });
+});
+
+router.get('/api/ssl-blacklist', (req, res) => {
+  const q = (req.query.q || '').trim();
+  const results = q ? searchSslBlacklist(q) : getRecentSslBlacklist(200);
+  res.json({ results, total: getSslBlacklistCount() });
+});
+
+router.post('/api/ssl-blacklist/sync', requireAuth('admin'), async (req, res) => {
+  try {
+    const count = await syncSslBlacklist();
+    res.json({ ok: true, count });
+  } catch (err) {
+    console.error('[ERROR] SSL blacklist sync:', err);
+    res.status(502).json({ ok: false, error: 'SSL blacklist sync failed' });
+  }
+});
+
+// =============================================
+// IOC Bulk Export (CSV / JSON / STIX 2.1)
+// =============================================
+router.get('/export/iocs', (req, res) => {
+  const format = (req.query.format || 'json').toLowerCase();
+  const days = parseInt(req.query.days, 10) || 0;
+
+  let rows;
+  if (days > 0) {
+    rows = db.prepare(`SELECT title, link, source, published_at, iocs FROM articles WHERE iocs IS NOT NULL AND published_at >= datetime('now', '-' || ? || ' days')`).all(days);
+  } else {
+    rows = db.prepare(`SELECT title, link, source, published_at, iocs FROM articles WHERE iocs IS NOT NULL ORDER BY published_at DESC LIMIT 10000`).all();
+  }
+
+  const iocList = [];
+  for (const row of rows) {
+    let iocData;
+    try { iocData = JSON.parse(row.iocs); } catch (_) { continue; }
+    const types = ['ips', 'domains', 'urls', 'hashes', 'emails', 'cves'];
+    for (const type of types) {
+      if (!Array.isArray(iocData[type])) continue;
+      for (const value of iocData[type]) {
+        iocList.push({ type: type.replace(/s$/, ''), value, source: row.source, article_title: row.title, article_url: row.link, published_at: row.published_at });
+      }
+    }
+  }
+
+  if (format === 'csv') {
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename="freeintelhub-iocs.csv"');
+    const escCsv = (s) => `"${String(s || '').replace(/"/g, '""')}"`;
+    const header = 'type,value,source,article_title,article_url,published_at\n';
+    const body = iocList.map(i => [i.type, i.value, i.source, i.article_title, i.article_url, i.published_at].map(escCsv).join(',')).join('\n');
+    return res.send(header + body);
+  }
+
+  if (format === 'stix') {
+    const now = new Date().toISOString();
+    function escStix(s) { return String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'"); }
+    const indicators = iocList.map((ioc, idx) => {
+      let pattern = '';
+      const sv = escStix(ioc.value);
+      if (ioc.type === 'ip') pattern = `[ipv4-addr:value = '${sv}']`;
+      else if (ioc.type === 'domain') pattern = `[domain-name:value = '${sv}']`;
+      else if (ioc.type === 'url') pattern = `[url:value = '${sv}']`;
+      else if (ioc.type === 'hash') pattern = `[file:hashes.MD5 = '${sv}']`;
+      else if (ioc.type === 'email') pattern = `[email-addr:value = '${sv}']`;
+      else if (ioc.type === 'cve') pattern = `[vulnerability:name = '${sv}']`;
+      else pattern = `[artifact:payload_bin = '${sv}']`;
+      const id = `indicator--${Buffer.from(ioc.value).toString('hex').padEnd(32, '0').slice(0, 8)}-${idx.toString().padStart(4, '0')}-0000-0000-000000000000`;
+      return {
+        type: 'indicator', spec_version: '2.1', id,
+        created: now, modified: now, name: ioc.value, pattern,
+        pattern_type: 'stix', valid_from: ioc.published_at || now,
+        labels: [ioc.type],
+        external_references: [{ source_name: ioc.source, url: ioc.article_url || '' }]
+      };
+    });
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Disposition', 'attachment; filename="freeintelhub-iocs.stix.json"');
+    return res.json({ type: 'bundle', id: `bundle--fih-${Date.now()}`, spec_version: '2.1', objects: indicators });
+  }
+
+  // Default: JSON
+  res.setHeader('Content-Type', 'application/json');
+  res.setHeader('Content-Disposition', 'attachment; filename="freeintelhub-iocs.json"');
+  res.json({ exported_at: new Date().toISOString(), count: iocList.length, iocs: iocList });
+});
+
+// =============================================
+// MITRE ATT&CK Navigator Export
+// =============================================
+router.get('/export/mitre-layer', (req, res) => {
+  const days = parseInt(req.query.days, 10) || 30;
+  const rows = db.prepare(`SELECT mitre_techniques FROM articles WHERE mitre_techniques IS NOT NULL AND published_at >= datetime('now', '-' || ? || ' days')`).all(days);
+
+  const counts = {};
+  for (const row of rows) {
+    let techs;
+    try { techs = JSON.parse(row.mitre_techniques); } catch (_) { continue; }
+    if (!Array.isArray(techs)) continue;
+    for (const t of techs) {
+      const id = typeof t === 'string' ? t : (t && t.id);
+      if (id) counts[id] = (counts[id] || 0) + 1;
+    }
+  }
+
+  const maxCount = Math.max(...Object.values(counts), 1);
+  const techniques = Object.entries(counts).map(([techniqueID, count]) => ({
+    techniqueID,
+    score: Math.round((count / maxCount) * 100),
+    color: count > maxCount * 0.7 ? '#ef4444' : count > maxCount * 0.4 ? '#fbbf24' : '#22d3ee',
+    comment: `Seen in ${count} article${count !== 1 ? 's' : ''} (last ${days} days)`
+  }));
+
+  const layer = {
+    name: `FreeIntelHub — ${days}-Day TTP Coverage`,
+    versions: { attack: '14', navigator: '4.9', layer: '4.5' },
+    domain: 'enterprise-attack',
+    description: `Generated by FreeIntelHub on ${new Date().toDateString()}. Darker = more frequent.`,
+    techniques,
+    gradient: { colors: ['#22d3ee', '#fbbf24', '#ef4444'], minValue: 0, maxValue: 100 },
+    legendItems: [], metadata: [], showTacticRowBackground: false
+  };
+
+  res.setHeader('Content-Type', 'application/json');
+  res.setHeader('Content-Disposition', `attachment; filename="fih-mitre-${days}d.json"`);
+  res.json(layer);
+});
+
+
+// =============================================
+// CVE Prioritization Dashboard (/cve-priority)
+// =============================================
+const CISA_KEV_URL = 'https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json';
+const EPSS_URL = 'https://api.first.org/data/v1/epss';
+
+let kevCache = { data: null, fetchedAt: 0 };
+let epssCache = {};
+
+async function fetchKEV() {
+  if (kevCache.data && (Date.now() - kevCache.fetchedAt) < 12 * 3600 * 1000) return kevCache.data;
+  const https = require('https');
+  return new Promise((resolve) => {
+    https.get(CISA_KEV_URL, (r) => {
+      let d = '';
+      r.on('data', c => d += c);
+      r.on('end', () => {
+        try {
+          const parsed = JSON.parse(d);
+          const map = {};
+          for (const v of (parsed.vulnerabilities || [])) map[v.cveID] = v;
+          kevCache = { data: map, fetchedAt: Date.now() };
+          resolve(map);
+        } catch (_) { resolve({}); }
+      });
+    }).on('error', () => resolve({}));
+  });
+}
+
+async function fetchEPSS(cveIds) {
+  if (!cveIds.length) return {};
+  const uncached = cveIds.filter(id => !epssCache[id]);
+  if (uncached.length) {
+    // Evict oldest entries if cache is too large
+    const cacheKeys = Object.keys(epssCache);
+    if (cacheKeys.length > 5000) {
+      cacheKeys.slice(0, cacheKeys.length - 4000).forEach(k => delete epssCache[k]);
+    }
+    const https = require('https');
+    const qs = uncached.map(id => `cve=${encodeURIComponent(id)}`).join('&');
+    await new Promise((resolve) => {
+      https.get(`${EPSS_URL}?${qs}&limit=1000`, (r) => {
+        let d = '';
+        r.on('data', c => d += c);
+        r.on('end', () => {
+          try {
+            const parsed = JSON.parse(d);
+            for (const item of (parsed.data || [])) epssCache[item.cve] = parseFloat(item.epss);
+          } catch (_) {}
+          resolve();
+        });
+      }).on('error', () => resolve());
+    });
+  }
+  const result = {};
+  for (const id of cveIds) result[id] = epssCache[id] || 0;
+  return result;
+}
+
+const cveArticleCountStmt = db.prepare(
+  `SELECT COUNT(*) as count FROM articles WHERE title LIKE ? OR summary LIKE ?`
+);
+
+router.get('/cve-priority', async (req, res) => {
+  const days     = parseInt(req.query.days, 10) || 30;
+  const minEpss  = parseFloat(req.query.minEpss) || 0;
+  const kevOnly  = req.query.kev === '1';
+  const pocOnly  = req.query.poc === '1';
+  const patchOnly = req.query.patch === '1';
+  const zerodayOnly = req.query.zeroday === '1';
+  const acFilter = req.query.ac || '';           // 'LOW' | 'HIGH' | ''
+  const minArticles = parseInt(req.query.minArticles, 10) || 0;
+
+  let latestCvesRaw = [];
+  try { latestCvesRaw = (await getLatestCVEs()).slice(0, 50); } catch (_) {}
+
+  const [kevMap, epssMap] = await Promise.all([
+    fetchKEV(),
+    fetchEPSS(latestCvesRaw.map(c => c.id).filter(Boolean))
+  ]);
+
+  let cves = latestCvesRaw.map(c => {
+    const inKev  = !!(kevMap[c.id]);
+    const epss   = epssMap[c.id] || 0;
+    const hasPatch = !!(c.hasPatch);
+    const isZeroDay = inKev && !hasPatch;
+    let articleMentions = 0;
+    try {
+      const pat = `%${c.id}%`;
+      articleMentions = cveArticleCountStmt.get(pat, pat).count;
+    } catch (_) {}
+    return {
+      ...c,
+      epss,
+      inKev,
+      kevDetails: kevMap[c.id] || null,
+      patchNow: inKev && epss >= 0.5,
+      isZeroDay,
+      articleMentions,
+    };
+  });
+
+  // Apply filters
+  if (minEpss > 0)      cves = cves.filter(c => c.epss >= minEpss);
+  if (kevOnly)          cves = cves.filter(c => c.inKev);
+  if (pocOnly)          cves = cves.filter(c => c.hasPoc);
+  if (patchOnly)        cves = cves.filter(c => c.hasPatch);
+  if (zerodayOnly)      cves = cves.filter(c => c.isZeroDay);
+  if (acFilter)         cves = cves.filter(c => (c.attackComplexity || '').toUpperCase() === acFilter.toUpperCase());
+  if (minArticles > 0)  cves = cves.filter(c => c.articleMentions >= minArticles);
+
+  // Sort: patchNow pinned at top, then newest published date first
+  cves.sort((a, b) => {
+    if (b.patchNow !== a.patchNow) return b.patchNow ? 1 : -1;
+    return new Date(b.published || 0) - new Date(a.published || 0);
+  });
+
+  res.render('cvepriority', {
+    pageTitle: 'CVE Priority', cves, days, minEpss, kevOnly,
+    pocOnly, patchOnly, zerodayOnly, acFilter, minArticles,
+  });
+});
+
+
+// =============================================
+// Automated Threat Intelligence Report
+// =============================================
+router.get('/report/weekly', async (req, res) => {
+  const days = parseInt(req.query.days, 10) || 7;
+
+  const totalArticles = db.prepare(`SELECT COUNT(*) as count FROM articles WHERE published_at >= datetime('now', '-' || ? || ' days')`).get(days);
+  const topActors = db.prepare(`
+    SELECT tg.name, COUNT(atg.article_id) as count FROM threat_groups tg
+    JOIN article_threat_groups atg ON atg.threat_group_id = tg.id
+    JOIN articles a ON a.id = atg.article_id
+    WHERE a.published_at >= datetime('now', '-' || ? || ' days')
+    GROUP BY tg.id ORDER BY count DESC LIMIT 5
+  `).all(days);
+  const topSectors = db.prepare(`SELECT sector, COUNT(*) as count FROM articles WHERE sector IS NOT NULL AND published_at >= datetime('now', '-' || ? || ' days') GROUP BY sector ORDER BY count DESC LIMIT 5`).all(days);
+  const topCategories = db.prepare(`SELECT category, COUNT(*) as count FROM articles WHERE category IS NOT NULL AND published_at >= datetime('now', '-' || ? || ' days') GROUP BY category ORDER BY count DESC LIMIT 5`).all(days);
+  const iocArticleCount = db.prepare(`SELECT COUNT(*) as count FROM articles WHERE iocs IS NOT NULL AND published_at >= datetime('now', '-' || ? || ' days')`).get(days);
+  const highRisk = db.prepare(`
+    SELECT title, link, source, published_at, mitre_techniques, iocs FROM articles
+    WHERE published_at >= datetime('now', '-' || ? || ' days')
+    ORDER BY published_at DESC LIMIT 100
+  `).all(days).map(a => {
+    let mitre = []; try { mitre = JSON.parse(a.mitre_techniques) || []; } catch (_) {}
+    let iocTotal = 0; try { const d = JSON.parse(a.iocs); if (d) Object.values(d).forEach(v => { if (Array.isArray(v)) iocTotal += v.length; }); } catch (_) {}
+    let score = 0;
+    if (iocTotal > 0) score += 20;
+    score += Math.min(mitre.length * 10, 30);
+    if (/CVE-\d{4}-\d+/i.test(a.title)) score += 15;
+    return { ...a, riskScore: Math.min(score, 100) };
+  }).filter(a => a.riskScore >= 50).sort((a, b) => b.riskScore - a.riskScore).slice(0, 10);
+
+  let topCves = [];
+  try { topCves = (await getLatestCVEs()).slice(0, 5); } catch (_) {}
+
+  res.render('report', {
+    pageTitle: `${days}-Day Threat Report`,
+    days, totalArticles: totalArticles.count,
+    topActors, topSectors, topCategories,
+    iocArticleCount: iocArticleCount.count,
+    highRisk, topCves,
+    generatedAt: new Date().toISOString()
+  });
+});
+
+// =============================================
+// Geographic Threat Map (/geomap)
+// =============================================
+router.get('/geomap', (req, res) => {
+  const days = parseInt(req.query.days, 10) || 30;
+  const countryData = db.prepare(`
+    SELECT tg.country, COUNT(DISTINCT atg.article_id) as article_count, COUNT(DISTINCT tg.id) as actor_count,
+           GROUP_CONCAT(DISTINCT tg.name) as actors
+    FROM threat_groups tg
+    JOIN article_threat_groups atg ON atg.threat_group_id = tg.id
+    JOIN articles a ON a.id = atg.article_id
+    WHERE tg.country IS NOT NULL AND tg.country != ''
+    AND a.published_at >= datetime('now', '-' || ? || ' days')
+    GROUP BY tg.country ORDER BY article_count DESC
+  `).all(days);
+
+  res.render('geomap', { pageTitle: 'Geographic Threat Map', countryData, days });
+});
+
+// =============================================
+// Analyst Notes & Article Tagging
+// =============================================
+router.post('/api/notes', (req, res) => {
+  const { article_id, token, note, tag } = req.body || {};
+  if (!article_id || !token) return res.status(400).json({ error: 'article_id and token required' });
+  const validTags = ['note', 'confirmed', 'false-positive', 'under-investigation', 'archived'];
+  const safeTag = validTags.includes(tag) ? tag : 'note';
+  const safeNote = String(note || '').slice(0, 2000);
+  const hashedToken = hashToken(token);
+  try {
+    db.prepare(`INSERT INTO article_notes (article_id, token, note, tag) VALUES (?, ?, ?, ?)`).run(article_id, hashedToken, safeNote, safeTag);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('[ERROR] notes insert:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.get('/api/notes/:article_id', (req, res) => {
+  const notes = db.prepare(`SELECT id, note, tag, created_at FROM article_notes WHERE article_id = ? ORDER BY created_at DESC`).all(req.params.article_id);
+  res.json({ notes });
+});
+
+router.delete('/api/notes/:id', (req, res) => {
+  const { token } = req.body || {};
+  if (!token) return res.status(400).json({ error: 'token required' });
+  const hashedToken = hashToken(token);
+  db.prepare(`DELETE FROM article_notes WHERE id = ? AND token = ?`).run(req.params.id, hashedToken);
+  res.json({ ok: true });
+});
+
+// =============================================
+// Custom Feed Sources UI
+// =============================================
+router.get('/sources/manage', (req, res) => {
+  const feeds = db.prepare(`SELECT * FROM custom_feeds ORDER BY created_at DESC`).all();
+  res.render('sourcemanage', { pageTitle: 'Manage Custom Sources', feeds });
+});
+
+router.post('/sources/manage', requireAuth('analyst'), (req, res) => {
+  const { name, url, category } = req.body || {};
+  if (!name || !url) return res.status(400).send('Name and URL required');
+  try {
+    const parsed = new URL(url);
+    if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error('Invalid protocol');
+    db.prepare(`INSERT OR IGNORE INTO custom_feeds (name, url, category) VALUES (?, ?, ?)`).run(
+      String(name).slice(0, 100), url, String(category || '').slice(0, 50)
+    );
+  } catch (err) {
+    console.error('[ERROR] custom feed add:', err);
+    return res.status(400).send('Invalid URL provided');
+  }
+  res.redirect('/sources/manage');
+});
+
+router.post('/sources/manage/delete', requireAuth('analyst'), (req, res) => {
+  const { id } = req.body || {};
+  if (id) db.prepare(`DELETE FROM custom_feeds WHERE id = ?`).run(id);
+  res.redirect('/sources/manage');
+});
+
+router.post('/sources/manage/toggle', requireAuth('analyst'), (req, res) => {
+  const { id } = req.body || {};
+  if (id) db.prepare(`UPDATE custom_feeds SET enabled = 1 - enabled WHERE id = ?`).run(id);
+  res.redirect('/sources/manage');
+});
+
+// =============================================
+// Watchlist / Proactive Monitoring
+// =============================================
+router.get('/watchlist', (req, res) => {
+  const token = req.query.token || '';
+  if (!token) return res.render('watchlist', { pageTitle: 'Watchlist', items: [], token: '' });
+  const items = db.prepare(`SELECT * FROM watchlist WHERE token = ? ORDER BY created_at DESC`).all(hashToken(token));
+  res.render('watchlist', { pageTitle: 'Watchlist', items, token });
+});
+
+router.post('/api/watchlist', (req, res) => {
+  const { token, watch_type, watch_value } = req.body || {};
+  if (!token || !watch_type || !watch_value) return res.status(400).json({ error: 'token, watch_type, watch_value required' });
+  const validTypes = ['actor', 'malware', 'campaign', 'cve', 'keyword', 'ip'];
+  if (!validTypes.includes(watch_type)) return res.status(400).json({ error: 'Invalid watch_type' });
+  try {
+    db.prepare(`INSERT OR IGNORE INTO watchlist (token, watch_type, watch_value) VALUES (?, ?, ?)`).run(hashToken(token), watch_type, String(watch_value).slice(0, 200));
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('[ERROR] watchlist insert:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.delete('/api/watchlist/:id', (req, res) => {
+  const { token } = req.body || {};
+  if (!token) return res.status(400).json({ error: 'token required' });
+  db.prepare(`DELETE FROM watchlist WHERE id = ? AND token = ?`).run(req.params.id, hashToken(token));
+  res.json({ ok: true });
+});
+
+// =============================================
+// Paste Site Monitoring (/pastes)
+// =============================================
+router.get('/pastes', (req, res) => {
+  const hits = db.prepare(`SELECT * FROM paste_hits ORDER BY found_at DESC LIMIT 100`).all();
+  res.render('pastes', { pageTitle: 'Paste Monitoring', hits });
+});
+
+router.post('/api/pastes/scan', requireAuth('analyst'), async (req, res) => {
+  const keywords = db.prepare(`SELECT DISTINCT rule_value FROM alert_rules WHERE rule_type = 'keyword' LIMIT 10`).all().map(r => r.rule_value);
+  if (!keywords.length) return res.json({ found: 0, message: 'No keywords configured in alert rules' });
+
+  const https = require('https');
+  let totalFound = 0;
+
+  for (const keyword of keywords.slice(0, 3)) {
+    await new Promise((resolve) => {
+      https.get(`https://psbdmp.ws/api/v3/search/${encodeURIComponent(keyword)}`, { headers: { 'User-Agent': 'FreeIntelHub/1.0' } }, (r) => {
+        let d = '';
+        r.on('data', c => d += c);
+        r.on('end', () => {
+          try {
+            const parsed = JSON.parse(d);
+            const items = Array.isArray(parsed) ? parsed : (parsed.data || parsed.items || []);
+            for (const item of items.slice(0, 10)) {
+              const pasteId = String(item.id || item.key || Math.random());
+              try {
+                db.prepare(`INSERT OR IGNORE INTO paste_hits (paste_id, title, content_snippet, source, keyword, full_url) VALUES (?, ?, ?, ?, ?, ?)`).run(
+                  pasteId,
+                  String(item.title || keyword + ' match').slice(0, 200),
+                  String(item.text || item.content || '').slice(0, 500),
+                  'psbdmp', keyword,
+                  item.url || `https://psbdmp.ws/dump/${pasteId}`
+                );
+                totalFound++;
+              } catch (_) {}
+            }
+          } catch (_) {}
+          resolve();
+        });
+      }).on('error', () => resolve());
+    });
+  }
+
+  res.json({ found: totalFound, keywords: keywords.slice(0, 3) });
+});
+
+// =============================================
+// API Key Management
+// =============================================
+
+router.get('/api-keys', (req, res) => {
+  const token = req.query.token || '';
+  let keys = [];
+  if (token) {
+    const sub = db.prepare(`SELECT id FROM subscribers WHERE token = ?`).get(hashToken(token));
+    if (sub) keys = db.prepare(`SELECT id, name, key_prefix, requests_today, created_at FROM api_keys WHERE subscriber_id = ?`).all(sub.id);
+  }
+  res.render('apikeys', { pageTitle: 'API Keys', keys, token });
+});
+
+router.post('/api-keys', (req, res) => {
+  const { token, name } = req.body || {};
+  if (!token || !name) return res.status(400).send('Token and name required');
+  const sub = db.prepare(`SELECT id FROM subscribers WHERE token = ?`).get(hashToken(token));
+  if (!sub) return res.status(403).send('Invalid subscriber token');
+  const rawKey = 'fih_' + crypto.randomBytes(24).toString('hex');
+  const keyHash = crypto.createHash('sha256').update(rawKey).digest('hex');
+  const keyPrefix = rawKey.slice(0, 12) + '...';
+  db.prepare(`INSERT INTO api_keys (name, key_hash, key_prefix, subscriber_id) VALUES (?, ?, ?, ?)`).run(String(name).slice(0, 50), keyHash, keyPrefix, sub.id);
+  res.render('apikeys', {
+    pageTitle: 'API Keys', keys: [], token,
+    newKey: rawKey, message: 'Save this key — it will not be shown again.'
+  });
+});
+
+router.post('/api-keys/delete', (req, res) => {
+  const { token, id } = req.body || {};
+  if (!token || !id) return res.redirect('/api-keys');
+  const sub = db.prepare(`SELECT id FROM subscribers WHERE token = ?`).get(hashToken(token));
+  if (sub) db.prepare(`DELETE FROM api_keys WHERE id = ? AND subscriber_id = ?`).run(id, sub.id);
+  res.redirect(`/api-keys?token=${encodeURIComponent(token)}`);
+});
+
+// API key middleware for /api routes (optional — checked if X-API-Key header present)
+function checkApiKey(req, res, next) {
+  const keyHeader = req.headers['x-api-key'];
+  if (!keyHeader) return next(); // Allow browser access without key
+  const keyHash = crypto.createHash('sha256').update(keyHeader).digest('hex');
+  const apiKey = stmts.apiKeyByHash.get(keyHash);
+  if (!apiKey) return res.status(401).json({ error: 'Invalid API key' });
+
+  // Rate limit: 1000 req/day per key
+  const today = new Date().toISOString().slice(0, 10);
+  if (apiKey.last_reset !== today) {
+    stmts.apiKeyResetCount.run(today, apiKey.id);
+  } else if (apiKey.requests_today >= 1000) {
+    return res.status(429).json({ error: 'API key rate limit exceeded (1000/day)' });
+  } else {
+    stmts.apiKeyIncrCount.run(apiKey.id);
+  }
+  next();
+}
+
+// =============================================
+// User Authentication & RBAC
+// =============================================
+const bcrypt = (() => { try { return require('bcrypt'); } catch (_) { return null; } })();
+
+function requireAuth(role) {
+  return (req, res, next) => {
+    if (!req.session) return res.status(503).json({ error: 'Authentication not configured' });
+    const user = req.session.user;
+    if (!user) return res.redirect('/login?next=' + encodeURIComponent(req.path));
+    const roles = ['viewer', 'analyst', 'admin'];
+    if (roles.indexOf(user.role) < roles.indexOf(role || 'viewer')) {
+      return res.status(403).render('error', { message: 'Access denied', pageTitle: 'Forbidden' });
+    }
+    next();
+  };
+}
+
+// Login-specific rate limiter — stricter than global (VULN-16)
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: 'Too many login attempts, try again later',
+});
+
+router.get('/login', (req, res) => {
+  if (!bcrypt) return res.send('<p>Auth not available. Run: npm install express-session bcrypt</p>');
+  const rawNext = req.query.next || '/dashboard';
+  const safeNext = (typeof rawNext === 'string' && rawNext.startsWith('/') && !rawNext.startsWith('//')) ? rawNext : '/dashboard';
+  res.render('login', { pageTitle: 'Login', error: null, next: safeNext });
+});
+
+router.post('/login', loginLimiter, async (req, res) => {
+  if (!bcrypt) return res.redirect('/');
+  const { username, password, next } = req.body || {};
+  const safeNext = (typeof next === 'string' && next.startsWith('/') && !next.startsWith('//')) ? next : '/dashboard';
+  const user = db.prepare(`SELECT * FROM users WHERE username = ?`).get(username);
+  if (!user || !(await bcrypt.compare(password, user.password_hash))) {
+    return res.render('login', { pageTitle: 'Login', error: 'Invalid username or password', next: safeNext });
+  }
+  db.prepare(`UPDATE users SET last_login = datetime('now') WHERE id = ?`).run(user.id);
+  req.session.user = { id: user.id, username: user.username, role: user.role };
+  res.redirect(safeNext);
+});
+
+router.post('/logout', (req, res) => {
+  if (req.session) req.session.destroy(() => {});
+  res.redirect('/');
+});
+
+router.get('/admin', requireAuth('admin'), (req, res) => {
+  const users = db.prepare(`SELECT id, username, role, created_at, last_login FROM users`).all();
+  const customFeeds = db.prepare(`SELECT * FROM custom_feeds ORDER BY created_at DESC`).all();
+  const apiKeyCount = db.prepare(`SELECT COUNT(*) as count FROM api_keys`).get();
+  res.render('admin', { pageTitle: 'Admin Panel', users, customFeeds, apiKeyCount: apiKeyCount.count, currentUser: req.session && req.session.user });
+});
+
+router.post('/admin/users', requireAuth('admin'), async (req, res) => {
+  if (!bcrypt) return res.redirect('/admin');
+  const { username, password, role } = req.body || {};
+  const validRoles = ['viewer', 'analyst', 'admin'];
+  const safeRole = validRoles.includes(role) ? role : 'viewer';
+  if (!username || !password) return res.redirect('/admin');
+  if (password.length < 12) return res.status(400).json({ error: 'Password must be at least 12 characters' });
+  const hash = await bcrypt.hash(password, 10);
+  try {
+    db.prepare(`INSERT OR IGNORE INTO users (username, password_hash, role) VALUES (?, ?, ?)`).run(String(username).slice(0, 50), hash, safeRole);
+  } catch (_) {}
+  res.redirect('/admin');
+});
+
+router.post('/admin/users/delete', requireAuth('admin'), (req, res) => {
+  const { id } = req.body || {};
+  const currentUser = req.session && req.session.user;
+  if (id && currentUser && String(id) !== String(currentUser.id)) {
+    db.prepare(`DELETE FROM users WHERE id = ?`).run(id);
+  }
+  res.redirect('/admin');
+});
+
+// =============================================
+// Malpedia Enrichment (admin routes)
+// =============================================
+
+router.post('/admin/sync-malpedia', requireAuth('admin'), async (req, res) => {
+  try {
+    const { syncMalpedia } = require('../services/malpedia');
+    const result = await syncMalpedia();
+    res.json({ ok: true, ...result });
+  } catch (err) {
+    console.error('[Malpedia] Sync failed:', err);
+    res.status(502).json({ ok: false, error: 'Malpedia sync failed' });
+  }
+});
+
+router.get('/admin/malpedia-status', requireAuth('admin'), (req, res) => {
+  const { getLastSync } = require('../services/malpedia');
+  res.json(getLastSync() || {});
+});
+
+// =============================================
+// Case Management (/cases)
+// =============================================
+
+router.get('/cases', (req, res) => {
+  const status = req.query.status || '';
+  const validStatuses = ['open', 'in-progress', 'closed', 'false-positive'];
+  const cases = (status && validStatuses.includes(status))
+    ? db.prepare(`SELECT c.*, COUNT(ca.article_id) as article_count FROM cases c LEFT JOIN case_articles ca ON ca.case_id = c.id WHERE c.status = ? GROUP BY c.id ORDER BY c.updated_at DESC`).all(status)
+    : db.prepare(`SELECT c.*, COUNT(ca.article_id) as article_count FROM cases c LEFT JOIN case_articles ca ON ca.case_id = c.id GROUP BY c.id ORDER BY c.updated_at DESC`).all();
+  res.render('cases', { pageTitle: 'Cases', cases, statusFilter: status });
+});
+
+router.post('/cases', requireAuth('analyst'), (req, res) => {
+  const { title, severity, description } = req.body || {};
+  if (!title || !title.trim()) return res.redirect('/cases');
+  const validSeverities = ['low', 'medium', 'high', 'critical'];
+  const safeSeverity = validSeverities.includes(severity) ? severity : 'medium';
+  db.prepare(`INSERT INTO cases (title, severity, description) VALUES (?, ?, ?)`).run(
+    String(title).trim().slice(0, 200), safeSeverity, description ? String(description).slice(0, 2000) : null
+  );
+  res.redirect('/cases');
+});
+
+router.get('/cases/:id', (req, res) => {
+  const caseId = parseInt(req.params.id, 10);
+  if (!caseId) return res.redirect('/cases');
+  const c = db.prepare(`SELECT * FROM cases WHERE id = ?`).get(caseId);
+  if (!c) return res.status(404).render('error', { pageTitle: 'Not Found', message: 'Case not found.' });
+  const articles = db.prepare(`
+    SELECT a.*, ca.added_at FROM articles a
+    JOIN case_articles ca ON ca.article_id = a.id
+    WHERE ca.case_id = ?
+    ORDER BY ca.added_at DESC
+  `).all(caseId);
+  const notes = db.prepare(`SELECT * FROM case_notes WHERE case_id = ? ORDER BY created_at ASC`).all(caseId);
+  const allCases = db.prepare(`SELECT id, title FROM cases WHERE status IN ('open','in-progress') ORDER BY updated_at DESC LIMIT 30`).all();
+  res.render('case', { pageTitle: `Case: ${c.title}`, case: c, articles, notes, allCases, safeHref });
+});
+
+router.post('/cases/:id/status', requireAuth('analyst'), (req, res) => {
+  const caseId = parseInt(req.params.id, 10);
+  const { status } = req.body || {};
+  const valid = ['open', 'in-progress', 'closed', 'false-positive'];
+  if (!caseId || !valid.includes(status)) return res.redirect('/cases');
+  const closedAt = (status === 'closed' || status === 'false-positive') ? `datetime('now')` : 'NULL';
+  db.prepare(`UPDATE cases SET status = ?, updated_at = datetime('now'), closed_at = ${closedAt} WHERE id = ?`).run(status, caseId);
+  res.redirect(`/cases/${caseId}`);
+});
+
+router.post('/cases/:id/notes', requireAuth('analyst'), (req, res) => {
+  const caseId = parseInt(req.params.id, 10);
+  const { note, author } = req.body || {};
+  if (!caseId || !note || !note.trim()) return res.redirect(`/cases/${caseId}`);
+  db.prepare(`INSERT INTO case_notes (case_id, author, note) VALUES (?, ?, ?)`).run(
+    caseId, String(author || 'analyst').slice(0, 50), String(note).trim().slice(0, 5000)
+  );
+  db.prepare(`UPDATE cases SET updated_at = datetime('now') WHERE id = ?`).run(caseId);
+  res.redirect(`/cases/${caseId}`);
+});
+
+// API: list open cases (for "Add to Case" dropdown)
+router.get('/api/cases', (req, res) => {
+  const cases = db.prepare(`SELECT id, title, severity, status FROM cases WHERE status IN ('open','in-progress') ORDER BY updated_at DESC LIMIT 50`).all();
+  res.json(cases);
+});
+
+// API: add article to case
+router.post('/api/cases/:id/articles', requireAuth('analyst'), (req, res) => {
+  const caseId = parseInt(req.params.id, 10);
+  const articleId = parseInt((req.body || {}).article_id, 10);
+  if (!caseId || !articleId) return res.status(400).json({ error: 'Missing case_id or article_id' });
+  const c = db.prepare(`SELECT id FROM cases WHERE id = ?`).get(caseId);
+  if (!c) return res.status(404).json({ error: 'Case not found' });
+  db.prepare(`INSERT OR IGNORE INTO case_articles (case_id, article_id) VALUES (?, ?)`).run(caseId, articleId);
+  db.prepare(`UPDATE cases SET updated_at = datetime('now') WHERE id = ?`).run(caseId);
+  res.json({ ok: true });
+});
+
+// API: remove article from case
+router.delete('/api/cases/:id/articles/:articleId', requireAuth('analyst'), (req, res) => {
+  const caseId = parseInt(req.params.id, 10);
+  const articleId = parseInt(req.params.articleId, 10);
+  db.prepare(`DELETE FROM case_articles WHERE case_id = ? AND article_id = ?`).run(caseId, articleId);
+  db.prepare(`UPDATE cases SET updated_at = datetime('now') WHERE id = ?`).run(caseId);
+  res.json({ ok: true });
+});
+
+// API: delete a case
+router.delete('/api/cases/:id', requireAuth('analyst'), (req, res) => {
+  const caseId = parseInt(req.params.id, 10);
+  if (!caseId) return res.status(400).json({ error: 'Invalid case id' });
+  db.prepare(`DELETE FROM cases WHERE id = ?`).run(caseId);
+  res.json({ ok: true });
+});
+
+// API: update TLP on an article (analyst override)
+router.post('/api/articles/:id/tlp', requireAuth('analyst'), (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const { tlp } = req.body || {};
+  const valid = ['WHITE', 'GREEN', 'AMBER', 'RED'];
+  if (!id || !valid.includes(tlp)) return res.status(400).json({ error: 'Invalid TLP' });
+  db.prepare(`UPDATE articles SET tlp = ? WHERE id = ?`).run(tlp, id);
+  res.json({ ok: true });
 });
 
 module.exports = router;

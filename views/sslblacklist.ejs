@@ -1,0 +1,125 @@
+<%- include('partials/head') %>
+
+<section class="lookup-hero">
+  <h1>SSL Blacklist</h1>
+  <p>SSL certificate fingerprints flagged as malicious by abuse.ch SSLBL</p>
+</section>
+
+<div style="max-width:1000px;margin:0 auto">
+
+  <!-- Header actions -->
+  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.75rem;margin-bottom:1.25rem">
+    <div style="font-size:.84rem;color:var(--text-muted)">
+      <% if (lastSync) { %>
+        <strong><%= entries.length.toLocaleString() %></strong> entries &mdash; last synced <strong><%= lastSync.synced_at %></strong>
+      <% } else { %>
+        <span style="color:#fbbf24">Not synced yet. Click <em>Sync Now</em> to fetch the blacklist.</span>
+      <% } %>
+    </div>
+    <div style="display:flex;gap:.5rem;align-items:center">
+      <input type="text" id="ssl-search" placeholder="Search SHA1 or reason..." autocomplete="off"
+        style="padding:.4rem .75rem;border-radius:6px;border:1px solid var(--border);background:var(--bg-elevated);color:var(--text);font-size:.83rem;width:240px">
+      <button id="sync-btn" class="lookup-btn" style="font-size:.82rem;padding:.45rem .9rem">Sync Now</button>
+    </div>
+  </div>
+
+  <!-- Table -->
+  <div style="overflow-x:auto">
+    <table id="ssl-table" style="width:100%;border-collapse:collapse;font-size:.83rem">
+      <thead>
+        <tr style="border-bottom:1px solid var(--border);text-align:left">
+          <th style="padding:.6rem .75rem;color:var(--text-muted);font-weight:500">SHA1 Fingerprint</th>
+          <th style="padding:.6rem .75rem;color:var(--text-muted);font-weight:500;white-space:nowrap">Listing Date</th>
+          <th style="padding:.6rem .75rem;color:var(--text-muted);font-weight:500">Reason / Malware</th>
+          <th style="padding:.6rem .75rem;color:var(--text-muted);font-weight:500;width:60px"></th>
+        </tr>
+      </thead>
+      <tbody id="ssl-tbody">
+        <% entries.forEach(function(row) { %>
+        <tr class="ssl-row" data-sha1="<%= row.sha1 %>" data-reason="<%= (row.reason || '').toLowerCase() %>"
+          style="border-bottom:1px solid var(--border)">
+          <td style="padding:.5rem .75rem">
+            <a href="https://sslbl.abuse.ch/intel/<%= encodeURIComponent(row.sha1) %>/"
+               target="_blank" rel="noopener"
+               style="font-family:var(--font-mono);font-size:.77rem;color:var(--accent);text-decoration:none;word-break:break-all"><%= row.sha1 %></a>
+          </td>
+          <td style="padding:.5rem .75rem;white-space:nowrap;color:var(--text-muted)"><%= row.listing_date || '—' %></td>
+          <td style="padding:.5rem .75rem"><%= row.reason || '—' %></td>
+          <td style="padding:.5rem .75rem;text-align:center">
+            <button class="copy-sha1-btn" data-sha1="<%= row.sha1 %>"
+              title="Copy SHA1" style="background:none;border:none;cursor:pointer;padding:.2rem;color:var(--text-muted)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            </button>
+          </td>
+        </tr>
+        <% }); %>
+        <% if (!entries.length) { %>
+        <tr id="empty-row">
+          <td colspan="4" style="padding:2rem;text-align:center;color:var(--text-muted)">
+            No entries. Click <strong>Sync Now</strong> to fetch the SSLBL blacklist.
+          </td>
+        </tr>
+        <% } %>
+      </tbody>
+    </table>
+  </div>
+
+  <div id="no-match" style="display:none;text-align:center;padding:2rem;color:var(--text-muted)">No entries match your search.</div>
+</div>
+
+<script nonce="<%= nonce %>">
+(function() {
+  // Client-side filter
+  var searchInput = document.getElementById('ssl-search');
+  var rows = document.querySelectorAll('.ssl-row');
+  var noMatch = document.getElementById('no-match');
+
+  searchInput.addEventListener('input', function() {
+    var q = this.value.trim().toLowerCase();
+    var visible = 0;
+    rows.forEach(function(row) {
+      var matches = !q || row.dataset.sha1.includes(q) || row.dataset.reason.includes(q);
+      row.style.display = matches ? '' : 'none';
+      if (matches) visible++;
+    });
+    noMatch.style.display = (q && visible === 0) ? '' : 'none';
+  });
+
+  // Copy SHA1 buttons
+  document.querySelectorAll('.copy-sha1-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var sha1 = this.dataset.sha1;
+      navigator.clipboard.writeText(sha1).then(function() {
+        btn.style.color = '#22c55e';
+        setTimeout(function() { btn.style.color = ''; }, 1200);
+      });
+    });
+  });
+
+  // Sync Now button
+  document.getElementById('sync-btn').addEventListener('click', function() {
+    var btn = this;
+    btn.disabled = true;
+    btn.textContent = 'Syncing...';
+    fetch('/api/ssl-blacklist/sync', { method: 'POST' })
+      .then(function(res) { return res.json(); })
+      .then(function(json) {
+        if (json.ok) {
+          btn.textContent = 'Synced ✓';
+          setTimeout(function() { window.location.reload(); }, 800);
+        } else {
+          btn.textContent = 'Failed';
+          btn.disabled = false;
+          setTimeout(function() { btn.textContent = 'Sync Now'; }, 2000);
+        }
+      })
+      .catch(function() {
+        btn.textContent = 'Error';
+        btn.disabled = false;
+        setTimeout(function() { btn.textContent = 'Sync Now'; btn.disabled = false; }, 2000);
+      });
+  });
+})();
+</script>
+
+<%- include('partials/footer') %>

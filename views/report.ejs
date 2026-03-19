@@ -1,0 +1,160 @@
+<%- include('partials/head', { pageTitle: pageTitle }) %>
+
+<div class="page-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem">
+  <div>
+    <h1><%= days %>-Day Threat Intelligence Report</h1>
+    <p>Generated: <%= new Date(generatedAt).toLocaleString() %></p>
+  </div>
+  <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+    <a href="/report/weekly?days=7" class="btn btn-sm <%= days === 7 ? 'btn-primary' : '' %>">7 days</a>
+    <a href="/report/weekly?days=14" class="btn btn-sm <%= days === 14 ? 'btn-primary' : '' %>">14 days</a>
+    <a href="/report/weekly?days=30" class="btn btn-sm <%= days === 30 ? 'btn-primary' : '' %>">30 days</a>
+    <button onclick="window.print()" class="btn btn-sm">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;display:inline"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+      Print / PDF
+    </button>
+  </div>
+</div>
+
+<!-- Summary strip -->
+<div class="metric-grid" style="margin-bottom:1.5rem">
+  <div class="metric-card metric-blue">
+    <div class="metric-value"><%= totalArticles.toLocaleString() %></div>
+    <div class="metric-label">Articles This Period</div>
+  </div>
+  <div class="metric-card metric-amber">
+    <div class="metric-value"><%= iocArticleCount.toLocaleString() %></div>
+    <div class="metric-label">IOC Articles</div>
+  </div>
+  <div class="metric-card metric-purple">
+    <div class="metric-value"><%= topActors.length %></div>
+    <div class="metric-label">Active Threat Actors</div>
+  </div>
+  <div class="metric-card metric-red">
+    <div class="metric-value"><%= topCves.length %></div>
+    <div class="metric-label">CVEs in Feed</div>
+  </div>
+</div>
+
+<div class="dash-grid">
+  <!-- Top Threat Actors -->
+  <div class="dash-widget">
+    <div class="dash-widget-header">
+      <span class="dash-widget-title">Top Threat Actors</span>
+      <a href="/threat-groups" class="dash-widget-link">All actors &rarr;</a>
+    </div>
+    <% if (topActors.length === 0) { %>
+      <p style="color:var(--text-muted);font-size:.83rem">No threat actor data this period.</p>
+    <% } else { %>
+      <% var maxActor = topActors[0].count; %>
+      <% topActors.forEach(function(a) { %>
+        <div class="vendor-rank-item">
+          <a href="/threat-group/<%= encodeURIComponent(a.name) %>" class="vendor-rank-name"><%= a.name %></a>
+          <div class="vendor-rank-bar-wrap"><div class="vendor-rank-bar" style="width:<%= Math.round((a.count/maxActor)*100) %>%;background:#ef4444"></div></div>
+          <span class="vendor-rank-count"><%= a.count %></span>
+        </div>
+      <% }); %>
+    <% } %>
+  </div>
+
+  <!-- Top Targeted Sectors -->
+  <div class="dash-widget">
+    <div class="dash-widget-header">
+      <span class="dash-widget-title">Top Targeted Sectors</span>
+      <a href="/sectors" class="dash-widget-link">All sectors &rarr;</a>
+    </div>
+    <% if (topSectors.length === 0) { %>
+      <p style="color:var(--text-muted);font-size:.83rem">No sector data this period.</p>
+    <% } else { %>
+      <% var maxSector = topSectors[0].count; %>
+      <% topSectors.forEach(function(s) { %>
+        <div class="vendor-rank-item">
+          <a href="/sector/<%= encodeURIComponent(s.sector) %>" class="vendor-rank-name"><%= s.sector %></a>
+          <div class="vendor-rank-bar-wrap"><div class="vendor-rank-bar" style="width:<%= Math.round((s.count/maxSector)*100) %>%;background:#a78bfa"></div></div>
+          <span class="vendor-rank-count"><%= s.count %></span>
+        </div>
+      <% }); %>
+    <% } %>
+  </div>
+</div>
+
+<!-- High-Risk Articles -->
+<div class="dash-widget" style="margin-top:1.25rem">
+  <div class="dash-widget-header">
+    <span class="dash-widget-title">High-Risk Articles This Period</span>
+    <a href="/iocs" class="dash-widget-link">IOC feed &rarr;</a>
+  </div>
+  <div class="risk-article-list">
+    <% if (highRisk.length === 0) { %>
+      <p style="color:var(--text-muted);font-size:.83rem">No high-risk articles detected.</p>
+    <% } else { %>
+      <% highRisk.forEach(function(a) { %>
+        <%
+          var _rsCls = a.riskScore >= 75 ? 'badge-risk-critical' : a.riskScore >= 50 ? 'badge-risk-high' : 'badge-risk-medium';
+          var _rsLabel = a.riskScore >= 75 ? 'Critical' : a.riskScore >= 50 ? 'High' : 'Medium';
+          var _ageMs = a.published_at ? (Date.now() - new Date(a.published_at).getTime()) : Infinity;
+          var _ageMins = Math.floor(_ageMs / 60000);
+          var _relTime = _ageMins < 60 ? _ageMins + 'm ago' : _ageMins < 1440 ? Math.floor(_ageMins/60) + 'h ago' : Math.floor(_ageMins/1440) + 'd ago';
+        %>
+        <div class="risk-article-item">
+          <span class="badge badge-risk <%= _rsCls %>" style="flex-shrink:0"><%= _rsLabel %></span>
+          <a href="<%= safeHref(a.link) %>" target="_blank" rel="noopener noreferrer" class="risk-article-title"><%= a.title %></a>
+          <span class="risk-article-meta"><%= _relTime %></span>
+        </div>
+      <% }); %>
+    <% } %>
+  </div>
+</div>
+
+<!-- Latest CVEs -->
+<div class="dash-widget" style="margin-top:1.25rem">
+  <div class="dash-widget-header">
+    <span class="dash-widget-title">Notable CVEs</span>
+    <a href="/cve-priority" class="dash-widget-link">Priority dashboard &rarr;</a>
+  </div>
+  <div class="dash-cve-list">
+    <% if (topCves.length === 0) { %>
+      <p style="color:var(--text-muted);font-size:.83rem">CVE feed loading...</p>
+    <% } else { %>
+      <% topCves.forEach(function(cve) { %>
+        <%
+          var _scoreColor = cve.severity === 'CRITICAL' ? '#ef4444' : cve.severity === 'HIGH' ? '#fbbf24' : cve.severity === 'MEDIUM' ? '#a78bfa' : 'var(--text-muted)';
+          var _scoreBg = cve.severity === 'CRITICAL' ? 'rgba(239,68,68,.15)' : cve.severity === 'HIGH' ? 'rgba(251,191,36,.15)' : cve.severity === 'MEDIUM' ? 'rgba(167,139,250,.15)' : 'var(--bg-elevated)';
+        %>
+        <div class="dash-cve-item">
+          <a href="<%= safeHref(cve.link) %>" target="_blank" rel="noopener noreferrer" class="dash-cve-id cve-id <%= cve.severity === 'CRITICAL' ? 'cve-critical' : cve.severity === 'HIGH' ? 'cve-high' : '' %>"><%= cve.id %></a>
+          <span class="dash-cve-desc" title="<%= cve.description %>"><%= cve.description %></span>
+          <% if (cve.severity) { %>
+            <span class="dash-cve-score" style="background:<%= _scoreBg %>;color:<%= _scoreColor %>"><%= cve.severity %></span>
+          <% } %>
+        </div>
+      <% }); %>
+    <% } %>
+  </div>
+</div>
+
+<!-- Top Categories -->
+<div class="dash-widget" style="margin-top:1.25rem">
+  <div class="dash-widget-header">
+    <span class="dash-widget-title">Attack Type Breakdown</span>
+    <a href="/categories" class="dash-widget-link">All types &rarr;</a>
+  </div>
+  <% if (topCategories.length > 0) { %>
+    <% var maxCat = topCategories[0].count; %>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:.6rem">
+      <% topCategories.forEach(function(c) { %>
+        <div style="background:var(--bg-elevated);border:1px solid var(--border);border-radius:8px;padding:.8rem;display:flex;flex-direction:column;gap:.4rem">
+          <a href="/category/<%= encodeURIComponent(c.category) %>" style="color:var(--text);font-size:.85rem;font-weight:600"><%= c.category %></a>
+          <div style="height:4px;background:var(--border);border-radius:2px;overflow:hidden">
+            <div style="width:<%= Math.round((c.count/maxCat)*100) %>%;height:100%;background:var(--accent);border-radius:2px"></div>
+          </div>
+          <span style="color:var(--text-muted);font-size:.78rem"><%= c.count %> articles</span>
+        </div>
+      <% }); %>
+    </div>
+  <% } else { %>
+    <p style="color:var(--text-muted);font-size:.83rem">No category data this period.</p>
+  <% } %>
+</div>
+
+<%- include('partials/footer') %>

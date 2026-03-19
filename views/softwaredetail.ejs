@@ -30,8 +30,44 @@
     <% if (sw.aliases && sw.aliases.length > 0) { %>
       <p class="entity-aliases"><strong>Also known as:</strong> <%= sw.aliases.join(', ') %></p>
     <% } %>
+    <% if (sw.malpedia_slug) { %>
+      <p class="entity-aliases" style="margin-top:.4rem;display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;">
+        <a href="https://malpedia.caad.fkie.fraunhofer.de/details/<%= encodeURIComponent(sw.malpedia_slug) %>" target="_blank" rel="noopener noreferrer" class="badge" style="background:rgba(99,102,241,.15);color:#818cf8;border:1px solid rgba(99,102,241,.3);text-decoration:none;font-size:.72rem;">Malpedia ↗</a>
+        <% try { var _refs = JSON.parse(sw.malpedia_refs || '[]'); if (_refs.length) { %><span class="badge" style="font-size:.7rem;color:var(--text-muted);border:1px solid var(--border)"><%= _refs.length %> research refs</span><% } } catch(_e){} %>
+      </p>
+    <% } %>
   </div>
 </div>
+
+<!-- AI Intelligence Brief -->
+<section class="activity-section">
+  <h2 style="display:flex;align-items:center;gap:.5rem">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px;color:var(--accent)"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2z"/><path d="M12 8v4l3 3"/></svg>
+    AI Intelligence Brief
+    <span id="ai-brief-badge" style="display:none;font-size:.65rem;font-weight:600;padding:.1rem .4rem;border-radius:4px;background:var(--bg-elevated);color:var(--text-muted);border:1px solid var(--border)">cached</span>
+  </h2>
+  <div id="ai-brief-card" class="ai-brief-card">
+    <div class="ai-brief-prompt"><button class="ai-brief-gen-btn" id="ai-brief-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;flex-shrink:0"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2z"/><path d="M12 8v4l3 3"/></svg> Additional Insights</button></div>
+  </div>
+</section>
+
+<!-- Related YARA Rules -->
+<section class="activity-section" id="yara-section">
+  <h2 class="section-h2-flex">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px;color:#22c55e"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>
+    Related YARA Rules
+    <span id="yara-count-badge" class="yara-count-badge" hidden></span>
+    <a id="yara-view-all" href="/yara-rules" class="yara-view-all-link" hidden>View all on YARA Rules page →</a>
+  </h2>
+  <div id="yara-results-wrap">
+    <div class="ai-brief-prompt">
+      <button class="ai-brief-gen-btn" id="yara-load-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;flex-shrink:0"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>
+        Search Related YARA Rules
+      </button>
+    </div>
+  </div>
+</section>
 
 <!-- 90-Day Activity Chart -->
 <section class="activity-section">
@@ -70,6 +106,13 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
 <script nonce="<%= nonce %>">
 (function() {
+  var aiBriefBtn = document.getElementById('ai-brief-btn');
+  if (aiBriefBtn) aiBriefBtn.addEventListener('click', function() { fetchAiBrief('software', <%= sw.id %>); });
+})();
+</script>
+
+<script nonce="<%= nonce %>">
+(function() {
   var days   = <%- JSON.stringify(dailyCounts.map(d => d.day.slice(5))) %>;
   var counts = <%- JSON.stringify(dailyCounts.map(d => d.count)) %>;
   var ctx = document.getElementById('activity-chart').getContext('2d');
@@ -96,6 +139,72 @@
       }
     }
   });
+})();
+</script>
+
+
+<script nonce="<%= nonce %>">
+(function() {
+  function esc(s) { var d = document.createElement('div'); d.textContent = String(s || ''); return d.innerHTML; }
+  var swName = <%- JSON.stringify(sw.name) %>;
+  var loaded = false;
+
+  var btn = document.getElementById('yara-load-btn');
+  if (btn) btn.addEventListener('click', function() { if (!loaded) loadYaraRules(); });
+
+  function loadYaraRules() {
+    loaded = true;
+    var wrap = document.getElementById('yara-results-wrap');
+    wrap.innerHTML = '<div class="yara-loading-state"><div class="yara-spinner"></div>Searching YARA rules for ' + esc(swName) + '\u2026</div>';
+
+    fetch('/api/yara-rules?q=' + encodeURIComponent(swName))
+      .then(function(r) { return r.json(); })
+      .then(function(json) {
+        var results = json.results || [];
+        if (!results.length) {
+          wrap.innerHTML = '<p class="empty">No YARA rules found for <strong>' + esc(swName) + '</strong>. <a href="/yara-rules" class="yara-more-link" style="display:inline;margin-top:0">Try searching manually →</a></p>';
+          return;
+        }
+        var badge = document.getElementById('yara-count-badge');
+        badge.textContent = results.length + ' sample' + (results.length !== 1 ? 's' : '');
+        badge.removeAttribute('hidden');
+
+        var viewAll = document.getElementById('yara-view-all');
+        viewAll.href = '/yara-rules?q=' + encodeURIComponent(swName);
+        viewAll.removeAttribute('hidden');
+
+        var html = '';
+        results.slice(0, 3).forEach(function(s) {
+          html += '<div class="yara-sample-card">';
+          html += '<div class="yara-card-header">';
+          html += '<strong class="yara-card-sig">' + esc(s.signature || s.sha256) + '</strong>';
+          if (s.first_seen) html += '<span class="yara-card-date">' + esc(s.first_seen) + '</span>';
+          html += '</div>';
+          html += '<div class="yara-card-hash">' + esc(s.sha256) + '</div>';
+          if (s.tags && s.tags.length) {
+            html += '<div>';
+            s.tags.slice(0, 6).forEach(function(t) { html += '<span class="ioc-tag">' + esc(t) + '</span> '; });
+            html += '</div>';
+          }
+          if (s.yara_rules && s.yara_rules.length) {
+            html += '<div class="yara-rules-summary">';
+            html += s.yara_rules.length + ' YARA rule' + (s.yara_rules.length !== 1 ? 's' : '') + ': ';
+            html += s.yara_rules.slice(0, 3).map(function(yr) { return '<code class="yara-rule-code">' + esc(yr.rule_name || yr.name) + '</code>'; }).join(', ');
+            if (s.yara_rules.length > 3) html += ' +' + (s.yara_rules.length - 3) + ' more';
+            html += '</div>';
+          }
+          html += '</div>';
+        });
+        if (results.length > 3) {
+          html += '<a href="/yara-rules?q=' + encodeURIComponent(swName) + '" class="yara-more-link">View all ' + results.length + ' results on YARA Rules page \u2192</a>';
+        }
+        wrap.innerHTML = html;
+      })
+      .catch(function() {
+        wrap.innerHTML = '<p class="empty">Failed to load YARA rules. Please try again.</p>';
+        loaded = false;
+      });
+  }
 })();
 </script>
 

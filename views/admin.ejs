@@ -1,0 +1,153 @@
+<%- include('partials/head', { pageTitle: 'Admin Panel' }) %>
+
+<div class="page-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem">
+  <div>
+    <h1>Admin Panel</h1>
+    <p>Logged in as <strong><%= currentUser ? currentUser.username : 'unknown' %></strong> (<%= currentUser ? currentUser.role : '' %>)</p>
+  </div>
+  <form method="POST" action="/logout">
+    <button type="submit" class="btn btn-sm" style="background:rgba(239,68,68,.1);color:#ef4444;border-color:rgba(239,68,68,.25)">Sign Out</button>
+  </form>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;align-items:start">
+
+  <!-- Users Management -->
+  <div class="dash-widget">
+    <div class="dash-widget-header">
+      <span class="dash-widget-title">Users (<%= users.length %>)</span>
+    </div>
+    <div style="display:grid;gap:.5rem;margin-bottom:1rem">
+      <% users.forEach(function(u) { %>
+        <div style="display:flex;align-items:center;gap:.75rem;padding:.6rem .75rem;background:var(--bg-elevated);border:1px solid var(--border);border-radius:8px">
+          <div style="flex:1">
+            <div style="font-weight:600;font-size:.88rem"><%= u.username %></div>
+            <div style="font-size:.72rem;color:var(--text-muted)">
+              <%= u.role %> &middot; <%= u.last_login ? 'Last login: ' + new Date(u.last_login).toLocaleDateString() : 'Never logged in' %>
+            </div>
+          </div>
+          <span class="badge" style="font-size:.68rem;
+            <%= u.role === 'admin' ? 'background:rgba(239,68,68,.12);color:#ef4444;border:1px solid rgba(239,68,68,.25)' :
+               u.role === 'analyst' ? 'background:rgba(251,191,36,.12);color:#fbbf24;border:1px solid rgba(251,191,36,.25)' :
+               'background:var(--bg-elevated);color:var(--text-muted);border:1px solid var(--border)' %>">
+            <%= u.role %>
+          </span>
+          <% if (!currentUser || String(u.id) !== String(currentUser.id)) { %>
+            <form method="POST" action="/admin/users/delete" onsubmit="return confirm('Delete user ' + '<%= u.username %>' + '?')">
+              <input type="hidden" name="id" value="<%= u.id %>">
+              <button type="submit" class="btn btn-sm" style="background:rgba(239,68,68,.1);color:#ef4444;border-color:rgba(239,68,68,.25)">Del</button>
+            </form>
+          <% } %>
+        </div>
+      <% }); %>
+    </div>
+
+    <form method="POST" action="/admin/users" style="display:grid;gap:.6rem">
+      <div style="font-size:.82rem;font-weight:600;color:var(--text-muted);margin-bottom:.1rem">Add User</div>
+      <input type="text" name="username" required placeholder="Username" style="background:var(--bg-elevated);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:.5rem .75rem;font-size:.83rem">
+      <input type="password" name="password" required placeholder="Password" style="background:var(--bg-elevated);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:.5rem .75rem;font-size:.83rem">
+      <select name="role" style="background:var(--bg-elevated);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:.5rem .75rem;font-size:.83rem">
+        <option value="viewer">Viewer (read-only)</option>
+        <option value="analyst">Analyst (read + annotate)</option>
+        <option value="admin">Admin (full access)</option>
+      </select>
+      <button type="submit" class="btn btn-primary btn-sm">Add User</button>
+    </form>
+  </div>
+
+  <!-- System stats -->
+  <div style="display:flex;flex-direction:column;gap:1.25rem">
+    <div class="dash-widget">
+      <div class="dash-widget-header"><span class="dash-widget-title">System Overview</span></div>
+      <div style="display:grid;gap:.5rem;font-size:.85rem">
+        <div style="display:flex;justify-content:space-between;padding:.4rem 0;border-bottom:1px solid var(--border)">
+          <span style="color:var(--text-muted)">Custom Feeds</span>
+          <strong><%= customFeeds.length %></strong>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:.4rem 0;border-bottom:1px solid var(--border)">
+          <span style="color:var(--text-muted)">API Keys Issued</span>
+          <strong><%= apiKeyCount %></strong>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:.4rem 0">
+          <span style="color:var(--text-muted)">Registered Users</span>
+          <strong><%= users.length %></strong>
+        </div>
+      </div>
+    </div>
+
+    <div class="dash-widget">
+      <div class="dash-widget-header"><span class="dash-widget-title">Quick Links</span></div>
+      <div style="display:grid;gap:.4rem">
+        <a href="/sources/manage" style="display:flex;align-items:center;justify-content:space-between;padding:.5rem .6rem;background:var(--bg-elevated);border:1px solid var(--border);border-radius:8px;font-size:.85rem;color:var(--text);text-decoration:none">Manage Custom Feeds <span style="color:var(--accent)">&rarr;</span></a>
+        <a href="/api-keys" style="display:flex;align-items:center;justify-content:space-between;padding:.5rem .6rem;background:var(--bg-elevated);border:1px solid var(--border);border-radius:8px;font-size:.85rem;color:var(--text);text-decoration:none">API Key Management <span style="color:var(--accent)">&rarr;</span></a>
+        <a href="/alerts" style="display:flex;align-items:center;justify-content:space-between;padding:.5rem .6rem;background:var(--bg-elevated);border:1px solid var(--border);border-radius:8px;font-size:.85rem;color:var(--text);text-decoration:none">Alert Rules <span style="color:var(--accent)">&rarr;</span></a>
+        <a href="/sources" style="display:flex;align-items:center;justify-content:space-between;padding:.5rem .6rem;background:var(--bg-elevated);border:1px solid var(--border);border-radius:8px;font-size:.85rem;color:var(--text);text-decoration:none">Feed Health <span style="color:var(--accent)">&rarr;</span></a>
+        <a href="/report/weekly" style="display:flex;align-items:center;justify-content:space-between;padding:.5rem .6rem;background:var(--bg-elevated);border:1px solid var(--border);border-radius:8px;font-size:.85rem;color:var(--text);text-decoration:none">Threat Report <span style="color:var(--accent)">&rarr;</span></a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Malpedia Enrichment Panel -->
+<div class="dash-widget" style="margin-top:1.5rem">
+  <div class="dash-widget-header">
+    <span class="dash-widget-title">Malpedia Enrichment</span>
+    <span class="badge" style="background:rgba(99,102,241,.12);color:#818cf8;border:1px solid rgba(99,102,241,.25);font-size:.7rem;">No API key required</span>
+  </div>
+  <p style="font-size:.82rem;color:var(--text-secondary);margin-bottom:1rem">
+    Bulk-import malware family and threat actor data from <a href="https://malpedia.caad.fkie.fraunhofer.de" target="_blank" rel="noopener" style="color:var(--accent)">Malpedia</a> to enrich descriptions, aliases, and AI Intelligence Briefs.
+  </p>
+  <div id="malpedia-status" style="font-size:.8rem;color:var(--text-muted);margin-bottom:.85rem">Loading sync status…</div>
+  <button id="malpedia-sync-btn" class="btn btn-sm" style="background:rgba(99,102,241,.12);color:#818cf8;border:1px solid rgba(99,102,241,.3)">Sync Malpedia Now</button>
+  <span id="malpedia-sync-msg" style="font-size:.8rem;color:var(--text-muted);margin-left:.75rem"></span>
+</div>
+
+<script nonce="<%= nonce %>">
+(function() {
+  fetch('/admin/malpedia-status')
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      var el = document.getElementById('malpedia-status');
+      if (!d || !d.synced_at) {
+        el.textContent = 'Never synced — click Sync to import Malpedia data.';
+      } else {
+        el.innerHTML = 'Last sync: <strong>' + new Date(d.synced_at).toLocaleString() + '</strong>'
+          + ' &mdash; ' + (d.sw_matched || 0) + ' malware matched, ' + (d.tg_matched || 0) + ' threat groups matched'
+          + ' (from ' + (d.families_fetched || 0) + ' families, ' + (d.actors_fetched || 0) + ' actors fetched)';
+      }
+    }).catch(function() {
+      document.getElementById('malpedia-status').textContent = 'Could not load sync status.';
+    });
+
+  document.getElementById('malpedia-sync-btn').addEventListener('click', function() {
+    var btn = this;
+    var msg = document.getElementById('malpedia-sync-msg');
+    btn.disabled = true;
+    btn.textContent = 'Syncing…';
+    msg.textContent = 'Fetching from Malpedia API…';
+    fetch('/admin/sync-malpedia', { method: 'POST', headers: { 'Content-Type': 'application/json' } })
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        btn.disabled = false;
+        btn.textContent = 'Sync Malpedia Now';
+        if (d.ok === false) {
+          msg.style.color = '#ef4444';
+          msg.textContent = 'Error: ' + d.error;
+        } else {
+          msg.style.color = '#22c55e';
+          msg.textContent = 'Done! ' + d.swMatched + ' malware matched, ' + d.tgMatched + ' threat groups matched.';
+          document.getElementById('malpedia-status').innerHTML = 'Last sync: <strong>just now</strong>'
+            + ' &mdash; ' + d.swMatched + ' malware, ' + d.tgMatched + ' threat groups'
+            + ' (from ' + d.familiesFetched + ' families, ' + d.actorsFetched + ' actors)';
+        }
+      }).catch(function(e) {
+        btn.disabled = false;
+        btn.textContent = 'Sync Malpedia Now';
+        msg.style.color = '#ef4444';
+        msg.textContent = 'Sync failed — check server logs.';
+      });
+  });
+})();
+</script>
+
+<%- include('partials/footer') %>

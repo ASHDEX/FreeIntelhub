@@ -1,0 +1,109 @@
+<%- include('partials/head', { pageTitle: 'Watchlist' }) %>
+
+<div class="page-header">
+  <h1>Watchlist</h1>
+  <p>Monitor specific threat actors, malware, CVEs, or keywords. Enter your subscriber token to view your watchlist.</p>
+</div>
+
+<% if (!token) { %>
+<div class="dash-widget" style="max-width:480px;margin:0 auto">
+  <div class="dash-widget-header"><span class="dash-widget-title">Enter Token</span></div>
+  <form method="GET" action="/watchlist" style="display:flex;gap:.5rem;margin-top:.5rem">
+    <input type="text" name="token" placeholder="Your subscriber token..." style="flex:1;background:var(--bg-elevated);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:.5rem .75rem;font-size:.9rem">
+    <button type="submit" class="btn btn-primary">View</button>
+  </form>
+  <p style="font-size:.78rem;color:var(--text-muted);margin-top:.75rem">Find your token on the <a href="/alerts" style="color:var(--accent)">Alerts</a> page.</p>
+</div>
+<% } else { %>
+
+<div style="display:grid;grid-template-columns:1fr 320px;gap:1.5rem;align-items:start">
+  <!-- Watchlist items -->
+  <div>
+    <div class="dash-widget">
+      <div class="dash-widget-header">
+        <span class="dash-widget-title">Watching (<%= items.length %>)</span>
+      </div>
+      <% if (items.length === 0) { %>
+        <p style="color:var(--text-muted);font-size:.83rem;padding:.5rem 0">No items on your watchlist yet. Add items using the form.</p>
+      <% } else { %>
+        <div style="display:grid;gap:.5rem;margin-top:.5rem">
+          <% items.forEach(function(item) { %>
+            <div style="display:flex;align-items:center;gap:.75rem;padding:.6rem .75rem;background:var(--bg-elevated);border:1px solid var(--border);border-radius:8px">
+              <span class="badge" style="background:var(--bg-card);border:1px solid var(--border-hover);font-size:.72rem;text-transform:uppercase;color:var(--text-muted)"><%= item.watch_type %></span>
+              <% if (item.watch_type === 'actor') { %>
+                <a href="/threat-group/<%= encodeURIComponent(item.watch_value) %>" style="color:var(--text);font-weight:500;flex:1;font-size:.88rem"><%= item.watch_value %></a>
+              <% } else if (item.watch_type === 'cve') { %>
+                <a href="/vulnerability?cve=<%= encodeURIComponent(item.watch_value) %>" style="color:var(--text);font-weight:500;flex:1;font-size:.88rem"><%= item.watch_value %></a>
+              <% } else { %>
+                <span style="color:var(--text);font-weight:500;flex:1;font-size:.88rem"><%= item.watch_value %></span>
+              <% } %>
+              <span style="font-size:.72rem;color:var(--text-muted)"><%= new Date(item.created_at).toLocaleDateString() %></span>
+              <button class="btn btn-sm" style="background:rgba(239,68,68,.1);color:#ef4444;border-color:rgba(239,68,68,.25)"
+                onclick="removeWatch(<%= item.id %>, this)">Remove</button>
+            </div>
+          <% }); %>
+        </div>
+      <% } %>
+    </div>
+  </div>
+
+  <!-- Add form -->
+  <div class="dash-widget">
+    <div class="dash-widget-header"><span class="dash-widget-title">Add to Watchlist</span></div>
+    <form id="watchForm" style="display:grid;gap:.75rem;margin-top:.5rem">
+      <select id="wType" style="background:var(--bg-elevated);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:.5rem .75rem;font-size:.85rem">
+        <option value="actor">Threat Actor</option>
+        <option value="malware">Malware</option>
+        <option value="campaign">Campaign</option>
+        <option value="cve">CVE ID</option>
+        <option value="keyword">Keyword</option>
+        <option value="ip">IP Address</option>
+      </select>
+      <input type="text" id="wValue" placeholder="e.g. APT29, CVE-2024-1234, ransomware..." style="background:var(--bg-elevated);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:.5rem .75rem;font-size:.85rem">
+      <button type="submit" class="btn btn-primary">Add to Watchlist</button>
+      <div id="watchMsg" style="font-size:.8rem;display:none"></div>
+    </form>
+  </div>
+</div>
+
+<script nonce="<%= nonce %>">
+const TOKEN = '<%= token %>';
+
+document.getElementById('watchForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const type = document.getElementById('wType').value;
+  const value = document.getElementById('wValue').value.trim();
+  if (!value) return;
+  const msg = document.getElementById('watchMsg');
+  try {
+    const r = await fetch('/api/watchlist', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ token: TOKEN, watch_type: type, watch_value: value }) });
+    const d = await r.json();
+    if (d.ok) {
+      msg.textContent = 'Added! Refresh to see updated list.';
+      msg.style.color = '#22c55e';
+      msg.style.display = 'block';
+      document.getElementById('wValue').value = '';
+    } else {
+      msg.textContent = d.error || 'Failed';
+      msg.style.color = '#ef4444';
+      msg.style.display = 'block';
+    }
+  } catch (_) {
+    msg.textContent = 'Request failed';
+    msg.style.color = '#ef4444';
+    msg.style.display = 'block';
+  }
+});
+
+async function removeWatch(id, btn) {
+  btn.disabled = true;
+  try {
+    await fetch(`/api/watchlist/${id}`, { method: 'DELETE', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ token: TOKEN }) });
+    btn.closest('div[style]').remove();
+  } catch (_) { btn.disabled = false; }
+}
+</script>
+
+<% } %>
+
+<%- include('partials/footer') %>

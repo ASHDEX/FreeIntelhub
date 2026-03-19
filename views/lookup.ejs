@@ -1,0 +1,438 @@
+<%- include('partials/head') %>
+
+<section class="lookup-hero">
+  <h1>IOC Lookup</h1>
+  <p>Search CVEs, IP addresses, domains, and file hashes across threat intelligence sources</p>
+</section>
+
+<!-- Tab Bar -->
+<div class="lookup-tabs-bar" id="lookup-tabs-bar" role="tablist" aria-label="IOC lookup types">
+  <button class="lookup-tab-btn active" data-tab="cve" role="tab" aria-selected="true" aria-controls="lookup-tab-cve" id="tab-btn-cve">CVE</button>
+  <button class="lookup-tab-btn" data-tab="ip" role="tab" aria-selected="false" aria-controls="lookup-tab-ip" id="tab-btn-ip">IP Address</button>
+  <button class="lookup-tab-btn" data-tab="domain" role="tab" aria-selected="false" aria-controls="lookup-tab-domain" id="tab-btn-domain">Domain</button>
+  <button class="lookup-tab-btn" data-tab="hash" role="tab" aria-selected="false" aria-controls="lookup-tab-hash" id="tab-btn-hash">File Hash</button>
+</div>
+
+<!-- CVE Tab -->
+<div class="lookup-panel active" id="lookup-tab-cve" role="tabpanel" aria-labelledby="tab-btn-cve" tabindex="0">
+  <div class="lookup-input-wrap">
+    <label for="cve-input" class="sr-only">CVE ID or vulnerability name</label>
+    <input type="text" id="cve-input" placeholder="CVE-2024-1234 or search vulnerability name..." autocomplete="off" autocorrect="off" spellcheck="false">
+    <button class="lookup-btn" id="cve-search-btn">Search</button>
+  </div>
+  <div id="cve-result">
+    <div class="lookup-placeholder">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:block;margin:0 auto .75rem;width:2rem;height:2rem;opacity:.4"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      Enter a CVE ID above to fetch vulnerability details, CVSS score, and threat intelligence.
+    </div>
+  </div>
+</div>
+
+<!-- IP Tab -->
+<div class="lookup-panel" id="lookup-tab-ip" role="tabpanel" aria-labelledby="tab-btn-ip" tabindex="0">
+  <div class="lookup-input-wrap">
+    <label for="ip-input" class="sr-only">IP address</label>
+    <input type="text" id="ip-input" placeholder="8.8.8.8" autocomplete="off" autocorrect="off" spellcheck="false">
+    <button class="lookup-btn" id="ip-search-btn">Lookup</button>
+  </div>
+  <div id="ip-result">
+    <div class="lookup-placeholder">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:block;margin:0 auto .75rem;width:2rem;height:2rem;opacity:.4"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+      Enter an IPv4 address to check its abuse reputation and geolocation.
+    </div>
+  </div>
+</div>
+
+<!-- Domain Tab -->
+<div class="lookup-panel" id="lookup-tab-domain" role="tabpanel" aria-labelledby="tab-btn-domain" tabindex="0">
+  <div class="lookup-input-wrap">
+    <label for="domain-input" class="sr-only">Domain name</label>
+    <input type="text" id="domain-input" placeholder="example.com" autocomplete="off" autocorrect="off" spellcheck="false">
+    <button class="lookup-btn" id="domain-search-btn">Lookup</button>
+  </div>
+  <div id="domain-result">
+    <div class="lookup-placeholder">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:block;margin:0 auto .75rem;width:2rem;height:2rem;opacity:.4"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+      Enter a domain name to look up threat reputation and registration data.
+    </div>
+  </div>
+</div>
+
+<!-- Hash Tab -->
+<div class="lookup-panel" id="lookup-tab-hash" role="tabpanel" aria-labelledby="tab-btn-hash" tabindex="0">
+  <div class="lookup-input-wrap">
+    <label for="hash-input" class="sr-only">MD5, SHA1, or SHA256 file hash</label>
+    <input type="text" id="hash-input" placeholder="MD5, SHA1, or SHA256 hash" autocomplete="off" autocorrect="off" spellcheck="false" style="font-family:var(--font-mono);font-size:.83rem">
+    <button class="lookup-btn" id="hash-search-btn">Lookup</button>
+  </div>
+  <div id="hash-result">
+    <div class="lookup-placeholder">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:block;margin:0 auto .75rem;width:2rem;height:2rem;opacity:.4"><rect x="2" y="2" width="20" height="20" rx="2" ry="2"/><path d="M7 12h10M12 7v10"/></svg>
+      Enter an MD5, SHA1, or SHA256 hash to scan for malware detections via VirusTotal.
+    </div>
+  </div>
+</div>
+
+
+<script nonce="<%= nonce %>">
+(function() {
+  // Tab switching
+  var tabBtns = Array.prototype.slice.call(document.querySelectorAll('.lookup-tab-btn'));
+  var tabPanels = document.querySelectorAll('.lookup-panel');
+
+  function activateTab(btn) {
+    tabBtns.forEach(function(b) {
+      b.classList.remove('active');
+      b.setAttribute('aria-selected', 'false');
+      b.setAttribute('tabindex', '-1');
+    });
+    tabPanels.forEach(function(p) { p.classList.remove('active'); });
+    btn.classList.add('active');
+    btn.setAttribute('aria-selected', 'true');
+    btn.setAttribute('tabindex', '0');
+    var panel = document.getElementById('lookup-tab-' + btn.dataset.tab);
+    if (panel) panel.classList.add('active');
+  }
+
+  tabBtns.forEach(function(btn, i) {
+    btn.setAttribute('tabindex', btn.classList.contains('active') ? '0' : '-1');
+    btn.addEventListener('click', function() { activateTab(btn); });
+    btn.addEventListener('keydown', function(e) {
+      var idx = tabBtns.indexOf(btn);
+      if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        var next = tabBtns[(idx + 1) % tabBtns.length];
+        activateTab(next); next.focus();
+      } else if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        var prev = tabBtns[(idx - 1 + tabBtns.length) % tabBtns.length];
+        activateTab(prev); prev.focus();
+      } else if (e.key === 'Home') {
+        e.preventDefault();
+        activateTab(tabBtns[0]); tabBtns[0].focus();
+      } else if (e.key === 'End') {
+        e.preventDefault();
+        activateTab(tabBtns[tabBtns.length - 1]); tabBtns[tabBtns.length - 1].focus();
+      }
+    });
+  });
+
+  // Escape HTML helper
+  function esc(s) { var d = document.createElement('div'); d.textContent = String(s || ''); return d.innerHTML; }
+
+  function setLoading(el) {
+    el.innerHTML = '<div class="lookup-loading"><span class="suggestion-spinner"></span> Looking up...</div>';
+  }
+  function setError(el, msg) {
+    el.innerHTML = '<div class="lookup-error">' + esc(msg) + '</div>';
+  }
+
+  // ── CVE Lookup ──────────────────────────────────────────────────────────────
+  function doCveLookup() {
+    var q = document.getElementById('cve-input').value.trim();
+    if (!q) return;
+    var r = document.getElementById('cve-result');
+    // If it matches CVE pattern, redirect to vuln page (already has full UI)
+    if (/^CVE-\d{4}-\d+$/i.test(q)) {
+      window.location.href = '/vulnerability?cve=' + encodeURIComponent(q.toUpperCase());
+      return;
+    }
+    // Otherwise do a search redirect
+    window.location.href = '/search?q=' + encodeURIComponent(q);
+  }
+  document.getElementById('cve-search-btn').addEventListener('click', doCveLookup);
+  document.getElementById('cve-input').addEventListener('keydown', function(e) { if (e.key === 'Enter') doCveLookup(); });
+
+  // ── IP Lookup ───────────────────────────────────────────────────────────────
+  function doIpLookup() {
+    var q = document.getElementById('ip-input').value.trim();
+    if (!q) return;
+    var r = document.getElementById('ip-result');
+    setLoading(r);
+    fetch('/api/lookup/ip?q=' + encodeURIComponent(q))
+      .then(function(res) { return res.json(); })
+      .then(function(json) {
+        if (json.error) { setError(r, json.error); return; }
+        var d = json.data;
+        var html = '<div class="lookup-result">';
+
+        // Abuse score
+        if (d.abuseScore != null) {
+          var scoreColor = d.abuseScore >= 75 ? '#ef4444' : d.abuseScore >= 25 ? '#fbbf24' : '#22c55e';
+          var scoreBarCls = d.abuseScore >= 75 ? 'abuse-score-75' : d.abuseScore >= 50 ? 'abuse-score-50' : d.abuseScore >= 25 ? 'abuse-score-25' : 'abuse-score-0';
+          html += '<div class="lookup-result-card">';
+          html += '<div class="lookup-result-title">Abuse Confidence Score</div>';
+          html += '<div class="abuse-score-wrap">';
+          html += '<span class="abuse-score-num" style="color:' + scoreColor + '">' + esc(d.abuseScore) + '%</span>';
+          html += '<div class="abuse-score-bar-wrap"><div class="abuse-score-bar ' + scoreBarCls + '" style="width:' + d.abuseScore + '%"></div></div>';
+          html += '</div>';
+          html += '</div>';
+        }
+
+        // Details
+        html += '<div class="lookup-result-card">';
+        html += '<div class="lookup-result-title">IP Details</div>';
+        html += '<div class="lookup-result-grid">';
+        var fields = [
+          ['IP Address', d.ip],
+          ['Country', d.country],
+          ['ISP', d.isp],
+          ['Domain', d.domain],
+          ['Usage Type', d.usageType],
+          ['Total Reports', d.totalReports != null ? d.totalReports : 'N/A'],
+          ['Distinct Users', d.numDistinctUsers != null ? d.numDistinctUsers : 'N/A'],
+          ['Last Reported', d.lastReportedAt || 'Never'],
+          ['Is Public', d.isPublic ? 'Yes' : 'No'],
+          ['Whitelisted', d.isWhitelisted ? 'Yes' : 'No'],
+        ];
+        fields.forEach(function(f) {
+          if (f[1] == null || f[1] === '') return;
+          html += '<div class="lookup-kv"><span class="lookup-kv-key">' + esc(f[0]) + '</span><span class="lookup-kv-val">' + esc(f[1]) + '</span></div>';
+        });
+        html += '</div></div>';
+
+        if (d.error) { html += '<div class="lookup-error">' + esc(d.error) + '</div>'; }
+
+        // ThreatFox enrichment
+        if (json.threatfox && json.threatfox.length > 0) {
+          html += '<div class="lookup-result-card">';
+          html += '<div class="lookup-result-title">ThreatFox <span style="font-size:.75rem;font-weight:400;color:var(--text-muted)">(' + json.threatfox.length + ' IOC' + (json.threatfox.length > 1 ? 's' : '') + ')</span></div>';
+          json.threatfox.forEach(function(ioc, i) {
+            var conf = ioc.confidence_level || 0;
+            var confColor = conf >= 75 ? '#ef4444' : conf >= 50 ? '#fbbf24' : '#6b7280';
+            if (i > 0) html += '<div style="border-top:1px solid var(--border);margin:.6rem 0"></div>';
+            html += '<div class="lookup-result-grid">';
+            if (ioc.malware_printable) html += '<div class="lookup-kv"><span class="lookup-kv-key">Malware</span><span class="lookup-kv-val">' + esc(ioc.malware_printable) + '</span></div>';
+            if (ioc.threat_type) html += '<div class="lookup-kv"><span class="lookup-kv-key">Threat Type</span><span class="lookup-kv-val">' + esc(ioc.threat_type) + '</span></div>';
+            if (ioc.ioc_type) html += '<div class="lookup-kv"><span class="lookup-kv-key">IOC Type</span><span class="lookup-kv-val">' + esc(ioc.ioc_type) + '</span></div>';
+            html += '<div class="lookup-kv"><span class="lookup-kv-key">Confidence</span><span class="lookup-kv-val" style="color:' + confColor + '">' + conf + '%</span></div>';
+            if (ioc.first_seen) html += '<div class="lookup-kv"><span class="lookup-kv-key">First Seen</span><span class="lookup-kv-val">' + esc(ioc.first_seen) + '</span></div>';
+            if (ioc.last_seen) html += '<div class="lookup-kv"><span class="lookup-kv-key">Last Seen</span><span class="lookup-kv-val">' + esc(ioc.last_seen) + '</span></div>';
+            html += '</div>';
+            if (ioc.tags && ioc.tags.length) {
+              html += '<div style="margin-top:.35rem">';
+              ioc.tags.forEach(function(t) { html += '<span class="ioc-tag">' + esc(t) + '</span> '; });
+              html += '</div>';
+            }
+          });
+          html += '</div>';
+        }
+
+        html += '</div>';
+        r.innerHTML = html;
+      })
+      .catch(function() { setError(r, 'Lookup failed. Check your API keys or try again.'); });
+  }
+  document.getElementById('ip-search-btn').addEventListener('click', doIpLookup);
+  document.getElementById('ip-input').addEventListener('keydown', function(e) { if (e.key === 'Enter') doIpLookup(); });
+
+  // ── Domain Lookup ───────────────────────────────────────────────────────────
+  function doDomainLookup() {
+    var q = document.getElementById('domain-input').value.trim().toLowerCase();
+    if (!q) return;
+    var r = document.getElementById('domain-result');
+    setLoading(r);
+    fetch('/api/lookup/domain?q=' + encodeURIComponent(q))
+      .then(function(res) { return res.json(); })
+      .then(function(json) {
+        if (json.error) { setError(r, json.error); return; }
+        var d = json.data;
+        var html = '<div class="lookup-result">';
+        html += '<div class="lookup-result-card">';
+        html += '<div class="lookup-result-title">Domain Intelligence</div>';
+        html += '<div class="lookup-result-grid">';
+        var fields = [
+          ['Domain', d.domain],
+          ['Registrar', d.registrar],
+          ['Created', d.createdDate],
+          ['Updated', d.updatedDate],
+          ['Expires', d.expiresDate],
+          ['Country', d.country],
+          ['Status', d.status],
+          ['Name Servers', Array.isArray(d.nameServers) ? d.nameServers.slice(0,3).join(', ') : d.nameServers],
+        ];
+        fields.forEach(function(f) {
+          if (!f[1]) return;
+          html += '<div class="lookup-kv"><span class="lookup-kv-key">' + esc(f[0]) + '</span><span class="lookup-kv-val">' + esc(f[1]) + '</span></div>';
+        });
+        html += '</div>';
+        if (d.note) html += '<p style="font-size:.78rem;color:var(--text-muted);margin-top:.5rem">' + esc(d.note) + '</p>';
+        html += '</div>';
+
+        // ThreatFox enrichment
+        if (json.threatfox && json.threatfox.length > 0) {
+          html += '<div class="lookup-result-card">';
+          html += '<div class="lookup-result-title">ThreatFox <span style="font-size:.75rem;font-weight:400;color:var(--text-muted)">(' + json.threatfox.length + ' IOC' + (json.threatfox.length > 1 ? 's' : '') + ')</span></div>';
+          json.threatfox.forEach(function(ioc, i) {
+            var conf = ioc.confidence_level || 0;
+            var confColor = conf >= 75 ? '#ef4444' : conf >= 50 ? '#fbbf24' : '#6b7280';
+            if (i > 0) html += '<div style="border-top:1px solid var(--border);margin:.6rem 0"></div>';
+            html += '<div class="lookup-result-grid">';
+            if (ioc.malware_printable) html += '<div class="lookup-kv"><span class="lookup-kv-key">Malware</span><span class="lookup-kv-val">' + esc(ioc.malware_printable) + '</span></div>';
+            if (ioc.threat_type) html += '<div class="lookup-kv"><span class="lookup-kv-key">Threat Type</span><span class="lookup-kv-val">' + esc(ioc.threat_type) + '</span></div>';
+            if (ioc.ioc_type) html += '<div class="lookup-kv"><span class="lookup-kv-key">IOC Type</span><span class="lookup-kv-val">' + esc(ioc.ioc_type) + '</span></div>';
+            html += '<div class="lookup-kv"><span class="lookup-kv-key">Confidence</span><span class="lookup-kv-val" style="color:' + confColor + '">' + conf + '%</span></div>';
+            if (ioc.first_seen) html += '<div class="lookup-kv"><span class="lookup-kv-key">First Seen</span><span class="lookup-kv-val">' + esc(ioc.first_seen) + '</span></div>';
+            if (ioc.last_seen) html += '<div class="lookup-kv"><span class="lookup-kv-key">Last Seen</span><span class="lookup-kv-val">' + esc(ioc.last_seen) + '</span></div>';
+            html += '</div>';
+            if (ioc.tags && ioc.tags.length) {
+              html += '<div style="margin-top:.35rem">';
+              ioc.tags.forEach(function(t) { html += '<span class="ioc-tag">' + esc(t) + '</span> '; });
+              html += '</div>';
+            }
+          });
+          html += '</div>';
+        }
+
+        // URLhaus enrichment
+        if (json.urlhaus) {
+          var uh = json.urlhaus;
+          html += '<div class="lookup-result-card">';
+          html += '<div class="lookup-result-title">URLhaus';
+          if (uh.urls_count) html += ' <span style="font-size:.75rem;font-weight:400;color:var(--text-muted)">(' + uh.urls_count + ' URL' + (uh.urls_count !== 1 ? 's' : '') + ')</span>';
+          html += '</div>';
+          if (uh.blacklists && Object.keys(uh.blacklists).length) {
+            html += '<div class="lookup-result-grid" style="margin-bottom:.5rem">';
+            Object.keys(uh.blacklists).forEach(function(k) {
+              html += '<div class="lookup-kv"><span class="lookup-kv-key">' + esc(k) + '</span><span class="lookup-kv-val">' + esc(uh.blacklists[k]) + '</span></div>';
+            });
+            html += '</div>';
+          }
+          if (uh.urls && uh.urls.length) {
+            uh.urls.slice(0, 5).forEach(function(u) {
+              html += '<div style="font-size:.78rem;margin-bottom:.4rem;padding:.45rem .5rem;background:var(--bg-elevated);border-radius:6px">';
+              html += '<div style="font-family:var(--font-mono);word-break:break-all;margin-bottom:.25rem">' + esc(u.url) + '</div>';
+              html += '<div style="display:flex;gap:.4rem;flex-wrap:wrap;align-items:center">';
+              if (u.url_status) html += '<span class="ioc-tag">' + esc(u.url_status) + '</span>';
+              if (u.threat) html += '<span class="ioc-tag">' + esc(u.threat) + '</span>';
+              if (u.tags && u.tags.length) u.tags.forEach(function(t) { html += '<span class="ioc-tag">' + esc(t) + '</span>'; });
+              if (u.date_added) html += '<span style="color:var(--text-muted);font-size:.73rem;margin-left:auto">' + esc(u.date_added) + '</span>';
+              html += '</div></div>';
+            });
+          }
+          html += '</div>';
+        }
+
+        html += '</div>';
+        r.innerHTML = html;
+      })
+      .catch(function() { setError(r, 'Domain lookup failed. Try again.'); });
+  }
+  document.getElementById('domain-search-btn').addEventListener('click', doDomainLookup);
+  document.getElementById('domain-input').addEventListener('keydown', function(e) { if (e.key === 'Enter') doDomainLookup(); });
+
+  // ── Hash Lookup ─────────────────────────────────────────────────────────────
+  function doHashLookup() {
+    var q = document.getElementById('hash-input').value.trim().toLowerCase();
+    if (!q) return;
+    var r = document.getElementById('hash-result');
+    setLoading(r);
+    fetch('/api/lookup/hash?q=' + encodeURIComponent(q))
+      .then(function(res) { return res.json(); })
+      .then(function(json) {
+        if (json.error) { setError(r, json.error); return; }
+        var d = json.data;
+        var html = '<div class="lookup-result">';
+
+        if (d.malicious != null) {
+          var pct = d.total > 0 ? Math.round((d.malicious / d.total) * 100) : 0;
+          var threatColor = d.malicious > 5 ? '#ef4444' : d.malicious > 0 ? '#fbbf24' : '#22c55e';
+          html += '<div class="lookup-result-card">';
+          html += '<div class="lookup-result-title">Detection Rate</div>';
+          html += '<div class="hash-detection-wrap">';
+          html += '<span class="hash-detected" style="color:' + threatColor + '">' + esc(d.malicious) + '</span>';
+          html += '<span class="hash-total"> / ' + esc(d.total) + ' engines</span>';
+          html += '<div class="hash-bar-wrap"><div class="hash-bar-fill" style="width:' + pct + '%;background:' + threatColor + '"></div></div>';
+          html += '</div>';
+          html += '</div>';
+        }
+
+        html += '<div class="lookup-result-card">';
+        html += '<div class="lookup-result-title">File Details</div>';
+        html += '<div class="lookup-result-grid">';
+        var fields = [
+          ['Hash', d.hash || q],
+          ['File Name', d.name],
+          ['File Type', d.type],
+          ['File Size', d.size ? d.size + ' bytes' : null],
+          ['First Seen', d.firstSeen],
+          ['Last Analysis', d.lastAnalysis],
+          ['Threat Name', d.threatName],
+        ];
+        fields.forEach(function(f) {
+          if (!f[1]) return;
+          html += '<div class="lookup-kv"><span class="lookup-kv-key">' + esc(f[0]) + '</span><span class="lookup-kv-val">' + esc(f[1]) + '</span></div>';
+        });
+        html += '</div></div>';
+        if (d.error) { html += '<div class="lookup-error">' + esc(d.error) + '</div>'; }
+
+        // MalwareBazaar enrichment
+        if (json.malwarebazaar) {
+          var mb = json.malwarebazaar;
+          html += '<div class="lookup-result-card">';
+          html += '<div class="lookup-result-title">MalwareBazaar</div>';
+          html += '<div class="lookup-result-grid">';
+          var mbFields = [
+            ['File Name', mb.file_name],
+            ['File Type', mb.file_type],
+            ['File Size', mb.file_size ? mb.file_size + ' bytes' : null],
+            ['Malware Family', mb.signature],
+            ['First Seen', mb.first_seen],
+            ['Last Seen', mb.last_seen],
+            ['Imphash', mb.imphash],
+            ['SSDeep', mb.ssdeep],
+            ['Origin Country', mb.origin_country],
+            ['Delivery Method', mb.delivery_method],
+          ];
+          mbFields.forEach(function(f) {
+            if (!f[1]) return;
+            html += '<div class="lookup-kv"><span class="lookup-kv-key">' + esc(f[0]) + '</span><span class="lookup-kv-val">' + esc(f[1]) + '</span></div>';
+          });
+          html += '</div>';
+          if (mb.tags && mb.tags.length) {
+            html += '<div style="margin-top:.5rem">';
+            mb.tags.forEach(function(t) { html += '<span class="ioc-tag">' + esc(t) + '</span> '; });
+            html += '</div>';
+          }
+          if (mb.yara_rules && mb.yara_rules.length) {
+            html += '<div style="margin-top:.75rem">';
+            html += '<div style="font-size:.78rem;font-weight:600;color:var(--text-muted);margin-bottom:.35rem">YARA Rules Matched (' + mb.yara_rules.length + ')</div>';
+            mb.yara_rules.forEach(function(yr) {
+              html += '<div style="font-size:.78rem;padding:.35rem .5rem;background:var(--bg-elevated);border-radius:4px;margin-bottom:.25rem">';
+              html += '<strong>' + esc(yr.name) + '</strong>';
+              if (yr.author) html += ' <span style="color:var(--text-muted)">by ' + esc(yr.author) + '</span>';
+              if (yr.description) html += '<div style="color:var(--text-muted);margin-top:.1rem">' + esc(yr.description) + '</div>';
+              html += '</div>';
+            });
+            html += '</div>';
+          }
+          html += '</div>';
+        }
+
+        html += '</div>';
+        r.innerHTML = html;
+      })
+      .catch(function() { setError(r, 'Hash lookup failed. Ensure VIRUSTOTAL_API_KEY is configured.'); });
+  }
+  document.getElementById('hash-search-btn').addEventListener('click', doHashLookup);
+  document.getElementById('hash-input').addEventListener('keydown', function(e) { if (e.key === 'Enter') doHashLookup(); });
+
+
+  // Auto-run if query params provided
+  var params = new URLSearchParams(window.location.search);
+  var tab = params.get('tab');
+  var q = params.get('q');
+  if (tab && q) {
+    var btn = document.querySelector('[data-tab="' + tab + '"]');
+    if (btn) { btn.click(); }
+    var inp = document.getElementById(tab + '-input');
+    if (inp) {
+      inp.value = q;
+      var searchBtn = document.getElementById(tab + '-search-btn');
+      if (searchBtn) searchBtn.click();
+    }
+  }
+})();
+</script>
+
+<%- include('partials/footer') %>

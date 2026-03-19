@@ -36,12 +36,21 @@ db.exec(`
   );
 `);
 
+// Safe column migration: only adds if missing, logs on success
+function addColumn(table, col, def) {
+  const exists = db.prepare(`PRAGMA table_info(${table})`).all().some(r => r.name === col);
+  if (!exists) {
+    db.exec(`ALTER TABLE ${table} ADD COLUMN ${col} ${def}`);
+    console.log(`[DB] Migration: added ${table}.${col}`);
+  }
+}
+
 // Migrations: add columns if missing
-try { db.exec(`ALTER TABLE articles ADD COLUMN sector TEXT`); } catch (_) {}
-try { db.exec(`ALTER TABLE articles ADD COLUMN mitre_techniques TEXT`); } catch (_) {}
-try { db.exec(`ALTER TABLE articles ADD COLUMN iocs TEXT`); } catch (_) {}
-try { db.exec(`ALTER TABLE articles ADD COLUMN vendors_all TEXT`); } catch (_) {}
-try { db.exec(`ALTER TABLE articles ADD COLUMN dedup_hash TEXT`); } catch (_) {}
+addColumn('articles', 'sector', 'TEXT');
+addColumn('articles', 'mitre_techniques', 'TEXT');
+addColumn('articles', 'iocs', 'TEXT');
+addColumn('articles', 'vendors_all', 'TEXT');
+addColumn('articles', 'dedup_hash', 'TEXT');
 
 // Subscribers & alerts
 db.exec(`
@@ -77,7 +86,7 @@ db.exec(`
 `);
 
 // Migrations: add columns for existing DBs
-try { db.exec(`ALTER TABLE subscribers ADD COLUMN verify_token TEXT`); } catch (_) {}
+addColumn('subscribers', 'verify_token', 'TEXT');
 
 // Webhooks table for Slack/Discord/Telegram/custom integrations
 db.exec(`
@@ -113,10 +122,39 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_articles_source ON articles(source);
   CREATE INDEX IF NOT EXISTS idx_articles_sector ON articles(sector);
   CREATE INDEX IF NOT EXISTS idx_articles_dedup ON articles(dedup_hash);
+  CREATE INDEX IF NOT EXISTS idx_articles_iocs_partial ON articles(published_at DESC) WHERE iocs IS NOT NULL;
+  CREATE INDEX IF NOT EXISTS idx_articles_cat_pub ON articles(category, published_at DESC);
+  CREATE INDEX IF NOT EXISTS idx_articles_sec_pub ON articles(sector, published_at DESC);
+  CREATE INDEX IF NOT EXISTS idx_articles_ven_pub ON articles(vendor, published_at DESC);
 `);
 
 // Migration: entity extraction tracking flag
-try { db.exec(`ALTER TABLE articles ADD COLUMN entities_processed INTEGER DEFAULT 0`); } catch (_) {}
+addColumn('articles', 'entities_processed', 'INTEGER DEFAULT 0');
+
+// Migration: TLP classification (WHITE / GREEN / AMBER / RED)
+addColumn('articles', 'tlp', "TEXT DEFAULT 'WHITE'");
+
+// FTS5 full-text search index
+try {
+  db.exec(`CREATE VIRTUAL TABLE IF NOT EXISTS articles_fts USING fts5(title, summary, tokenize='porter unicode61')`);
+  db.exec(`CREATE TRIGGER IF NOT EXISTS articles_fts_ai AFTER INSERT ON articles BEGIN INSERT INTO articles_fts(rowid, title, summary) VALUES (new.id, new.title, COALESCE(new.summary, '')); END`);
+  // Drop and recreate UPDATE/DELETE triggers to use correct regular-FTS5 syntax (not external-content syntax)
+  db.exec(`DROP TRIGGER IF EXISTS articles_fts_au`);
+  db.exec(`DROP TRIGGER IF EXISTS articles_fts_ad`);
+  db.exec(`CREATE TRIGGER articles_fts_au AFTER UPDATE OF title, summary ON articles BEGIN DELETE FROM articles_fts WHERE rowid = old.id; INSERT INTO articles_fts(rowid, title, summary) VALUES (new.id, new.title, COALESCE(new.summary, '')); END`);
+  db.exec(`CREATE TRIGGER articles_fts_ad AFTER DELETE ON articles BEGIN DELETE FROM articles_fts WHERE rowid = old.id; END`);
+  // Seed FTS index from existing articles if empty
+  const ftsCount = db.prepare(`SELECT COUNT(*) as c FROM articles_fts`).get().c;
+  if (ftsCount === 0) {
+    const artCount = db.prepare(`SELECT COUNT(*) as c FROM articles`).get().c;
+    if (artCount > 0) {
+      db.prepare(`INSERT INTO articles_fts(rowid, title, summary) SELECT id, title, COALESCE(summary,'') FROM articles`).run();
+      console.log(`[DB] FTS5 index seeded with ${artCount} articles`);
+    }
+  }
+} catch (e) {
+  console.warn('[DB] FTS5 unavailable:', e.message);
+}
 
 // Entity tables: threat groups, malware/software, campaigns
 db.exec(`
@@ -186,6 +224,168 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_amsw_sw ON article_malware_sw(malware_sw_id);
   CREATE INDEX IF NOT EXISTS idx_acamp_camp ON article_campaigns(campaign_id);
   CREATE INDEX IF NOT EXISTS idx_articles_ep ON articles(entities_processed);
+`);
+
+// Analyst notes & tagging
+db.exec(`
+  CREATE TABLE IF NOT EXISTS article_notes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    article_id INTEGER NOT NULL,
+    token TEXT NOT NULL,
+    note TEXT,
+    tag TEXT DEFAULT 'note',
+    created_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (article_id) REFERENCES articles(id) ON DELETE CASCADE
+  );
+  CREATE INDEX IF NOT EXISTS idx_notes_article ON article_notes(article_id);
+`);
+
+// Custom feed sources (user-managed, not in feeds.json)
+db.exec(`
+  CREATE TABLE IF NOT EXISTS custom_feeds (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT UNIQUE NOT NULL,
+    url TEXT NOT NULL,
+    category TEXT,
+    enabled INTEGER DEFAULT 1,
+    created_at TEXT DEFAULT (datetime('now'))
+  );
+`);
+
+// API keys for external consumers
+db.exec(`
+  CREATE TABLE IF NOT EXISTS api_keys (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    key_hash TEXT UNIQUE NOT NULL,
+    key_prefix TEXT NOT NULL,
+    subscriber_id INTEGER,
+    requests_today INTEGER DEFAULT 0,
+    last_reset TEXT DEFAULT (date('now')),
+    created_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (subscriber_id) REFERENCES subscribers(id) ON DELETE SET NULL
+  );
+`);
+
+// Watchlist for proactive monitoring
+db.exec(`
+  CREATE TABLE IF NOT EXISTS watchlist (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    token TEXT NOT NULL,
+    watch_type TEXT NOT NULL,
+    watch_value TEXT NOT NULL,
+    created_at TEXT DEFAULT (datetime('now')),
+    UNIQUE(token, watch_type, watch_value)
+  );
+`);
+
+// Paste site monitoring hits
+db.exec(`
+  CREATE TABLE IF NOT EXISTS paste_hits (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    paste_id TEXT UNIQUE NOT NULL,
+    title TEXT,
+    content_snippet TEXT,
+    source TEXT DEFAULT 'psbdmp',
+    keyword TEXT,
+    full_url TEXT,
+    found_at TEXT DEFAULT (datetime('now'))
+  );
+`);
+
+// Case management
+db.exec(`
+  CREATE TABLE IF NOT EXISTS cases (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT NOT NULL,
+    status TEXT DEFAULT 'open',
+    severity TEXT DEFAULT 'medium',
+    description TEXT,
+    created_by TEXT DEFAULT 'analyst',
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now')),
+    closed_at TEXT
+  );
+  CREATE TABLE IF NOT EXISTS case_articles (
+    case_id INTEGER NOT NULL,
+    article_id INTEGER NOT NULL,
+    added_at TEXT DEFAULT (datetime('now')),
+    PRIMARY KEY (case_id, article_id),
+    FOREIGN KEY (case_id) REFERENCES cases(id) ON DELETE CASCADE,
+    FOREIGN KEY (article_id) REFERENCES articles(id) ON DELETE CASCADE
+  );
+  CREATE TABLE IF NOT EXISTS case_notes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    case_id INTEGER NOT NULL,
+    author TEXT DEFAULT 'analyst',
+    note TEXT NOT NULL,
+    created_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (case_id) REFERENCES cases(id) ON DELETE CASCADE
+  );
+  CREATE INDEX IF NOT EXISTS idx_cases_status ON cases(status);
+  CREATE INDEX IF NOT EXISTS idx_case_articles_case ON case_articles(case_id);
+`);
+
+// AI intelligence brief cache (Gemini-generated summaries, 24h TTL)
+db.exec(`
+  CREATE TABLE IF NOT EXISTS ai_summaries (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    entity_type TEXT NOT NULL,
+    entity_id INTEGER NOT NULL,
+    summary_json TEXT NOT NULL,
+    generated_at TEXT DEFAULT (datetime('now')),
+    UNIQUE(entity_type, entity_id)
+  );
+  CREATE INDEX IF NOT EXISTS idx_ai_summaries_lookup ON ai_summaries(entity_type, entity_id);
+`);
+
+// Users table for authentication
+db.exec(`
+  CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT UNIQUE NOT NULL,
+    password_hash TEXT NOT NULL,
+    role TEXT DEFAULT 'viewer',
+    created_at TEXT DEFAULT (datetime('now')),
+    last_login TEXT
+  );
+`);
+
+// ── Malpedia enrichment columns ───────────────────────────────────────────────
+addColumn('malware_software', 'malpedia_slug', 'TEXT');
+addColumn('malware_software', 'malpedia_uuid', 'TEXT');
+addColumn('malware_software', 'malpedia_refs', 'TEXT');
+addColumn('malware_software', 'malpedia_attribution', 'TEXT');
+addColumn('threat_groups', 'malpedia_slug', 'TEXT');
+addColumn('threat_groups', 'malpedia_uuid', 'TEXT');
+addColumn('threat_groups', 'malpedia_refs', 'TEXT');
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS malpedia_sync_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    synced_at TEXT DEFAULT (datetime('now')),
+    families_fetched INTEGER,
+    actors_fetched INTEGER,
+    sw_matched INTEGER,
+    tg_matched INTEGER
+  )
+`);
+
+// ── abuse.ch SSL Blacklist cache ──────────────────────────────────────────────
+db.exec(`
+  CREATE TABLE IF NOT EXISTS ssl_blacklist (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    sha1 TEXT UNIQUE NOT NULL,
+    listing_date TEXT,
+    reason TEXT,
+    synced_at TEXT DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_ssl_sha1 ON ssl_blacklist(sha1);
+  CREATE TABLE IF NOT EXISTS ssl_sync_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    synced_at TEXT DEFAULT (datetime('now')),
+    count INTEGER
+  )
 `);
 
 module.exports = db;

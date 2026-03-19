@@ -24,8 +24,54 @@
     <% if (group.aliases && group.aliases.length > 0) { %>
       <p class="entity-aliases"><strong>Also known as:</strong> <%= group.aliases.join(', ') %></p>
     <% } %>
+    <% if (group.malpedia_slug) { %>
+      <p class="entity-aliases" style="margin-top:.4rem;display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;">
+        <a href="https://malpedia.caad.fkie.fraunhofer.de/details/<%= encodeURIComponent(group.malpedia_slug) %>" target="_blank" rel="noopener noreferrer" class="badge" style="background:rgba(99,102,241,.15);color:#818cf8;border:1px solid rgba(99,102,241,.3);text-decoration:none;font-size:.72rem;">Malpedia ↗</a>
+        <% try { var _refs = JSON.parse(group.malpedia_refs || '[]'); if (_refs.length) { %><span class="badge" style="font-size:.7rem;color:var(--text-muted);border:1px solid var(--border)"><%= _refs.length %> research refs</span><% } } catch(_e){} %>
+      </p>
+    <% } %>
   </div>
 </div>
+
+<!-- Watch This button -->
+<div style="margin:-1rem 0 1.25rem">
+  <button id="watch-btn" class="btn btn-sm" onclick="watchActor('<%= group.name.replace(/'/g, "\\'") %>')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px;display:inline;margin-right:.3rem"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+    Watch this Actor
+  </button>
+</div>
+
+<!-- AI Intelligence Brief -->
+<section class="activity-section">
+  <h2 style="display:flex;align-items:center;gap:.5rem">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px;color:var(--accent)"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2z"/><path d="M12 8v4l3 3"/></svg>
+    AI Intelligence Brief
+    <span id="ai-brief-badge" style="display:none;font-size:.65rem;font-weight:600;padding:.1rem .4rem;border-radius:4px;background:var(--bg-elevated);color:var(--text-muted);border:1px solid var(--border)">cached</span>
+  </h2>
+  <div id="ai-brief-card" class="ai-brief-card">
+    <div class="ai-brief-prompt"><button class="ai-brief-gen-btn" id="ai-brief-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;flex-shrink:0"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2z"/><path d="M12 8v4l3 3"/></svg> Additional Insights</button></div>
+  </div>
+</section>
+
+<!-- Relationship Graph -->
+<section class="activity-section">
+  <h2>Entity Relationships</h2>
+  <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:1rem;overflow:hidden">
+    <canvas id="rel-graph" style="width:100%;height:320px;display:block"></canvas>
+    <p style="font-size:.75rem;color:var(--text-muted);text-align:center;margin-top:.5rem">Co-occurrence relationships based on article mentions. Node size = frequency.</p>
+  </div>
+</section>
+
+<!-- Related YARA Rules -->
+<section class="activity-section" id="yara-section" style="display:none">
+  <h2 style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px;color:#22c55e"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>
+    Related YARA Rules
+    <span id="yara-count-badge" style="font-size:.65rem;font-weight:600;padding:.15rem .45rem;border-radius:4px;background:rgba(34,197,94,.1);color:#22c55e;border:1px solid rgba(34,197,94,.25)"></span>
+    <a id="yara-view-all" href="/yara-rules" style="margin-left:auto;font-size:.75rem;color:var(--text-muted);text-decoration:none">View all on YARA Rules page →</a>
+  </h2>
+  <div id="yara-results-wrap"></div>
+</section>
 
 <!-- 90-Day Activity Chart -->
 <section class="activity-section">
@@ -64,6 +110,12 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
 <script nonce="<%= nonce %>">
 (function() {
+  var aiBriefBtn = document.getElementById('ai-brief-btn');
+  if (aiBriefBtn) aiBriefBtn.addEventListener('click', function() { fetchAiBrief('threat-group', <%= group.id %>); });
+})();
+</script>
+<script nonce="<%= nonce %>">
+(function() {
   var days  = <%- JSON.stringify(dailyCounts.map(d => d.day.slice(5))) %>;
   var counts = <%- JSON.stringify(dailyCounts.map(d => d.count)) %>;
   var ctx = document.getElementById('activity-chart').getContext('2d');
@@ -90,6 +142,106 @@
       }
     }
   });
+})();
+</script>
+
+<script nonce="<%= nonce %>">
+// Relationship graph (vanilla canvas force simulation)
+(function() {
+  var canvas = document.getElementById('rel-graph');
+  if (!canvas) return;
+  var ctx = canvas.getContext('2d');
+  var W = canvas.offsetWidth; var H = 320;
+  canvas.width = W; canvas.height = H;
+
+  var nodes = [
+    { id: 0, label: '<%= group.name %>', type: 'actor', x: W/2, y: H/2, r: 18, color: '#ef4444', count: <%= total %> }
+  ];
+
+  <% if (typeof relatedMalware !== 'undefined') { relatedMalware.slice(0,6).forEach(function(m, i) { %>
+    nodes.push({ id: <%= i+1 %>, label: '<%= m.name.replace(/'/g, "\\'") %>', type: 'malware', x: W/2 + 120*Math.cos(2*Math.PI*<%= i %>/6), y: H/2 + 100*Math.sin(2*Math.PI*<%= i %>/6), r: 12, color: '#fbbf24', count: <%= m.count || 1 %> });
+  <% }); } %>
+
+  var edges = nodes.slice(1).map(function(n) { return { from: 0, to: n.id }; });
+
+  function draw() {
+    ctx.clearRect(0,0,W,H);
+    var isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+    // Draw edges
+    ctx.strokeStyle = isDark ? 'rgba(148,163,184,.25)' : 'rgba(71,85,105,.2)';
+    ctx.lineWidth = 1.5;
+    edges.forEach(function(e) {
+      var a = nodes[e.from]; var b = nodes[e.to];
+      ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+    });
+    // Draw nodes
+    nodes.forEach(function(n) {
+      ctx.beginPath(); ctx.arc(n.x, n.y, n.r, 0, 2*Math.PI);
+      ctx.fillStyle = n.color + '33'; ctx.fill();
+      ctx.strokeStyle = n.color; ctx.lineWidth = 2; ctx.stroke();
+      ctx.fillStyle = isDark ? '#f1f5f9' : '#1e293b';
+      ctx.font = 'bold 11px system-ui,sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText(n.label.length > 12 ? n.label.slice(0,12)+'…' : n.label, n.x, n.y + n.r + 13);
+    });
+  }
+  draw();
+  document.getElementById('theme-toggle') && document.getElementById('theme-toggle').addEventListener('click', function() { setTimeout(draw, 50); });
+})();
+
+// Watch actor
+function watchActor(name) {
+  var token = localStorage.getItem('fih_subscriber_token') || prompt('Enter your subscriber token:');
+  if (!token) return;
+  localStorage.setItem('fih_subscriber_token', token);
+  fetch('/api/watchlist', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ token: token, watch_type: 'actor', watch_value: name }) })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      var btn = document.getElementById('watch-btn');
+      if (d.ok) { btn.textContent = 'Watching!'; btn.style.color = '#22c55e'; }
+      else { btn.textContent = d.error || 'Failed'; }
+    });
+}
+</script>
+
+
+<script nonce="<%= nonce %>">
+(function() {
+  function esc(s) { var d = document.createElement('div'); d.textContent = String(s || ''); return d.innerHTML; }
+  var name = <%- JSON.stringify(group.name) %>;
+  fetch('/api/yara-rules?q=' + encodeURIComponent(name))
+    .then(function(r) { return r.json(); })
+    .then(function(json) {
+      var results = json.results || [];
+      if (!results.length) return;
+      document.getElementById('yara-section').style.display = '';
+      document.getElementById('yara-count-badge').textContent = results.length + ' sample' + (results.length !== 1 ? 's' : '');
+      document.getElementById('yara-view-all').href = '/yara-rules?q=' + encodeURIComponent(name);
+      var html = '';
+      results.slice(0, 3).forEach(function(s) {
+        html += '<div style="padding:.75rem;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:.6rem">';
+        html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:.4rem;margin-bottom:.4rem">';
+        html += '<div><strong style="font-size:.88rem">' + esc(s.signature || s.sha256) + '</strong></div>';
+        if (s.first_seen) html += '<span style="font-size:.73rem;color:var(--text-muted)">' + esc(s.first_seen) + '</span>';
+        html += '</div>';
+        html += '<div style="font-family:var(--font-mono);font-size:.7rem;color:var(--text-muted);margin-bottom:.35rem;word-break:break-all">' + esc(s.sha256) + '</div>';
+        if (s.tags && s.tags.length) {
+          s.tags.slice(0, 6).forEach(function(t) { html += '<span class="ioc-tag">' + esc(t) + '</span> '; });
+        }
+        if (s.yara_rules && s.yara_rules.length) {
+          html += '<div style="margin-top:.5rem;font-size:.78rem;color:var(--text-muted)">';
+          html += s.yara_rules.length + ' YARA rule' + (s.yara_rules.length !== 1 ? 's' : '') + ': ';
+          html += s.yara_rules.slice(0, 3).map(function(yr) { return '<code style="font-size:.73rem">' + esc(yr.name) + '</code>'; }).join(', ');
+          if (s.yara_rules.length > 3) html += ' +' + (s.yara_rules.length - 3) + ' more';
+          html += '</div>';
+        }
+        html += '</div>';
+      });
+      if (results.length > 3) {
+        html += '<a href="/yara-rules?q=' + encodeURIComponent(name) + '" style="font-size:.8rem;color:var(--accent);text-decoration:none">View all ' + results.length + ' results →</a>';
+      }
+      document.getElementById('yara-results-wrap').innerHTML = html;
+    })
+    .catch(function() {});
 })();
 </script>
 

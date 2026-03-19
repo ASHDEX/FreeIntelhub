@@ -1,59 +1,132 @@
 const https = require('https');
 
 let cache = { cves: [], fetchedAt: 0 };
+let tickerCache = { cves: [], fetchedAt: 0 };
 const CACHE_TTL = 30 * 60 * 1000; // 30 minutes
 
-function fetchFromNVD() {
-  return new Promise((resolve, reject) => {
-    const url = 'https://services.nvd.nist.gov/rest/json/cves/2.0?resultsPerPage=30&startIndex=0';
-    const req = https.get(url, { headers: { 'User-Agent': 'FreeIntelHub/1.0' } }, (res) => {
-      let data = '';
-      res.on('data', (chunk) => { data += chunk; });
-      res.on('end', () => {
-        try {
-          const json = JSON.parse(data);
-          const cves = (json.vulnerabilities || []).map((v) => {
-            const cve = v.cve || {};
-            const id = cve.id || '';
-            const desc = (cve.descriptions || []).find(d => d.lang === 'en');
-            const description = desc ? desc.value : '';
-            const refs = (cve.references || []).slice(0, 1);
-            const link = refs.length > 0 ? refs[0].url : `https://nvd.nist.gov/vuln/detail/${id}`;
-            // Get CVSS score if available
-            const metrics = cve.metrics || {};
-            let severity = '';
-            if (metrics.cvssMetricV31 && metrics.cvssMetricV31.length) {
-              severity = (metrics.cvssMetricV31[0].cvssData && metrics.cvssMetricV31[0].cvssData.baseSeverity) || '';
-            } else if (metrics.cvssMetricV2 && metrics.cvssMetricV2.length) {
-              severity = (metrics.cvssMetricV2[0].cvssData && metrics.cvssMetricV2[0].cvssData.baseSeverity) || metrics.cvssMetricV2[0].baseSeverity || '';
-            }
-            return { id, description: description.slice(0, 120), link, severity };
-          });
-          resolve(cves);
-        } catch (e) {
-          reject(e);
-        }
-      });
-    });
-    req.on('error', reject);
-    req.setTimeout(10000, () => { req.destroy(); reject(new Error('NVD timeout')); });
+/** Parse a raw NVD vulnerability array into our common shape */
+function parseNVDVulns(vulnerabilities) {
+  return vulnerabilities.map((v) => {
+    const cve = v.cve || {};
+    const id = cve.id || '';
+    const desc = (cve.descriptions || []).find(d => d.lang === 'en');
+    const description = desc ? desc.value : '';
+    const allRefs = cve.references || [];
+    const link = allRefs.length > 0 ? allRefs[0].url : `https://nvd.nist.gov/vuln/detail/${id}`;
+
+    const metrics = cve.metrics || {};
+    let severity = '', score = null, attackComplexity = null;
+    const cvss31 = metrics.cvssMetricV31 && metrics.cvssMetricV31.length && metrics.cvssMetricV31[0].cvssData;
+    const cvss2  = metrics.cvssMetricV2  && metrics.cvssMetricV2.length  && metrics.cvssMetricV2[0].cvssData;
+    if (cvss31) {
+      severity         = cvss31.baseSeverity || '';
+      score            = cvss31.baseScore || null;
+      attackComplexity = (cvss31.attackComplexity || '').toUpperCase() || null;
+    } else if (cvss2) {
+      severity         = cvss2.baseSeverity || metrics.cvssMetricV2[0].baseSeverity || '';
+      score            = cvss2.baseScore || null;
+      attackComplexity = (cvss2.accessComplexity || '').toUpperCase() || null;
+    }
+
+    const hasPoc   = allRefs.some(r => (r.tags || []).some(t => /exploit|poc|proof.of.concept/i.test(t)));
+    const hasPatch = allRefs.some(r => (r.tags || []).some(t => /patch|vendor.advisory|mitigation/i.test(t)));
+    const published = cve.published || null;
+
+    return { id, description: description.slice(0, 120), link, severity, score, attackComplexity, hasPoc, hasPatch, published };
   });
 }
 
+const pad = n => String(n).padStart(2, '0');
+
+/** Format a Date as the NVD API date-time string (colons must NOT be encoded) */
+function nvdDateFmt(d) {
+  return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}T00:00:00.000`;
+}
+
+function nvdGet(url) {
+  return new Promise((resolve, reject) => {
+    const req = https.get(url, { headers: { 'User-Agent': 'FreeIntelHub/1.0' } }, (res) => {
+      const chunks = [];
+      res.on('data', (chunk) => chunks.push(chunk));
+      res.on('end', () => {
+        const raw = Buffer.concat(chunks).toString('utf8');
+        if (!raw || raw.trim() === '') return reject(new Error('NVD empty response'));
+        try { resolve(JSON.parse(raw)); }
+        catch (e) { reject(new Error(`NVD JSON parse failed (status ${res.statusCode}): ${e.message}`)); }
+      });
+    });
+    req.on('error', reject);
+    req.setTimeout(20000, () => { req.destroy(); reject(new Error('NVD timeout')); });
+  });
+}
+
+/**
+ * Fetch CVEs published in the last `days` days, sorted newest-first.
+ *
+ * Why pubStartDate + pubEndDate together:
+ *   NVD API v2 requires both params when filtering by publish date.
+ *   Without them, NVD's default page is sorted oldest-first (1988 era CVEs).
+ *
+ * Why resultsPerPage=2000:
+ *   NVD returns results oldest-first within the date window. To get the
+ *   NEWEST CVEs we must fetch ALL results in the window, then sort DESC.
+ *   7 days ≈ 1200 CVEs, 14 days ≈ 2500 CVEs (split into 2 pages).
+ *   We cap at 7 days / 2000 results to stay in one request.
+ */
+async function fetchByPubDate(days) {
+  const now = new Date();
+  const since = new Date(now - days * 24 * 60 * 60 * 1000);
+  const url = `https://services.nvd.nist.gov/rest/json/cves/2.0` +
+    `?pubStartDate=${nvdDateFmt(since)}&pubEndDate=${nvdDateFmt(now)}` +
+    `&resultsPerPage=2000&startIndex=0`;
+  const json = await nvdGet(url);
+  const cves = parseNVDVulns(json.vulnerabilities || []);
+  // NVD returns oldest-first within the window — re-sort to newest-first
+  cves.sort((a, b) => new Date(b.published || 0) - new Date(a.published || 0));
+  return cves;
+}
+
+/**
+ * Fetch recent CVEs for CVE Priority page (last 7 days, up to 100 results).
+ */
+async function fetchFromNVD() {
+  const cves = await fetchByPubDate(7);
+  return cves.slice(0, 100);
+}
+
+/**
+ * Fetch recent CVEs for homepage ticker (last 7 days, up to 40 results).
+ */
+async function fetchRecentPublished() {
+  const cves = await fetchByPubDate(7);
+  return cves.slice(0, 40);
+}
+
+/** Cached — for CVE Priority page */
 async function getLatestCVEs() {
   const now = Date.now();
-  if (cache.cves.length > 0 && (now - cache.fetchedAt) < CACHE_TTL) {
-    return cache.cves;
-  }
+  if (cache.cves.length > 0 && (now - cache.fetchedAt) < CACHE_TTL) return cache.cves;
   try {
     const cves = await fetchFromNVD();
-    if (cves.length > 0) {
-      cache = { cves, fetchedAt: now };
-    }
+    if (cves.length > 0) cache = { cves, fetchedAt: now };
     return cves;
   } catch (err) {
-    console.error('CVE fetch error:', err.message);
-    return cache.cves; // return stale cache on error
+    console.error('[CVE] Priority fetch error:', err.message);
+    return cache.cves;
+  }
+}
+
+/** Cached — for homepage ticker */
+async function getTickerCVEs() {
+  const now = Date.now();
+  if (tickerCache.cves.length > 0 && (now - tickerCache.fetchedAt) < CACHE_TTL) return tickerCache.cves;
+  try {
+    const cves = await fetchRecentPublished();
+    if (cves.length > 0) { tickerCache = { cves, fetchedAt: now }; return cves; }
+    return tickerCache.cves; // stale cache on empty result
+  } catch (err) {
+    console.error('[CVE] Ticker fetch error:', err.message);
+    return tickerCache.cves; // serve stale on error, never fall back to 1988 CVEs
   }
 }
 
@@ -359,4 +432,4 @@ async function fullCVELookup(cveId) {
   return result;
 }
 
-module.exports = { getLatestCVEs, lookupCVE, fullCVELookup, CVE_ID_REGEX };
+module.exports = { getLatestCVEs, getTickerCVEs, lookupCVE, fullCVELookup, CVE_ID_REGEX };

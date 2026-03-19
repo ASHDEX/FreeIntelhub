@@ -3,11 +3,81 @@
 <div class="page-header">
   <h1>Search Results</h1>
   <% if (query) { %>
-    <p>Results for "<strong><%= query %></strong>" &mdash; <%= articles.length + (typeof cveLookup !== 'undefined' && cveLookup ? 1 : 0) %> found</p>
+    <p>
+      Results for "<strong><%= query %></strong>" &mdash; <%= articles.length %> found
+      <% if (typeof usedFTS !== 'undefined' && usedFTS) { %>
+        <span class="badge badge-category" style="font-size:.7rem;margin-left:.4rem" title="Full-text search with stemming and relevance ranking">FTS</span>
+      <% } %>
+    </p>
+  <% } else if (typeof filters !== 'undefined' && (filters.dateFrom || filters.dateTo || filters.sector || filters.source || filters.tlp || filters.highRiskOnly)) { %>
+    <p><%= articles.length %> articles match the active filters</p>
   <% } else { %>
-    <p>Enter a search term above.</p>
+    <p>Enter a search term above or use the filters below. Supports boolean operators: <code>APT29 AND ransomware</code>, <code>"LockBit" NOT "ESXi"</code></p>
   <% } %>
 </div>
+
+<!-- Advanced Filters -->
+<details class="search-filters" <%= (typeof filters !== 'undefined' && (filters.dateFrom || filters.dateTo || filters.sector || filters.source || filters.tlp || filters.highRiskOnly)) ? 'open' : '' %>>
+  <summary style="cursor:pointer;padding:.6rem .8rem;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);font-size:.85rem;font-weight:600;list-style:none;display:flex;align-items:center;gap:.5rem;margin-bottom:.75rem">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+    Advanced Filters
+    <% if (typeof filters !== 'undefined' && (filters.dateFrom || filters.dateTo || filters.sector || filters.source || filters.tlp || filters.highRiskOnly)) { %>
+      <span class="badge badge-risk badge-risk-medium" style="font-size:.7rem">Active</span>
+    <% } %>
+  </summary>
+  <form method="GET" action="/search" class="filter-panel" style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:1rem;margin-bottom:1.25rem;display:grid;gap:.75rem">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem">
+      <div>
+        <label for="filter-datefrom" style="font-size:.78rem;color:var(--text-muted);display:block;margin-bottom:.25rem">From Date</label>
+        <input type="date" id="filter-datefrom" name="dateFrom" value="<%= typeof filters !== 'undefined' ? filters.dateFrom : '' %>" style="width:100%;background:var(--bg-elevated);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:.4rem .6rem;font-size:.83rem;box-sizing:border-box">
+      </div>
+      <div>
+        <label for="filter-dateto" style="font-size:.78rem;color:var(--text-muted);display:block;margin-bottom:.25rem">To Date</label>
+        <input type="date" id="filter-dateto" name="dateTo" value="<%= typeof filters !== 'undefined' ? filters.dateTo : '' %>" style="width:100%;background:var(--bg-elevated);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:.4rem .6rem;font-size:.83rem;box-sizing:border-box">
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.75rem">
+      <div>
+        <label for="filter-sector" style="font-size:.78rem;color:var(--text-muted);display:block;margin-bottom:.25rem">Sector</label>
+        <select id="filter-sector" name="sector" style="width:100%;background:var(--bg-elevated);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:.4rem .6rem;font-size:.83rem">
+          <option value="">All Sectors</option>
+          <% if (typeof allSectors !== 'undefined') { allSectors.forEach(function(s) { %>
+            <option value="<%= s %>" <%= (typeof filters !== 'undefined' && filters.sector === s) ? 'selected' : '' %>><%= s %></option>
+          <% }); } %>
+        </select>
+      </div>
+      <div>
+        <label for="filter-source" style="font-size:.78rem;color:var(--text-muted);display:block;margin-bottom:.25rem">Source</label>
+        <select id="filter-source" name="source" style="width:100%;background:var(--bg-elevated);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:.4rem .6rem;font-size:.83rem">
+          <option value="">All Sources</option>
+          <% if (typeof allSources !== 'undefined') { allSources.forEach(function(s) { %>
+            <option value="<%= s %>" <%= (typeof filters !== 'undefined' && filters.source === s) ? 'selected' : '' %>><%= s %></option>
+          <% }); } %>
+        </select>
+      </div>
+      <div>
+        <label for="filter-tlp" style="font-size:.78rem;color:var(--text-muted);display:block;margin-bottom:.25rem">TLP Level</label>
+        <select id="filter-tlp" name="tlp" style="width:100%;background:var(--bg-elevated);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:.4rem .6rem;font-size:.83rem">
+          <option value="">All TLP</option>
+          <% ['WHITE','GREEN','AMBER','RED'].forEach(function(t) { %>
+            <option value="<%= t %>" <%= (typeof filters !== 'undefined' && filters.tlp === t) ? 'selected' : '' %>>TLP:<%= t %></option>
+          <% }); %>
+        </select>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap">
+      <label style="font-size:.78rem;color:var(--text-muted);display:flex;align-items:center;gap:.35rem;cursor:pointer">
+        <input type="checkbox" name="highRisk" value="1" <%= (typeof filters !== 'undefined' && filters.highRiskOnly) ? 'checked' : '' %> style="accent-color:var(--accent)">
+        High-risk only
+      </label>
+      <div style="display:flex;gap:.4rem;margin-left:auto">
+        <input type="hidden" name="q" value="<%= query || '' %>">
+        <button type="submit" class="btn btn-primary btn-sm">Apply</button>
+        <a href="/search<%= query ? '?q=' + encodeURIComponent(query) : '' %>" class="btn btn-sm">Clear</a>
+      </div>
+    </div>
+  </form>
+</details>
 
 <% if (typeof cveLookup !== 'undefined' && cveLookup) { %>
   <div class="cve-lookup-card">

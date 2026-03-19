@@ -525,4 +525,142 @@ function lookupThreatIntel(cveId) {
   };
 }
 
-module.exports = { lookupThreatIntel, SECTORS };
+// ─── Live API Lookups ────────────────────────────────────────────────────────
+
+const https = require('https');
+
+function httpsGet(url, headers) {
+  return new Promise((resolve, reject) => {
+    const opts = new URL(url);
+    const reqHeaders = { 'Accept': 'application/json', ...(headers || {}) };
+    const req = https.get({ hostname: opts.hostname, path: opts.pathname + (opts.search || ''), headers: reqHeaders }, (res) => {
+      let data = '';
+      res.on('data', chunk => { data += chunk; });
+      res.on('end', () => {
+        try { resolve({ status: res.statusCode, body: JSON.parse(data) }); }
+        catch (_) { resolve({ status: res.statusCode, body: data }); }
+      });
+    });
+    req.setTimeout(8000, () => { req.destroy(); reject(new Error('Request timed out')); });
+    req.on('error', reject);
+  });
+}
+
+/**
+ * Look up an IP address via AbuseIPDB
+ * @param {string} ip
+ */
+async function lookupIP(ip) {
+  const key = process.env.ABUSEIPDB_KEY;
+  if (!key) {
+    return { ip, error: 'AbuseIPDB key not configured (set ABUSEIPDB_KEY in .env)' };
+  }
+  const url = `https://api.abuseipdb.com/api/v2/check?ipAddress=${encodeURIComponent(ip)}&maxAgeInDays=90&verbose`;
+  const resp = await httpsGet(url, { Key: key });
+  if (resp.status !== 200 || !resp.body || !resp.body.data) {
+    throw new Error('AbuseIPDB lookup failed');
+  }
+  const d = resp.body.data;
+  return {
+    ip:               d.ipAddress,
+    isPublic:         d.isPublic,
+    isWhitelisted:    d.isWhitelisted,
+    abuseScore:       d.abuseConfidenceScore,
+    country:          d.countryCode,
+    usageType:        d.usageType,
+    isp:              d.isp,
+    domain:           d.domain,
+    totalReports:     d.totalReports,
+    numDistinctUsers: d.numDistinctUsers,
+    lastReportedAt:   d.lastReportedAt ? new Date(d.lastReportedAt).toLocaleDateString() : null,
+  };
+}
+
+/**
+ * Look up a domain — returns registration/WHOIS-style data via RDAP
+ * @param {string} domain
+ */
+async function lookupDomain(domain) {
+  // Use RDAP (Registration Data Access Protocol) — free, no key required
+  const tld = domain.split('.').pop();
+  const rdapUrl = `https://rdap.org/domain/${encodeURIComponent(domain)}`;
+  try {
+    const resp = await httpsGet(rdapUrl, { 'User-Agent': 'FreeIntelHub/1.0' });
+    if (resp.status !== 200 || !resp.body) {
+      return { domain, note: 'RDAP data not available for this domain' };
+    }
+    const d = resp.body;
+    // Parse RDAP response
+    const getEvent = (type) => {
+      const ev = (d.events || []).find(e => e.eventAction === type);
+      return ev ? new Date(ev.eventDate).toLocaleDateString() : null;
+    };
+    const getEntity = (role) => {
+      const ent = (d.entities || []).find(e => (e.roles || []).includes(role));
+      if (!ent) return null;
+      const vcard = ent.vcardArray && ent.vcardArray[1];
+      if (!vcard) return ent.handle || null;
+      const fnField = vcard.find(f => f[0] === 'fn');
+      return fnField ? fnField[3] : ent.handle;
+    };
+    const ns = (d.nameservers || []).map(ns => ns.ldhName).filter(Boolean);
+    const statusArr = Array.isArray(d.status) ? d.status : [];
+    return {
+      domain,
+      registrar:    getEntity('registrar'),
+      createdDate:  getEvent('registration'),
+      updatedDate:  getEvent('last changed'),
+      expiresDate:  getEvent('expiration'),
+      status:       statusArr.slice(0, 3).join(', ') || null,
+      nameServers:  ns.slice(0, 4),
+      country:      null,
+      note:         'Data via RDAP (public registry)',
+    };
+  } catch (_) {
+    return { domain, note: 'Domain registration data unavailable' };
+  }
+}
+
+/**
+ * Look up a file hash via VirusTotal API v3
+ * @param {string} hash MD5/SHA1/SHA256
+ */
+async function lookupHash(hash) {
+  const key = process.env.VIRUSTOTAL_API_KEY;
+  if (!key) {
+    return { hash, error: 'VirusTotal API key not configured (set VIRUSTOTAL_API_KEY in .env)' };
+  }
+  const url = `https://www.virustotal.com/api/v3/files/${encodeURIComponent(hash)}`;
+  const resp = await httpsGet(url, { 'x-apikey': key });
+  if (resp.status === 404) {
+    return { hash, malicious: 0, total: 0, error: 'Hash not found in VirusTotal database' };
+  }
+  if (resp.status !== 200 || !resp.body || !resp.body.data) {
+    throw new Error('VirusTotal lookup failed');
+  }
+  const attrs = resp.body.data.attributes || {};
+  const stats = attrs.last_analysis_stats || {};
+  const malicious = (stats.malicious || 0) + (stats.suspicious || 0);
+  const total = Object.values(stats).reduce((s, v) => s + v, 0);
+  // Find most common threat name
+  const results = attrs.last_analysis_results || {};
+  const names = Object.values(results)
+    .filter(r => r.category === 'malicious' && r.result)
+    .map(r => r.result);
+  const nameFreq = {};
+  names.forEach(n => { nameFreq[n] = (nameFreq[n] || 0) + 1; });
+  const threatName = Object.entries(nameFreq).sort((a, b) => b[1] - a[1])[0];
+  return {
+    hash,
+    malicious,
+    total,
+    name:         (attrs.meaningful_name || attrs.names?.[0]) || null,
+    type:         attrs.type_description || null,
+    size:         attrs.size || null,
+    firstSeen:    attrs.first_submission_date ? new Date(attrs.first_submission_date * 1000).toLocaleDateString() : null,
+    lastAnalysis: attrs.last_analysis_date ? new Date(attrs.last_analysis_date * 1000).toLocaleDateString() : null,
+    threatName:   threatName ? threatName[0] : null,
+  };
+}
+
+module.exports = { lookupThreatIntel, SECTORS, lookupIP, lookupDomain, lookupHash };

@@ -1,0 +1,81 @@
+<%- include('partials/head', { pageTitle: 'API Keys' }) %>
+
+<div class="page-header">
+  <h1>API Key Management</h1>
+  <p>Generate API keys for programmatic access to the FreeIntelHub API. Rate limit: 1,000 requests/day per key.</p>
+</div>
+
+<% if (typeof newKey !== 'undefined' && newKey) { %>
+  <div style="margin-bottom:1.5rem;padding:1.25rem;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);border-radius:var(--radius)">
+    <strong style="color:#22c55e">New API Key Generated</strong>
+    <p style="font-size:.83rem;margin:.5rem 0;color:var(--text-muted)"><%= message %></p>
+    <div style="display:flex;align-items:center;gap:.5rem;margin-top:.75rem">
+      <code style="flex:1;background:var(--bg-elevated);border:1px solid var(--border);padding:.5rem .75rem;border-radius:6px;font-family:var(--font-mono);font-size:.82rem;word-break:break-all;color:var(--accent)"><%= newKey %></code>
+      <button onclick="navigator.clipboard.writeText('<%= newKey %>');this.textContent='Copied!'" class="btn btn-sm btn-primary">Copy</button>
+    </div>
+  </div>
+<% } %>
+
+<% if (!token) { %>
+  <div class="dash-widget" style="max-width:480px;margin:0 auto">
+    <div class="dash-widget-header"><span class="dash-widget-title">Enter Subscriber Token</span></div>
+    <form method="GET" action="/api-keys" style="display:flex;gap:.5rem;margin-top:.5rem">
+      <input type="text" name="token" placeholder="Your subscriber token..." style="flex:1;background:var(--bg-elevated);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:.5rem .75rem;font-size:.9rem">
+      <button type="submit" class="btn btn-primary">View Keys</button>
+    </form>
+    <p style="font-size:.78rem;color:var(--text-muted);margin-top:.75rem">Find your token on the <a href="/alerts" style="color:var(--accent)">Alerts</a> page.</p>
+  </div>
+<% } else { %>
+
+<div style="display:grid;grid-template-columns:1fr 320px;gap:1.5rem;align-items:start">
+  <!-- Existing keys -->
+  <div class="dash-widget">
+    <div class="dash-widget-header">
+      <span class="dash-widget-title">Your API Keys (<%= keys.length %>)</span>
+    </div>
+    <% if (keys.length === 0) { %>
+      <p style="color:var(--text-muted);font-size:.83rem;padding:.5rem 0">No API keys yet. Create one using the form.</p>
+    <% } else { %>
+      <div style="display:grid;gap:.6rem;margin-top:.5rem">
+        <% keys.forEach(function(k) { %>
+          <div style="display:flex;align-items:center;gap:.75rem;padding:.75rem;background:var(--bg-elevated);border:1px solid var(--border);border-radius:8px">
+            <div style="flex:1">
+              <div style="font-weight:600;font-size:.88rem;margin-bottom:.25rem"><%= k.name %></div>
+              <code style="font-size:.78rem;color:var(--text-muted);font-family:var(--font-mono)"><%= k.key_prefix %></code>
+              <div style="font-size:.72rem;color:var(--text-muted);margin-top:.2rem">
+                <%= k.requests_today %> requests today &middot; Created <%= new Date(k.created_at).toLocaleDateString() %>
+              </div>
+            </div>
+            <form method="POST" action="/api-keys/delete" onsubmit="return confirm('Delete this API key?')">
+              <input type="hidden" name="token" value="<%= token %>">
+              <input type="hidden" name="id" value="<%= k.id %>">
+              <button type="submit" class="btn btn-sm" style="background:rgba(239,68,68,.1);color:#ef4444;border-color:rgba(239,68,68,.25)">Delete</button>
+            </form>
+          </div>
+        <% }); %>
+      </div>
+    <% } %>
+
+    <div style="margin-top:1.25rem;padding:1rem;background:var(--bg-elevated);border:1px solid var(--border);border-radius:8px;font-size:.8rem;color:var(--text-muted)">
+      <strong style="color:var(--text)">Usage:</strong> Include your key in API requests:
+      <code style="display:block;margin-top:.4rem;font-family:var(--font-mono);font-size:.75rem;color:var(--accent)">curl -H "X-API-Key: fih_..." /api/articles</code>
+    </div>
+  </div>
+
+  <!-- Create key form -->
+  <div class="dash-widget">
+    <div class="dash-widget-header"><span class="dash-widget-title">Create New Key</span></div>
+    <form method="POST" action="/api-keys" style="display:grid;gap:.75rem;margin-top:.5rem">
+      <input type="hidden" name="token" value="<%= token %>">
+      <div>
+        <label style="font-size:.8rem;color:var(--text-muted);display:block;margin-bottom:.3rem">Key Name *</label>
+        <input type="text" name="name" required placeholder="e.g. SIEM Integration, Script" style="width:100%;background:var(--bg-elevated);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:.5rem .75rem;font-size:.85rem;box-sizing:border-box">
+      </div>
+      <button type="submit" class="btn btn-primary">Generate Key</button>
+    </form>
+  </div>
+</div>
+
+<% } %>
+
+<%- include('partials/footer') %>

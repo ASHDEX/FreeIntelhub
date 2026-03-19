@@ -1,0 +1,112 @@
+<%- include('partials/head') %>
+
+<section class="lookup-hero">
+  <h1>YARA Rules</h1>
+  <p>Search MalwareBazaar for YARA detection rules by malware family or tag</p>
+</section>
+
+<div class="lookup-panel active" style="max-width:860px;margin:0 auto">
+  <div class="lookup-input-wrap">
+    <input type="text" id="yara-input" placeholder="e.g. LockBit, Emotet, ransomware, stealer..." autocomplete="off" autocorrect="off" spellcheck="false">
+    <button class="lookup-btn" id="yara-search-btn">Search</button>
+  </div>
+  <div id="yara-result">
+    <div class="lookup-placeholder">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:block;margin:0 auto .75rem;width:2rem;height:2rem"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>
+      Enter a malware family name or tag to search YARA rules from MalwareBazaar.
+    </div>
+  </div>
+</div>
+
+<script nonce="<%= nonce %>">
+(function() {
+  function esc(s) { var d = document.createElement('div'); d.textContent = String(s || ''); return d.innerHTML; }
+
+  function doYaraSearch() {
+    var q = document.getElementById('yara-input').value.trim();
+    if (!q) return;
+    var r = document.getElementById('yara-result');
+    r.innerHTML = '<div class="lookup-loading"><span class="suggestion-spinner"></span> Searching MalwareBazaar...</div>';
+
+    fetch('/api/yara-rules?q=' + encodeURIComponent(q))
+      .then(function(res) { return res.json(); })
+      .then(function(json) {
+        if (json.error) {
+          r.innerHTML = '<div class="lookup-error">' + esc(json.error) + '</div>';
+          return;
+        }
+        var results = json.results || [];
+        if (!results.length) {
+          r.innerHTML = '<div class="lookup-placeholder">No YARA rules found for <strong>' + esc(q) + '</strong>. Try a different malware name or tag.</div>';
+          return;
+        }
+
+        var html = '<div style="font-size:.8rem;color:var(--text-muted);margin-bottom:1rem">' + results.length + ' sample' + (results.length !== 1 ? 's' : '') + ' found</div>';
+
+        results.forEach(function(s) {
+          html += '<div class="lookup-result-card" style="margin-bottom:1rem">';
+
+          // Header row
+          html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:.5rem;margin-bottom:.75rem">';
+          html += '<div>';
+          if (s.signature) html += '<div style="font-weight:600;font-size:.95rem">' + esc(s.signature) + '</div>';
+          html += '<div style="font-family:var(--font-mono);font-size:.72rem;color:var(--text-muted);margin-top:.2rem">' + esc(s.sha256) + '</div>';
+          html += '</div>';
+          if (s.first_seen) html += '<div style="font-size:.75rem;color:var(--text-muted);white-space:nowrap">' + esc(s.first_seen) + '</div>';
+          html += '</div>';
+
+          // Metadata row
+          html += '<div class="lookup-result-grid" style="margin-bottom:.5rem">';
+          if (s.file_name) html += '<div class="lookup-kv"><span class="lookup-kv-key">File Name</span><span class="lookup-kv-val">' + esc(s.file_name) + '</span></div>';
+          if (s.file_type) html += '<div class="lookup-kv"><span class="lookup-kv-key">File Type</span><span class="lookup-kv-val">' + esc(s.file_type) + '</span></div>';
+          if (s.file_size) html += '<div class="lookup-kv"><span class="lookup-kv-key">File Size</span><span class="lookup-kv-val">' + esc(s.file_size) + ' bytes</span></div>';
+          html += '</div>';
+
+          // Tags
+          if (s.tags && s.tags.length) {
+            html += '<div style="margin-bottom:.6rem">';
+            s.tags.forEach(function(t) { html += '<span class="ioc-tag">' + esc(t) + '</span> '; });
+            html += '</div>';
+          }
+
+          // YARA Rules
+          if (s.yara_rules && s.yara_rules.length) {
+            html += '<details style="margin-top:.5rem">';
+            html += '<summary style="cursor:pointer;font-size:.82rem;font-weight:600;color:var(--accent);user-select:none">YARA Rules (' + s.yara_rules.length + ')</summary>';
+            html += '<div style="margin-top:.5rem">';
+            s.yara_rules.forEach(function(yr) {
+              html += '<div style="padding:.5rem .6rem;background:var(--bg-elevated);border-radius:6px;margin-bottom:.35rem;font-size:.8rem">';
+              html += '<div style="font-weight:600;font-family:var(--font-mono)">' + esc(yr.name) + '</div>';
+              if (yr.author) html += '<div style="color:var(--text-muted);margin-top:.1rem">Author: ' + esc(yr.author) + '</div>';
+              if (yr.description) html += '<div style="color:var(--text-secondary);margin-top:.2rem">' + esc(yr.description) + '</div>';
+              html += '</div>';
+            });
+            html += '</div></details>';
+          } else {
+            html += '<div style="font-size:.78rem;color:var(--text-muted)">No YARA rules attached to this sample.</div>';
+          }
+
+          html += '</div>';
+        });
+
+        r.innerHTML = html;
+      })
+      .catch(function() {
+        r.innerHTML = '<div class="lookup-error">Search failed. Ensure ABUSECH_API_KEY is configured.</div>';
+      });
+  }
+
+  document.getElementById('yara-search-btn').addEventListener('click', doYaraSearch);
+  document.getElementById('yara-input').addEventListener('keydown', function(e) { if (e.key === 'Enter') doYaraSearch(); });
+
+  // Auto-run from URL param
+  var params = new URLSearchParams(window.location.search);
+  var q = params.get('q');
+  if (q) {
+    document.getElementById('yara-input').value = q;
+    doYaraSearch();
+  }
+})();
+</script>
+
+<%- include('partials/footer') %>

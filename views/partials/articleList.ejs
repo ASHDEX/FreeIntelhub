@@ -14,6 +14,23 @@
             : new Date(a.published_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
           var isNew = ageMs < 6 * 60 * 60 * 1000;
         %>
+        <%
+          // Risk score: computed from available article fields
+          var _mitre = [];
+          if (a.mitre_techniques) { try { _mitre = JSON.parse(a.mitre_techniques); } catch(e) {} }
+          var _iocData = null;
+          if (a.iocs) { try { _iocData = JSON.parse(a.iocs); } catch(e) {} }
+          var _iocTotal = 0;
+          if (_iocData) { Object.keys(_iocData).forEach(function(k) { if (Array.isArray(_iocData[k])) _iocTotal += _iocData[k].length; }); }
+          var _riskScore = 0;
+          if (_iocTotal > 0) _riskScore += 20;
+          _riskScore += Math.min(_mitre.length * 10, 30);
+          if (/CVE-\d{4}-\d+/i.test(a.title || '')) _riskScore += 15;
+          if (['Ransomware','Data Breach','Vulnerability','Exploit'].indexOf(a.category) !== -1) _riskScore += 15;
+          _riskScore = Math.min(_riskScore, 100);
+          var _riskLabel = _riskScore >= 75 ? 'Critical' : _riskScore >= 50 ? 'High' : _riskScore >= 25 ? 'Medium' : 'Low';
+          var _riskCls   = _riskScore >= 75 ? 'badge-risk-critical' : _riskScore >= 50 ? 'badge-risk-high' : _riskScore >= 25 ? 'badge-risk-medium' : 'badge-risk-low';
+        %>
         <div class="article-meta">
           <span class="badge badge-source"><%= a.source %></span>
           <% if (a.category) { %><span class="badge badge-category"><%= a.category %></span><% } %>
@@ -29,41 +46,57 @@
             } else if (a.vendor) { %>
               <a href="/vendor/<%= encodeURIComponent(a.vendor) %>" class="badge badge-vendor"><%= a.vendor %></a>
           <% } %>
+          <% if (_riskScore >= 25) { %><span class="badge badge-risk <%= _riskCls %>"><%= _riskLabel %></span><% } %>
           <% if (isNew) { %><span class="badge-new">NEW</span><% } %>
+          <% var tlpVal = a.tlp || 'WHITE'; %>
+          <span class="badge-tlp badge-tlp-<%= tlpVal.toLowerCase() %>" title="Traffic Light Protocol: TLP:<%= tlpVal %>">TLP:<%= tlpVal %></span>
           <time datetime="<%= a.published_at || '' %>" title="<%= a.published_at ? new Date(a.published_at).toLocaleString() : '' %>"><%= a.published_at ? relTime : '' %></time>
         </div>
         <h3><a href="<%= safeHref(a.link) %>" target="_blank" rel="noopener noreferrer"><%= a.title %><svg class="ext-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a></h3>
         <% if (a.summary) { %><p class="summary"><%= a.summary %></p><% } %>
-        <%
-          var mitreList = [];
-          if (a.mitre_techniques) {
-            try { mitreList = JSON.parse(a.mitre_techniques); } catch(e) {}
-          }
-          var iocData = null;
-          if (a.iocs) {
-            try { iocData = JSON.parse(a.iocs); } catch(e) {}
-          }
-          var iocTotal = 0;
-          if (iocData) {
-            Object.keys(iocData).forEach(function(k) {
-              if (Array.isArray(iocData[k])) iocTotal += iocData[k].length;
-            });
-          }
-        %>
-        <% if (mitreList.length > 0 || iocTotal > 0) { %>
+        <% if (_mitre.length > 0 || _iocTotal > 0) { %>
           <div class="article-indicators">
-            <% mitreList.slice(0, 3).forEach(function(m) { %>
+            <% _mitre.slice(0, 3).forEach(function(m) { %>
               <a href="/mitre?technique=<%= encodeURIComponent(m.id) %>" class="badge badge-mitre" title="<%= m.name %> (<%= m.tactic %>)"><%= m.id %></a>
             <% }); %>
-            <% if (mitreList.length > 3) { %>
-              <span class="badge badge-mitre-more">+<%= mitreList.length - 3 %></span>
+            <% if (_mitre.length > 3) { %>
+              <span class="badge badge-mitre-more">+<%= _mitre.length - 3 %></span>
             <% } %>
-            <% if (iocTotal > 0) { %>
-              <a href="/iocs" class="badge badge-ioc"><%= iocTotal %> IOC<%= iocTotal > 1 ? 's' : '' %></a>
+            <% if (_iocTotal > 0) { %>
+              <a href="/iocs" class="badge badge-ioc"><%= _iocTotal %> IOC<%= _iocTotal > 1 ? 's' : '' %></a>
             <% } %>
           </div>
         <% } %>
-        <p class="read-more"><a href="<%= safeHref(a.link) %>" target="_blank" rel="noopener noreferrer"><%= a.source %> &rarr;</a></p>
+        <div class="article-footer">
+          <p class="read-more"><a href="<%= safeHref(a.link) %>" target="_blank" rel="noopener noreferrer"><%= a.source %> &rarr;</a></p>
+          <div class="article-actions">
+            <button class="note-toggle-btn" data-article="<%= a.id %>" title="Add analyst note" aria-label="Add note">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+              Note
+            </button>
+            <div class="case-add-wrap" style="position:relative">
+              <button class="case-add-btn" data-article="<%= a.id %>" title="Add to investigation case" aria-label="Add to case">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><line x1="12" y1="11" x2="12" y2="17"/><line x1="9" y1="14" x2="15" y2="14"/></svg>
+                Case
+              </button>
+              <div class="case-dropdown" id="case-drop-<%= a.id %>" style="display:none"></div>
+            </div>
+          </div>
+        </div>
+        <div class="note-panel" id="note-panel-<%= a.id %>" style="display:none">
+          <div class="note-form">
+            <select class="note-tag-sel" style="background:var(--bg-elevated);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:.3rem .5rem;font-size:.78rem">
+              <option value="note">Note</option>
+              <option value="confirmed">Confirmed</option>
+              <option value="false-positive">False Positive</option>
+              <option value="under-investigation">Investigating</option>
+              <option value="archived">Archived</option>
+            </select>
+            <input type="text" class="note-text-inp" placeholder="Add analyst note..." style="flex:1;background:var(--bg-elevated);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:.3rem .6rem;font-size:.78rem">
+            <button class="note-save-btn btn btn-sm btn-primary" data-article="<%= a.id %>">Save</button>
+          </div>
+          <div class="note-list" id="note-list-<%= a.id %>"></div>
+        </div>
       </article>
     <% }); %>
   </div>

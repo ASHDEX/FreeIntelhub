@@ -33,9 +33,9 @@ const MSW_TYPE_MAP = {
 const MSW_PATTERNS = [
   // "[Name] RAT" — uppercase-only suffix, separate pattern
   { re: /\b([A-Z][a-zA-Z0-9]+(?:[\-.][A-Z][a-zA-Z0-9]+)*)\s+RAT\b/g, type: 'rat' },
-  // "[Name] <keyword>" — title-case name, lowercase keyword
+  // "[Name] <keyword>" — title-case name ONLY (no 'i' flag so [A-Z] enforces capital lead)
   ...Object.entries(MSW_TYPE_MAP).map(([kw, type]) => ({
-    re: new RegExp(`\\b([A-Z][a-zA-Z0-9]+(?:[\\-.][A-Z][a-zA-Z0-9]+)*)\\s+${kw}\\b`, 'gi'),
+    re: new RegExp(`\\b([A-Z][a-zA-Z0-9]+(?:[\\-.][A-Z][a-zA-Z0-9]+)*)\\s+${kw}\\b`, 'g'),
     type,
   })),
 ];
@@ -56,13 +56,50 @@ const TG_STOP = new Set([
 ]);
 
 const MSW_STOP = new Set([
-  'new', 'the', 'this', 'that', 'some', 'any', 'all', 'custom', 'unknown',
-  'advanced', 'critical', 'major', 'latest', 'recent', 'common', 'popular',
-  'dangerous', 'sophisticated', 'targeted', 'novel', 'zero', 'multiple',
-  'chinese', 'russian', 'iranian', 'north', 'windows', 'linux', 'android',
-  'mobile', 'banking', 'financial', 'corporate', 'industrial', 'open',
-  'source', 'free', 'commercial', 'legitimate', 'modified', 'healthcare',
-  'government', 'federal', 'suspected', 'potential',
+  // Articles & determiners
+  'a', 'an', 'the', 'this', 'that', 'these', 'those', 'such',
+  // Conjunctions
+  'and', 'or', 'but', 'nor', 'so', 'yet', 'for', 'both', 'either', 'neither',
+  'whether', 'although', 'because', 'since', 'unless', 'until', 'while',
+  // Prepositions
+  'in', 'on', 'at', 'by', 'to', 'of', 'up', 'via', 'with', 'from',
+  'into', 'onto', 'over', 'under', 'after', 'before', 'behind', 'between',
+  'through', 'during', 'about', 'against', 'among', 'around', 'below',
+  'beside', 'beyond', 'except', 'inside', 'outside', 'toward', 'within', 'without',
+  // Pronouns
+  'it', 'its', 'they', 'their', 'them', 'we', 'our', 'you', 'your',
+  'he', 'she', 'his', 'her', 'who', 'which', 'what', 'when', 'where',
+  // Quantifiers / indefinites
+  'some', 'any', 'all', 'each', 'every', 'few', 'more', 'most', 'other',
+  'another', 'same', 'both', 'several', 'many', 'much', 'less',
+  'only', 'just', 'even', 'also', 'very', 'well', 'still', 'too',
+  // Common adjectives
+  'new', 'old', 'big', 'small', 'large', 'high', 'low', 'long', 'short',
+  'fast', 'slow', 'hard', 'easy', 'full', 'dark', 'light', 'hot', 'cold',
+  'true', 'false', 'real', 'live', 'dead', 'good', 'bad', 'best', 'worse',
+  'first', 'last', 'next', 'main', 'public', 'private', 'local', 'remote',
+  // Common verbs
+  'use', 'get', 'set', 'run', 'put', 'let', 'try', 'say', 'see', 'ask',
+  'add', 'end', 'fix', 'hit', 'cut', 'pay', 'win', 'sit', 'stay', 'play',
+  'move', 'pull', 'push', 'send', 'read', 'write', 'call', 'keep', 'make',
+  'take', 'give', 'find', 'show', 'help', 'stop', 'start', 'check', 'allow',
+  'block', 'drop', 'open', 'close', 'load', 'save', 'scan', 'search',
+  'build', 'create', 'delete', 'enable', 'disable', 'install', 'update',
+  // CTI-domain generic terms
+  'custom', 'unknown', 'advanced', 'critical', 'major', 'latest', 'recent',
+  'common', 'popular', 'dangerous', 'sophisticated', 'targeted', 'novel',
+  'zero', 'multiple', 'suspected', 'potential', 'known', 'hidden',
+  'payload', 'exploit', 'attack', 'script', 'code', 'file', 'data', 'tool',
+  'service', 'system', 'network', 'server', 'client', 'host', 'user', 'admin',
+  'base', 'core', 'manager', 'module', 'plugin', 'agent', 'driver', 'process',
+  // Nationalities / geography
+  'north', 'south', 'east', 'west', 'chinese', 'russian', 'iranian', 'korean',
+  'american', 'global', 'national', 'federal', 'government', 'healthcare',
+  // Platforms / modifiers
+  'windows', 'linux', 'android', 'mobile', 'banking', 'financial', 'corporate',
+  'industrial', 'open', 'source', 'free', 'commercial', 'legitimate', 'modified',
+  // Misc high-FP words
+  'security', 'research', 'intelligence', 'criminal', 'hacktivist',
 ]);
 
 // ── In-memory alias cache ─────────────────────────────────────────────────────
@@ -198,6 +235,24 @@ function seedEntities() {
   console.log(`[Entities] Seeded ${tgData.length} threat groups, ${mswData.length} software, ${campData.length} campaigns.`);
 }
 
+// ── Structural validator for Phase-2 auto-detected software names ─────────────
+//
+// Real malware/tool names have at least one technical signal:
+//   • CamelCase internal uppercase  → LockBit, SmokeLoader, DarkGate, WannaCry
+//   • A digit                       → Gh0st, X509, TrickBot2
+//   • A hyphen or dot               → X-Agent, Poison.Ivy, AsyncRAT-ng
+//
+// Plain single-case English words ("Advanced", "Microsoft", "Critical")
+// have none of these and are rejected as false positives.
+// Phase 1 (alias matching) still catches known names like "Mirai" or "Ryuk"
+// because they are seeded from MITRE/Malpedia before reaching Phase 2.
+//
+function looksLikeSoftwareName(name) {
+  return /[a-z][A-Z]/.test(name)  // camelCase: LockBit, SmokeLoader, DarkGate
+      || /\d/.test(name)           // digit:     Gh0st, X509, NjRAT2
+      || /[-.]/.test(name);        // separator: X-Agent, Poison.Ivy
+}
+
 // ── Core extraction ───────────────────────────────────────────────────────────
 
 function extractEntities(text) {
@@ -228,9 +283,13 @@ function extractEntities(text) {
       if (TG_STOP.has(name.toLowerCase())) continue;
       const lc = name.toLowerCase();
       if (tgMap.has(lc)) { tgIds.add(tgMap.get(lc).id); continue; }
-      stmts.upsertTG.run(name);
-      const row = stmts.getTG.get(name);
-      if (row) { tgIds.add(row.id); cacheInvalidated = true; }
+      const tgInfo = stmts.upsertTG.run(name);
+      if (tgInfo.changes > 0) {
+        tgIds.add(tgInfo.lastInsertRowid); cacheInvalidated = true;
+      } else {
+        const row = stmts.getTG.get(name);
+        if (row) tgIds.add(row.id);
+      }
     }
   }
 
@@ -240,13 +299,19 @@ function extractEntities(text) {
     let m;
     while ((m = re.exec(text)) !== null) {
       const name = m[1].trim();
-      if (name.length < 3) continue;
+      if (name.length < 4) continue;
       if (MSW_STOP.has(name.toLowerCase())) continue;
       const lc = name.toLowerCase();
       if (mswMap.has(lc)) { mswIds.add(mswMap.get(lc).id); continue; }
-      stmts.upsertMSW.run(name, type);
-      const row = stmts.getMSW.get(name);
-      if (row) { mswIds.add(row.id); cacheInvalidated = true; }
+      // Phase-2 gate: only auto-create if name has a technical structure signal
+      if (!looksLikeSoftwareName(name)) continue;
+      const mswInfo = stmts.upsertMSW.run(name, type);
+      if (mswInfo.changes > 0) {
+        mswIds.add(mswInfo.lastInsertRowid); cacheInvalidated = true;
+      } else {
+        const row = stmts.getMSW.get(name);
+        if (row) mswIds.add(row.id);
+      }
     }
   }
 
@@ -259,9 +324,13 @@ function extractEntities(text) {
       if (name.length < 12) continue; // "Operation X" is too short
       const lc = name.toLowerCase();
       if (campMap.has(lc)) { campIds.add(campMap.get(lc).id); continue; }
-      stmts.upsertCamp.run(name);
-      const row = stmts.getCamp.get(name);
-      if (row) { campIds.add(row.id); cacheInvalidated = true; }
+      const campInfo = stmts.upsertCamp.run(name);
+      if (campInfo.changes > 0) {
+        campIds.add(campInfo.lastInsertRowid); cacheInvalidated = true;
+      } else {
+        const row = stmts.getCamp.get(name);
+        if (row) campIds.add(row.id);
+      }
     }
   }
 

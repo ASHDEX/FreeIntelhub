@@ -4,6 +4,7 @@ const path = require('path');
 const crypto = require('crypto');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
+const session = (() => { try { return require('express-session'); } catch (_) { return null; } })();
 const routes = require('./routes');
 const { fetchAllFeeds } = require('./services/rssFetcher');
 const { startNewsletterCron } = require('./services/newsletter');
@@ -51,7 +52,7 @@ app.use(helmet({
     directives: {
       defaultSrc: ["'self'"],
       scriptSrc: ["'self'", (req, res) => `'nonce-${res.locals.nonce}'`, "https://cdn.jsdelivr.net"],
-      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      styleSrc: ["'self'", "'unsafe-hashes'", "https://fonts.googleapis.com"],
       imgSrc: ["'self'", "data:"],
       connectSrc: ["'self'"],
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
@@ -71,7 +72,10 @@ app.use(express.json({ limit: '50kb' }));
 app.use(express.urlencoded({ extended: false, limit: '50kb' }));
 
 // Static files
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'public'), {
+  maxAge: '1d',
+  etag: true,
+}));
 
 // CSRF protection: verify Origin/Referer on state-changing requests
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
@@ -111,6 +115,24 @@ app.use(rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
 }));
+
+// Session middleware — applied globally before routes (VULN-17)
+if (session) {
+  if (!process.env.SESSION_SECRET) {
+    console.warn('[SECURITY] SESSION_SECRET not set — sessions will not persist across restarts');
+  }
+  app.use(session({
+    secret: process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex'),
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      secure: process.env.FORCE_HTTPS === 'true',
+      sameSite: 'lax',
+      httpOnly: true,
+      maxAge: 24 * 3600 * 1000,
+    },
+  }));
+}
 
 // Routes
 app.use('/', routes);
