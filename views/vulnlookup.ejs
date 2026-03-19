@@ -63,6 +63,7 @@
   <!-- ===== 2. EPSS Score Card ===== -->
   <div id="vuln-epss-card" class="vuln-card vuln-epss-card" style="display:none;"></div>
 
+
   <!-- ===== 3. CVSS Breakdown ===== -->
   <div id="vuln-cvss-breakdown" class="vuln-card" style="display:none;"></div>
 
@@ -227,12 +228,19 @@
           var sevBadge = c.severity
             ? '<span class="vuln-severity-badge vuln-recent-sev ' + sevClass + '">' + escHtml(c.severity) + '</span>'
             : '';
+          var pubDate = c.published
+            ? new Date(c.published).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+            : '';
+          var pubEl = pubDate
+            ? '<span class="vuln-recent-card-date">' + pubDate + '</span>'
+            : '';
           return '<div class="vuln-recent-card" data-cve="' + escHtml(c.id) + '">'
             + '<div class="vuln-recent-card-top">'
             + '<span class="vuln-recent-card-id">' + escHtml(c.id) + '</span>'
             + sevBadge
             + '</div>'
             + '<p class="vuln-recent-card-desc">' + escHtml(c.description || 'No description available.') + '</p>'
+            + '<div class="vuln-recent-card-footer">' + pubEl + '</div>'
             + '</div>';
         }).join('');
         document.getElementById('vuln-recent-grid').innerHTML = html;
@@ -518,6 +526,7 @@
     } else {
       epssCard.style.display = 'none';
     }
+
 
     // ===== CVSS Vector Breakdown =====
     var cvssEl = document.getElementById('vuln-cvss-breakdown');

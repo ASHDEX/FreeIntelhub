@@ -1,0 +1,72 @@
+<%- include('partials/head', { pageTitle: 'Manage Sources' }) %>
+
+<div class="page-header">
+  <h1>Manage Custom Sources</h1>
+  <p>Add your own RSS feeds. Custom sources are processed alongside built-in feeds.</p>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 340px;gap:1.5rem;align-items:start">
+
+  <!-- Existing custom feeds -->
+  <div class="dash-widget">
+    <div class="dash-widget-header">
+      <span class="dash-widget-title">Custom Feeds (<%= feeds.length %>)</span>
+      <a href="/sources" class="dash-widget-link">Built-in sources &rarr;</a>
+    </div>
+    <% if (feeds.length === 0) { %>
+      <p style="color:var(--text-muted);font-size:.83rem;padding:.5rem 0">No custom feeds yet. Add one using the form.</p>
+    <% } else { %>
+      <div style="display:grid;gap:.6rem;margin-top:.5rem">
+        <% feeds.forEach(function(f) { %>
+          <div style="display:grid;grid-template-columns:1fr auto;align-items:start;gap:.75rem;padding:.75rem;background:var(--bg-elevated);border:1px solid var(--border);border-radius:8px">
+            <div>
+              <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.25rem">
+                <strong style="font-size:.88rem"><%= f.name %></strong>
+                <% if (!f.enabled) { %><span class="badge" style="font-size:.68rem;opacity:.6">Disabled</span><% } %>
+                <% if (f.category) { %><span class="badge badge-category" style="font-size:.68rem"><%= f.category %></span><% } %>
+              </div>
+              <a href="<%= safeHref(f.url) %>" target="_blank" rel="noopener noreferrer" style="font-size:.75rem;color:var(--text-muted);word-break:break-all"><%= f.url %></a>
+            </div>
+            <div style="display:flex;gap:.35rem;flex-shrink:0">
+              <form method="POST" action="/sources/manage/toggle" style="display:inline">
+                <input type="hidden" name="id" value="<%= f.id %>">
+                <button type="submit" class="btn btn-sm" title="<%= f.enabled ? 'Disable' : 'Enable' %>">
+                  <%= f.enabled ? 'Pause' : 'Resume' %>
+                </button>
+              </form>
+              <form method="POST" action="/sources/manage/delete" style="display:inline" onsubmit="return confirm('Delete this feed?')">
+                <input type="hidden" name="id" value="<%= f.id %>">
+                <button type="submit" class="btn btn-sm" style="background:rgba(239,68,68,.1);color:#ef4444;border-color:rgba(239,68,68,.25)">Delete</button>
+              </form>
+            </div>
+          </div>
+        <% }); %>
+      </div>
+    <% } %>
+  </div>
+
+  <!-- Add feed form -->
+  <div class="dash-widget">
+    <div class="dash-widget-header"><span class="dash-widget-title">Add Custom Feed</span></div>
+    <form method="POST" action="/sources/manage" style="display:grid;gap:.75rem;margin-top:.5rem">
+      <div>
+        <label style="font-size:.8rem;color:var(--text-muted);display:block;margin-bottom:.3rem">Feed Name *</label>
+        <input type="text" name="name" required placeholder="e.g. My Company Blog" style="width:100%;background:var(--bg-elevated);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:.5rem .75rem;font-size:.85rem;box-sizing:border-box">
+      </div>
+      <div>
+        <label style="font-size:.8rem;color:var(--text-muted);display:block;margin-bottom:.3rem">RSS URL *</label>
+        <input type="url" name="url" required placeholder="https://example.com/feed.xml" style="width:100%;background:var(--bg-elevated);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:.5rem .75rem;font-size:.85rem;box-sizing:border-box">
+      </div>
+      <div>
+        <label style="font-size:.8rem;color:var(--text-muted);display:block;margin-bottom:.3rem">Category (optional)</label>
+        <input type="text" name="category" placeholder="e.g. Threat Intel, News" style="width:100%;background:var(--bg-elevated);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:.5rem .75rem;font-size:.85rem;box-sizing:border-box">
+      </div>
+      <button type="submit" class="btn btn-primary">Add Feed</button>
+    </form>
+    <p style="font-size:.75rem;color:var(--text-muted);margin-top:1rem">
+      Note: New feeds will be fetched on the next scheduled run. Ensure the URL points directly to an RSS/Atom XML feed.
+    </p>
+  </div>
+</div>
+
+<%- include('partials/footer') %>

@@ -65,7 +65,7 @@
     <h2>Latest News</h2>
   </div>
   <%- include('partials/articleList', { articles }) %>
-  <%- include('partials/pagination', { page: newsPage, pages: newsPages, baseUrl: '/?section=news' }) %>
+  <%- include('partials/pagination', { page: newsPage, pages: newsPages, baseUrl: '/feed?section=news' }) %>
 </section>
 
 <section>
@@ -73,7 +73,7 @@
     <h2>Data Breaches</h2>
   </div>
   <%- include('partials/articleList', { articles: breachArticles }) %>
-  <%- include('partials/pagination', { page: breachPage, pages: breachPages, baseUrl: '/?section=breaches' }) %>
+  <%- include('partials/pagination', { page: breachPage, pages: breachPages, baseUrl: '/feed?section=breaches' }) %>
 </section>
 
 <%- include('partials/footer') %>

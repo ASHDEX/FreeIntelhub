@@ -1,0 +1,118 @@
+<%- include('partials/head', { pageTitle: 'Geographic Threat Map' }) %>
+
+<div class="geomap-header">
+  <div class="geomap-header-left">
+    <h1>Geographic Threat Map</h1>
+    <p class="geomap-header-sub">Threat actor activity by country of origin &mdash; last <%= days %> days.</p>
+  </div>
+  <div class="geomap-time-btns">
+    <a href="/geomap?days=7"  class="geomap-time-btn <%= days===7  ? 'active' : '' %>">7d</a>
+    <a href="/geomap?days=30" class="geomap-time-btn <%= days===30 ? 'active' : '' %>">30d</a>
+    <a href="/geomap?days=90" class="geomap-time-btn <%= days===90 ? 'active' : '' %>">90d</a>
+  </div>
+</div>
+
+<% if (countryData.length === 0) { %>
+  <div class="geomap-empty">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+    <p>No country data yet. Ensure threat groups have country fields populated in MITRE ATT&amp;CK data.</p>
+  </div>
+<% } else { %>
+
+<%
+  var maxCount = countryData[0] ? countryData[0].article_count : 1;
+  var top3 = countryData.slice(0, 3);
+  var rest = countryData.slice(3);
+%>
+
+<!-- Top 3 podium cards -->
+<% if (top3.length > 0) { %>
+<div class="geomap-podium">
+  <% top3.forEach(function(c, i) { %>
+    <%
+      var rank = i + 1;
+      var actorNames = c.actors ? c.actors.split(',') : [];
+    %>
+    <div class="geomap-podium-card rank-<%= rank %>">
+      <div class="geomap-rank-badge rank-badge-<%= rank %>">#<%= rank %></div>
+      <p class="geomap-country-name"><%= c.country %></p>
+      <span class="geomap-article-count"><%= c.article_count %></span>
+      <span class="geomap-actor-count"><%= c.actor_count %> threat actor<%= c.actor_count !== 1 ? 's' : '' %> &middot; articles</span>
+      <% if (actorNames.length > 0) { %>
+        <div class="geomap-actors-list">
+          <% actorNames.slice(0,4).forEach(function(name) { %>
+            <a href="/threat-group/<%= encodeURIComponent(name.trim()) %>" class="geomap-actor-chip"><%= name.trim() %></a>
+          <% }); %>
+          <% if (actorNames.length > 4) { %>
+            <span class="geo-card-more">+<%= actorNames.length - 4 %> more</span>
+          <% } %>
+        </div>
+      <% } %>
+    </div>
+  <% }); %>
+</div>
+<% } %>
+
+<!-- Full rankings table -->
+<div class="geomap-table-card">
+  <div class="geomap-table-header">
+    <span class="geomap-table-title">Activity Rankings</span>
+    <span class="geomap-table-count"><%= countryData.length %> countries</span>
+  </div>
+  <% countryData.forEach(function(c, i) { %>
+    <%
+      var rank = i + 1;
+      var barPct = Math.round((c.article_count / maxCount) * 100);
+      var actorList = c.actors ? c.actors.split(',').slice(0,3).map(a=>a.trim()).join(', ') + (c.actors.split(',').length > 3 ? '…' : '') : '';
+      var fillClass = rank === 1 ? 'gr-bar-fill-1' : rank === 2 ? 'gr-bar-fill-2' : 'gr-bar-fill-n';
+      var rankClass = rank <= 3 ? 'gr-rank-' + rank : '';
+    %>
+    <div class="geomap-rank-row">
+      <span class="gr-rank <%= rankClass %>"><%= rank %></span>
+      <span class="gr-country"><%= c.country %></span>
+      <div class="gr-bar-wrap">
+        <div class="gr-bar-track">
+          <div class="gr-bar-fill <%= fillClass %>" style="width:<%= barPct %>%"></div>
+        </div>
+        <% if (actorList) { %><span class="gr-actors-hint"><%= actorList %></span><% } %>
+      </div>
+      <div>
+        <div class="gr-count"><%= c.article_count %></div>
+        <div class="gr-actor-cnt"><%= c.actor_count %> actor<%= c.actor_count !== 1 ? 's' : '' %></div>
+      </div>
+    </div>
+  <% }); %>
+</div>
+
+<!-- Country cards grid -->
+<% if (countryData.length > 0) { %>
+<div class="geomap-cards-section">
+  <p class="geomap-cards-label">All Countries</p>
+  <div class="geomap-cards">
+    <% countryData.forEach(function(c) { %>
+      <%
+        var actorNames = c.actors ? c.actors.split(',') : [];
+      %>
+      <div class="geo-card">
+        <div class="geo-card-header">
+          <span class="geo-card-country"><%= c.country %></span>
+          <span class="geo-card-count"><%= c.article_count %> articles</span>
+        </div>
+        <p class="geo-card-actors-label"><%= c.actor_count %> threat actor<%= c.actor_count !== 1 ? 's' : '' %></p>
+        <div class="geo-card-chips">
+          <% actorNames.slice(0, 4).forEach(function(name) { %>
+            <a href="/threat-group/<%= encodeURIComponent(name.trim()) %>" class="geomap-actor-chip"><%= name.trim() %></a>
+          <% }); %>
+          <% if (actorNames.length > 4) { %>
+            <span class="geo-card-more">+<%= actorNames.length - 4 %> more</span>
+          <% } %>
+        </div>
+      </div>
+    <% }); %>
+  </div>
+</div>
+<% } %>
+
+<% } %>
+
+<%- include('partials/footer') %>

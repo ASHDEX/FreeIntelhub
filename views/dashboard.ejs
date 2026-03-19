@@ -1,0 +1,337 @@
+<%- include('partials/head') %>
+
+<%
+  // Compute risk distribution from highRiskArticles + estimate
+  var critCount = highRiskArticles.filter(function(a){ return a.riskScore >= 75; }).length;
+  var highCount = highRiskArticles.filter(function(a){ return a.riskScore >= 50 && a.riskScore < 75; }).length;
+  var medCount  = highRiskArticles.filter(function(a){ return a.riskScore >= 25 && a.riskScore < 50; }).length;
+  var totalRisk = highRiskArticles.length || 1;
+  var critPct   = Math.round((critCount / totalRisk) * 100);
+  var highPct   = Math.round((highCount / totalRisk) * 100);
+  var medPct    = Math.round((medCount  / totalRisk) * 100);
+  var lowPct    = Math.max(0, 100 - critPct - highPct - medPct);
+
+  // Feed health pct
+  var _healthy  = feedHealth ? feedHealth.healthy || 0 : 0;
+  var _total    = feedHealth ? feedHealth.total   || 0 : 0;
+  var _hPct     = _total > 0 ? Math.round((_healthy / _total) * 100) : 100;
+
+  // CVE count from latestCves
+  var cveCount  = latestCves ? latestCves.length : 0;
+%>
+
+<!-- Page header -->
+<div class="dash-page-header">
+  <div>
+    <h1 class="dash-page-title">
+      Threat Intelligence Dashboard
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;opacity:.4;display:inline;vertical-align:middle;margin-left:6px"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+    </h1>
+    <p class="dash-page-sub">Real-time overview · Last updated: <span id="dash-ts"></span></p>
+  </div>
+</div>
+<script nonce="<%= nonce %>">document.getElementById('dash-ts').textContent = new Date().toLocaleTimeString();</script>
+
+<!-- ── 6 Metric Cards ── -->
+<div class="iw-metric-row">
+
+  <div class="iw-metric-card">
+    <div class="iw-metric-top">
+      <span class="iw-metric-label">Total Intel</span>
+      <div class="iw-metric-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      </div>
+    </div>
+    <div class="iw-metric-value"><%= totalCount.toLocaleString() %></div>
+    <div class="iw-metric-sub">All ingested items</div>
+  </div>
+
+  <div class="iw-metric-card">
+    <div class="iw-metric-top">
+      <span class="iw-metric-label">Last 24 Hours</span>
+      <div class="iw-metric-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      </div>
+    </div>
+    <div class="iw-metric-value"><%= articles24h.toLocaleString() %></div>
+    <div class="iw-metric-sub">New items today</div>
+  </div>
+
+  <div class="iw-metric-card">
+    <div class="iw-metric-top">
+      <span class="iw-metric-label">Avg Risk Score</span>
+      <div class="iw-metric-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+      </div>
+    </div>
+    <%
+      var avgRisk = highRiskArticles.length > 0
+        ? Math.round(highRiskArticles.reduce(function(s,a){return s+a.riskScore;},0) / highRiskArticles.length)
+        : 0;
+      var riskColor = avgRisk >= 75 ? '#ef4444' : avgRisk >= 50 ? '#f97316' : avgRisk >= 25 ? '#fbbf24' : '#22c55e';
+    %>
+    <div class="iw-metric-value" style="color:<%= riskColor %>"><%= avgRisk %></div>
+    <div class="iw-metric-sub">Across all intel</div>
+  </div>
+
+  <div class="iw-metric-card">
+    <div class="iw-metric-top">
+      <span class="iw-metric-label">CVEs in Feed</span>
+      <div class="iw-metric-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      </div>
+    </div>
+    <div class="iw-metric-value" style="color:#f97316"><%= cveCount %></div>
+    <div class="iw-metric-sub">Known exploited vulns</div>
+  </div>
+
+  <div class="iw-metric-card">
+    <div class="iw-metric-top">
+      <span class="iw-metric-label">Threat Actors</span>
+      <div class="iw-metric-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      </div>
+    </div>
+    <div class="iw-metric-value"><%= threatGroups7d %></div>
+    <div class="iw-metric-sub">Active this week</div>
+  </div>
+
+  <div class="iw-metric-card">
+    <div class="iw-metric-top">
+      <span class="iw-metric-label">Feed Health</span>
+      <div class="iw-metric-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+      </div>
+    </div>
+    <div class="iw-metric-value" style="color:<%= _hPct >= 80 ? '#22c55e' : _hPct >= 50 ? '#fbbf24' : '#ef4444' %>"><%= _hPct %>%</div>
+    <div class="iw-metric-sub"><%= _healthy %>/<%= _total %> sources healthy</div>
+  </div>
+
+</div>
+
+<!-- ── Threat Level Distribution Bar ── -->
+<div class="iw-dist-card">
+  <div class="iw-dist-header">
+    <span class="iw-dist-title">Threat Level Distribution</span>
+    <span style="font-size:.72rem;color:var(--text-muted)"><%= highRiskArticles.length %> high-risk articles analysed</span>
+  </div>
+  <div class="iw-dist-bar">
+    <% if (critPct > 0) { %>
+    <div class="iw-dist-seg iw-seg-critical" style="width:<%= critPct %>%">
+      <% if (critPct >= 8) { %><span><%= critPct %>%</span><small>Critical</small><% } %>
+    </div>
+    <% } %>
+    <% if (highPct > 0) { %>
+    <div class="iw-dist-seg iw-seg-high" style="width:<%= highPct %>%">
+      <% if (highPct >= 8) { %><span><%= highPct %>%</span><small>High</small><% } %>
+    </div>
+    <% } %>
+    <% if (medPct > 0) { %>
+    <div class="iw-dist-seg iw-seg-medium" style="width:<%= medPct %>%">
+      <% if (medPct >= 8) { %><span><%= medPct %>%</span><small>Medium</small><% } %>
+    </div>
+    <% } %>
+    <% if (lowPct > 0) { %>
+    <div class="iw-dist-seg iw-seg-low" style="width:<%= lowPct %>%">
+      <% if (lowPct >= 8) { %><span><%= lowPct %>%</span><small>Low</small><% } %>
+    </div>
+    <% } %>
+  </div>
+  <div class="iw-dist-legend">
+    <span><span class="iw-leg-dot" style="background:#ef4444"></span>Critical: <%= critCount %></span>
+    <span><span class="iw-leg-dot" style="background:#f97316"></span>High: <%= highCount %></span>
+    <span><span class="iw-leg-dot" style="background:#fbbf24"></span>Medium: <%= medCount %></span>
+    <span><span class="iw-leg-dot" style="background:#22c55e"></span>Low: <%= highRiskArticles.length - critCount - highCount - medCount %></span>
+  </div>
+</div>
+
+<!-- ── Two Donut Charts ── -->
+<div class="iw-charts-row">
+
+  <!-- Severity Breakdown -->
+  <div class="iw-chart-card">
+    <div class="iw-chart-header">
+      <span class="iw-chart-title">Severity Breakdown</span>
+      <a href="/iocs" class="iw-chart-link">View IOCs →</a>
+    </div>
+    <div class="iw-donut-wrap">
+      <canvas id="severity-chart" width="200" height="200"></canvas>
+      <div class="iw-donut-center">
+        <span class="iw-donut-num"><%= highRiskArticles.length %></span>
+        <span class="iw-donut-lbl">TOTAL</span>
+      </div>
+    </div>
+    <div class="iw-chart-legend">
+      <div class="iw-leg-row"><span class="iw-leg-dot" style="background:#ef4444"></span><span>Critical</span><span class="iw-leg-count"><%= critCount %></span></div>
+      <div class="iw-leg-row"><span class="iw-leg-dot" style="background:#f97316"></span><span>High</span><span class="iw-leg-count"><%= highCount %></span></div>
+      <div class="iw-leg-row"><span class="iw-leg-dot" style="background:#fbbf24"></span><span>Medium</span><span class="iw-leg-count"><%= medCount %></span></div>
+      <div class="iw-leg-row"><span class="iw-leg-dot" style="background:#22c55e"></span><span>Low</span><span class="iw-leg-count"><%= highRiskArticles.length - critCount - highCount - medCount %></span></div>
+    </div>
+  </div>
+
+  <!-- Intel by Category -->
+  <div class="iw-chart-card">
+    <div class="iw-chart-header">
+      <span class="iw-chart-title">Intel by Category</span>
+      <a href="/categories" class="iw-chart-link">All categories →</a>
+    </div>
+    <div class="iw-donut-wrap">
+      <canvas id="category-chart" width="200" height="200"></canvas>
+      <div class="iw-donut-center">
+        <span class="iw-donut-num"><%= categoryDist.length %></span>
+        <span class="iw-donut-lbl">TYPES</span>
+      </div>
+    </div>
+    <div class="iw-chart-legend">
+      <% var catColors = ['#22d3ee','#f97316','#a78bfa','#f05252','#20d07a','#fbbf24','#60a5fa','#e879f9']; %>
+      <% categoryDist.slice(0,6).forEach(function(c,i) { %>
+      <div class="iw-leg-row">
+        <span class="iw-leg-dot" style="background:<%= catColors[i] || '#888' %>"></span>
+        <span><%= c.category %></span>
+        <span class="iw-leg-count"><%= c.count.toLocaleString() %></span>
+      </div>
+      <% }); %>
+    </div>
+  </div>
+
+</div>
+
+<!-- ── Bottom row: High-Risk Articles + Latest CVEs ── -->
+<div class="iw-bottom-row">
+
+  <!-- High-Risk Articles -->
+  <div class="iw-table-card">
+    <div class="iw-table-header">
+      <span class="iw-chart-title">High-Risk Articles</span>
+      <a href="/iocs" class="iw-chart-link">IOC feed →</a>
+    </div>
+    <% if (highRiskArticles.length > 0) { %>
+    <div class="iw-article-list">
+      <% highRiskArticles.slice(0,6).forEach(function(a) { %>
+      <%
+        var _rs = a.riskScore >= 75 ? 'Critical' : a.riskScore >= 50 ? 'High' : 'Medium';
+        var _rc = a.riskScore >= 75 ? '#ef4444' : a.riskScore >= 50 ? '#f97316' : '#fbbf24';
+        var _rcbg = a.riskScore >= 75 ? 'rgba(239,68,68,.12)' : a.riskScore >= 50 ? 'rgba(249,115,22,.12)' : 'rgba(251,191,36,.12)';
+        var _ageMs = a.published_at ? (Date.now() - new Date(a.published_at).getTime()) : Infinity;
+        var _ageMins = Math.floor(_ageMs / 60000);
+        var _rel = _ageMins < 60 ? _ageMins + 'm ago' : _ageMins < 1440 ? Math.floor(_ageMins/60) + 'h ago' : Math.floor(_ageMins/1440) + 'd ago';
+      %>
+      <div class="iw-article-row">
+        <span class="iw-risk-badge" style="background:<%= _rcbg %>;color:<%= _rc %>"><%= _rs %></span>
+        <a href="<%= safeHref(a.link) %>" target="_blank" rel="noopener noreferrer" class="iw-article-title"><%= a.title %></a>
+        <span class="iw-article-age"><%= _rel %></span>
+      </div>
+      <% }); %>
+    </div>
+    <% } else { %>
+    <p style="color:var(--text-muted);font-size:.82rem;padding:.5rem 0">No high-risk articles detected yet.</p>
+    <% } %>
+  </div>
+
+  <!-- Latest CVEs + 7-day activity -->
+  <div style="display:flex;flex-direction:column;gap:1rem">
+
+    <div class="iw-table-card">
+      <div class="iw-table-header">
+        <span class="iw-chart-title">Latest CVEs</span>
+        <a href="/vulnerability" class="iw-chart-link">Lookup →</a>
+      </div>
+      <% if (latestCves.length > 0) { %>
+      <div style="display:flex;flex-direction:column;gap:.4rem">
+        <% latestCves.slice(0,5).forEach(function(cve) { %>
+        <%
+          var _sc = cve.severity === 'CRITICAL' ? '#ef4444' : cve.severity === 'HIGH' ? '#f97316' : cve.severity === 'MEDIUM' ? '#a78bfa' : 'var(--text-muted)';
+          var _sb = cve.severity === 'CRITICAL' ? 'rgba(239,68,68,.12)' : cve.severity === 'HIGH' ? 'rgba(249,115,22,.12)' : cve.severity === 'MEDIUM' ? 'rgba(167,139,250,.12)' : 'var(--bg-elevated)';
+        %>
+        <div style="display:flex;align-items:center;gap:.5rem">
+          <a href="<%= safeHref(cve.link) %>" target="_blank" rel="noopener noreferrer" class="cve-id cve-<%= (cve.severity||'').toLowerCase() %>" style="flex-shrink:0"><%= cve.id %></a>
+          <span style="flex:1;font-size:.75rem;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><%= cve.description %></span>
+          <% if (cve.severity) { %><span style="font-size:.6rem;font-weight:700;padding:.1rem .4rem;border-radius:3px;background:<%= _sb %>;color:<%= _sc %>;flex-shrink:0"><%= cve.severity %></span><% } %>
+        </div>
+        <% }); %>
+      </div>
+      <% } else { %>
+      <p style="color:var(--text-muted);font-size:.82rem">CVE feed loading...</p>
+      <% } %>
+    </div>
+
+    <div class="iw-table-card">
+      <div class="iw-table-header">
+        <span class="iw-chart-title">7-Day Activity</span>
+        <a href="/" class="iw-chart-link">Full feed →</a>
+      </div>
+      <%
+        var actMax = 1;
+        activity7d.forEach(function(d){ if(d.count > actMax) actMax = d.count; });
+      %>
+      <div class="iw-sparkline">
+        <% activity7d.forEach(function(d) { %>
+        <% var pct = actMax > 0 ? Math.max(4, Math.round((d.count/actMax)*100)) : 4; %>
+        <div class="iw-spark-bar" style="height:<%= pct %>%" title="<%= d.label %>: <%= d.count %>"></div>
+        <% }); %>
+      </div>
+      <div class="iw-spark-labels">
+        <span><%= activity7d.length > 0 ? activity7d[0].label : '' %></span>
+        <span>Today</span>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<script nonce="<%= nonce %>">
+(function(){
+  var isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+  var gridColor = isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.06)';
+
+  // Severity donut
+  var sevCtx = document.getElementById('severity-chart');
+  if (sevCtx) {
+    new Chart(sevCtx, {
+      type: 'doughnut',
+      data: {
+        labels: ['Critical','High','Medium','Low'],
+        datasets: [{
+          data: [<%= critCount %>, <%= highCount %>, <%= medCount %>, <%= Math.max(0, highRiskArticles.length - critCount - highCount - medCount) %>],
+          backgroundColor: ['#ef4444','#f97316','#fbbf24','#22c55e'],
+          borderWidth: 0,
+          hoverOffset: 4,
+        }]
+      },
+      options: {
+        cutout: '72%',
+        plugins: { legend: { display: false }, tooltip: { callbacks: { label: function(c){ return ' ' + c.label + ': ' + c.raw; } } } },
+        animation: { duration: 600 },
+      }
+    });
+  }
+
+  // Category donut
+  var catCtx = document.getElementById('category-chart');
+  if (catCtx) {
+    var catColors = ['#22d3ee','#f97316','#a78bfa','#f05252','#20d07a','#fbbf24','#60a5fa','#e879f9'];
+    var catData = <%- JSON.stringify(categoryDist.slice(0,8).map(function(c){ return c.count; })) %>;
+    var catLabels = <%- JSON.stringify(categoryDist.slice(0,8).map(function(c){ return c.category; })) %>;
+    new Chart(catCtx, {
+      type: 'doughnut',
+      data: {
+        labels: catLabels,
+        datasets: [{
+          data: catData,
+          backgroundColor: catColors.slice(0, catData.length),
+          borderWidth: 0,
+          hoverOffset: 4,
+        }]
+      },
+      options: {
+        cutout: '72%',
+        plugins: { legend: { display: false }, tooltip: { callbacks: { label: function(c){ return ' ' + c.label + ': ' + c.raw.toLocaleString(); } } } },
+        animation: { duration: 600, delay: 150 },
+      }
+    });
+  }
+})();
+</script>
+
+<%- include('partials/footer') %>

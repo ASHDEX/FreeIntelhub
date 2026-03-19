@@ -1,0 +1,298 @@
+<%- include('partials/head', { pageTitle: 'CVE Priority' }) %>
+
+<%
+  const totalKev      = cves.filter(c => c.inKev).length;
+  const totalPoc      = cves.filter(c => c.hasPoc).length;
+  const totalZeroday  = cves.filter(c => c.isZeroDay).length;
+  const totalPatched  = cves.filter(c => c.hasPatch).length;
+  const totalCritical = cves.filter(c => c.severity === 'CRITICAL').length;
+%>
+
+<!-- Page header -->
+<div class="page-header">
+  <h1>CVE Prioritization</h1>
+  <p class="page-header-sub">Triage CVEs by EPSS, CISA KEV, PoC availability, attack complexity, and in-feed incidents.</p>
+</div>
+
+<!-- Stat pills -->
+<div class="cve-stats-row">
+  <div class="cve-stat-pill">
+    <span class="cve-stat-num"><%= cves.length %></span>
+    <span class="cve-stat-lbl">Total CVEs</span>
+  </div>
+  <div class="cve-stat-pill">
+    <span class="cve-stat-num" style="color:#ef4444"><%= totalCritical %></span>
+    <span class="cve-stat-lbl">Critical</span>
+  </div>
+  <div class="cve-stat-pill">
+    <span class="cve-stat-num" style="color:#ef4444"><%= totalKev %></span>
+    <span class="cve-stat-lbl">KEV / Exploited</span>
+  </div>
+  <div class="cve-stat-pill">
+    <span class="cve-stat-num" style="color:#f97316"><%= totalPoc %></span>
+    <span class="cve-stat-lbl">PoC Exists</span>
+  </div>
+  <div class="cve-stat-pill">
+    <span class="cve-stat-num" style="color:#fbbf24"><%= totalZeroday %></span>
+    <span class="cve-stat-lbl">Zero Day</span>
+  </div>
+  <div class="cve-stat-pill">
+    <span class="cve-stat-num" style="color:#22c55e"><%= totalPatched %></span>
+    <span class="cve-stat-lbl">Patch Available</span>
+  </div>
+</div>
+
+<!-- Filter panel -->
+<form method="GET" action="/cve-priority" id="cve-filter-form">
+  <div class="cve-filter-panel">
+
+    <!-- Input controls -->
+    <div class="cve-filter-row">
+      <div class="cve-filter-field">
+        <label class="cve-field-label">Min EPSS %</label>
+        <div class="cve-input-wrap">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="cve-input-icon"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          <input type="number" name="minEpss" value="<%= minEpss %>" min="0" max="1" step="0.01" class="cve-input" placeholder="0.00">
+        </div>
+      </div>
+
+      <div class="cve-filter-field">
+        <label class="cve-field-label">Attack Complexity</label>
+        <div class="cve-input-wrap">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="cve-input-icon"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+          <select name="ac" class="cve-input cve-select">
+            <option value=""     <%= acFilter === ''     ? 'selected' : '' %>>Any</option>
+            <option value="LOW"  <%= acFilter === 'LOW'  ? 'selected' : '' %>>Low — easy to exploit</option>
+            <option value="HIGH" <%= acFilter === 'HIGH' ? 'selected' : '' %>>High — conditions required</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="cve-filter-field">
+        <label class="cve-field-label">Min Feed Incidents</label>
+        <div class="cve-input-wrap">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="cve-input-icon"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          <input type="number" name="minArticles" value="<%= minArticles %>" min="0" step="1" class="cve-input" placeholder="0">
+        </div>
+      </div>
+    </div>
+
+    <!-- Toggle chips -->
+    <div class="cve-filter-row">
+      <span class="cve-field-label">Quick filters:</span>
+
+      <button type="submit" name="kev" value="<%= kevOnly ? '' : '1' %>"
+        class="cve-chip <%= kevOnly ? 'cve-chip-red' : '' %>">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        Being Exploited (KEV)
+        <% if (totalKev) { %><span class="cve-chip-count"><%= totalKev %></span><% } %>
+      </button>
+
+      <button type="submit" name="poc" value="<%= pocOnly ? '' : '1' %>"
+        class="cve-chip <%= pocOnly ? 'cve-chip-orange' : '' %>">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+        PoC Exists
+        <% if (totalPoc) { %><span class="cve-chip-count"><%= totalPoc %></span><% } %>
+      </button>
+
+      <button type="submit" name="patch" value="<%= patchOnly ? '' : '1' %>"
+        class="cve-chip <%= patchOnly ? 'cve-chip-green' : '' %>">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+        Patch Available
+        <% if (totalPatched) { %><span class="cve-chip-count"><%= totalPatched %></span><% } %>
+      </button>
+
+      <button type="submit" name="zeroday" value="<%= zerodayOnly ? '' : '1' %>"
+        class="cve-chip <%= zerodayOnly ? 'cve-chip-amber' : '' %>">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        Zero Day
+        <% if (totalZeroday) { %><span class="cve-chip-count"><%= totalZeroday %></span><% } %>
+      </button>
+
+      <!-- Preserve other active params when toggling chips -->
+      <% if (kevOnly)     { %><input type="hidden" name="kev"     value="1"><% } %>
+      <% if (pocOnly)     { %><input type="hidden" name="poc"     value="1"><% } %>
+      <% if (patchOnly)   { %><input type="hidden" name="patch"   value="1"><% } %>
+      <% if (zerodayOnly) { %><input type="hidden" name="zeroday" value="1"><% } %>
+    </div>
+
+    <!-- Actions row -->
+    <div class="cve-filter-actions">
+      <button type="submit" class="btn btn-primary btn-sm">Apply Filters</button>
+      <a href="/cve-priority" class="btn btn-sm">Reset</a>
+      <%
+        const activeCount = [minEpss>0, kevOnly, pocOnly, patchOnly, zerodayOnly, !!acFilter, minArticles>0].filter(Boolean).length;
+      %>
+      <% if (activeCount > 0) { %>
+        <span class="cve-filter-status">
+          <em><%= activeCount %></em> filter<%= activeCount > 1 ? 's' : '' %> active &middot;
+          <strong><%= cves.length %></strong> result<%= cves.length !== 1 ? 's' : '' %>
+        </span>
+      <% } %>
+    </div>
+
+  </div>
+</form>
+
+<!-- Table -->
+<div class="cve-table-wrap">
+  <table class="cve-tbl">
+    <thead>
+      <tr>
+        <th>CVE ID</th>
+        <th>Published</th>
+        <th>Severity</th>
+        <th>EPSS Score</th>
+        <th>Complexity</th>
+        <th>Status</th>
+        <th>PoC</th>
+        <th>Patch</th>
+        <th>Due Date</th>
+        <th>Feed Hits</th>
+        <th>Description</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      <% if (cves.length === 0) { %>
+        <tr class="cve-empty-row">
+          <td colspan="12">
+            <svg class="cve-empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            No CVEs match the current filters.
+          </td>
+        </tr>
+      <% } %>
+      <% cves.forEach(function(cve) { %>
+        <%
+          var sev = (cve.severity || '').toUpperCase();
+          var sevClass = sev === 'CRITICAL' ? 'cve-sev-critical'
+                       : sev === 'HIGH'     ? 'cve-sev-high'
+                       : sev === 'MEDIUM'   ? 'cve-sev-medium'
+                       : sev === 'LOW'      ? 'cve-sev-low' : '';
+          var epssW = Math.min(100, Math.round((cve.epss || 0) * 100));
+          var epssColorClass = epssW >= 70 ? 'epss-red' : epssW >= 40 ? 'epss-amber' : 'epss-cyan';
+          var epssBarColor = epssW >= 70 ? '#ef4444' : epssW >= 40 ? '#fbbf24' : '#22d3ee';
+        %>
+        <tr class="cve-row<%= cve.patchNow ? ' cve-row-urgent' : '' %>">
+
+          <!-- CVE ID -->
+          <td>
+            <div class="cve-id-cell">
+              <a href="<%= safeHref(cve.link) %>" target="_blank" rel="noopener noreferrer"
+                class="cve-id-link <%= sevClass %>"><%= cve.id %></a>
+              <% if (cve.patchNow) { %>
+                <span class="cve-badge cve-badge-urgent">&#9889; Patch Now</span>
+              <% } else if (cve.isZeroDay) { %>
+                <span class="cve-badge cve-badge-zeroday">0-day</span>
+              <% } %>
+            </div>
+          </td>
+
+          <!-- Published -->
+          <td>
+            <% if (cve.published) { %>
+              <span class="cve-published" title="<%= cve.published %>"><%= new Date(cve.published).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) %></span>
+            <% } else { %><span class="cve-null">&mdash;</span><% } %>
+          </td>
+
+          <!-- Severity -->
+          <td>
+            <% if (cve.severity) { %>
+              <span class="cve-sev-tag <%= sevClass %>">
+                <%= cve.severity %><% if (cve.score) { %> <span><%= cve.score %></span><% } %>
+              </span>
+            <% } else { %><span class="cve-null">&mdash;</span><% } %>
+          </td>
+
+          <!-- EPSS -->
+          <td>
+            <div class="epss-cell">
+              <div class="epss-bar-track">
+                <div class="epss-bar-fill" style="width:<%= epssW %>%;background:<%= epssBarColor %>"></div>
+              </div>
+              <span class="epss-pct <%= epssColorClass %>"><%= (cve.epss * 100).toFixed(1) %>%</span>
+            </div>
+          </td>
+
+          <!-- Attack Complexity -->
+          <td>
+            <% if (cve.attackComplexity === 'LOW') { %>
+              <span class="cve-ac-low">LOW</span>
+            <% } else if (cve.attackComplexity === 'HIGH') { %>
+              <span class="cve-ac-high">HIGH</span>
+            <% } else { %><span class="cve-null">&mdash;</span><% } %>
+          </td>
+
+          <!-- KEV Status -->
+          <td>
+            <div class="cve-kev-cell">
+              <% if (cve.inKev) { %>
+                <span class="cve-badge cve-badge-kev">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:9px;height:9px"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                  KEV<% if (cve.kevDetails && cve.kevDetails.knownRansomwareCampaignUse && cve.kevDetails.knownRansomwareCampaignUse !== 'Unknown') { %> + Ransomware<% } %>
+                </span>
+              <% } else { %><span class="cve-null">&mdash;</span><% } %>
+            </div>
+          </td>
+
+          <!-- PoC -->
+          <td>
+            <% if (cve.hasPoc) { %>
+              <span class="cve-indicator cve-indicator-poc" title="Proof-of-concept available">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+              </span>
+            <% } else { %><span class="cve-null">&mdash;</span><% } %>
+          </td>
+
+          <!-- Patch -->
+          <td>
+            <% if (cve.hasPatch) { %>
+              <span class="cve-indicator cve-indicator-patch" title="Vendor patch available">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+              </span>
+            <% } else { %><span class="cve-null">&mdash;</span><% } %>
+          </td>
+
+          <!-- Due Date -->
+          <td>
+            <% if (cve.kevDetails && cve.kevDetails.dueDate) { %>
+              <span class="cve-due-date"><%= cve.kevDetails.dueDate %></span>
+            <% } else { %><span class="cve-null">&mdash;</span><% } %>
+          </td>
+
+          <!-- Feed hits -->
+          <td>
+            <% if (cve.articleMentions > 0) { %>
+              <span class="cve-hits-badge"><%= cve.articleMentions %></span>
+            <% } else { %><span class="cve-null">0</span><% } %>
+          </td>
+
+          <!-- Description -->
+          <td class="cve-desc-cell">
+            <span class="cve-desc-text"><%= cve.description || '&mdash;' %></span>
+          </td>
+
+          <!-- Action -->
+          <td>
+            <a href="/vulnerability?cve=<%= encodeURIComponent(cve.id) %>" class="cve-details-btn">Details</a>
+          </td>
+
+        </tr>
+      <% }); %>
+    </tbody>
+  </table>
+</div>
+
+<!-- Data sources footer -->
+<div class="cve-footer-note">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px;flex-shrink:0;opacity:.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+  <span>
+    EPSS from <a href="https://www.first.org/epss/" target="_blank" rel="noopener">FIRST EPSS API</a> &middot;
+    KEV from <a href="https://www.cisa.gov/known-exploited-vulnerabilities-catalog" target="_blank" rel="noopener">CISA KEV</a> &middot;
+    PoC &amp; Patch signals from NVD reference tags &middot;
+    Feed Hits from local article index &middot;
+    Zero Day = KEV-listed with no vendor patch
+  </span>
+</div>
+
+<%- include('partials/footer') %>

@@ -1,9 +1,52 @@
-  </main>
-  <footer class="footer">
-    <div class="container">
-      <p>FreeIntelHub &mdash; Open-source threat intelligence</p>
-      <p class="footer-legal">All articles and trademarks belong to their respective owners. FreeIntelHub aggregates publicly available RSS feeds for informational purposes. <a href="mailto:contact@dailydoesofcybersecuritynews.com">DMCA requests</a></p>
-    </div>
-  </footer>
+    </main>
+    <footer class="sb-footer">
+      <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.2rem">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px;color:var(--accent);flex-shrink:0;opacity:.7"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        <span style="font-weight:600;color:var(--text-secondary);font-size:.72rem">FreeIntelHub</span>
+        <span style="color:var(--border-hover)">·</span>
+        <span style="font-size:.7rem">Open-source CTI platform</span>
+      </div>
+      <p class="footer-legal">All articles belong to their respective owners. FreeIntelHub aggregates publicly available RSS feeds for informational purposes only. <a href="mailto:contact@dailydoesofcybersecuritynews.com">DMCA</a></p>
+    </footer>
+
+  </div><!-- /.app-body -->
+</div><!-- /.app-shell -->
+
+<script nonce="<%= typeof nonce !== 'undefined' ? nonce : '' %>">
+(function(){
+  // Sidebar collapse toggle
+  var sb = document.getElementById('sidebar');
+  var ab = document.getElementById('app-body');
+  var colBtn = document.getElementById('sb-collapse-btn');
+  var mobileBtn = document.getElementById('sb-mobile-btn');
+
+  var collapsed = localStorage.getItem('sb-collapsed') === '1';
+  if (collapsed && sb) { sb.classList.add('sb-collapsed'); }
+
+  if (colBtn && sb) {
+    if (collapsed) colBtn.setAttribute('aria-expanded', 'false');
+    colBtn.addEventListener('click', function() {
+      collapsed = !collapsed;
+      sb.classList.toggle('sb-collapsed', collapsed);
+      colBtn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+      colBtn.setAttribute('aria-label', collapsed ? 'Expand sidebar' : 'Collapse sidebar');
+      localStorage.setItem('sb-collapsed', collapsed ? '1' : '0');
+    });
+  }
+
+  // Mobile sidebar toggle
+  if (mobileBtn && sb) {
+    mobileBtn.addEventListener('click', function() {
+      sb.classList.toggle('sb-mobile-open');
+    });
+    document.addEventListener('click', function(e) {
+      if (!sb.contains(e.target) && !mobileBtn.contains(e.target)) {
+        sb.classList.remove('sb-mobile-open');
+      }
+    });
+  }
+})();
+</script>
+
 </body>
 </html>

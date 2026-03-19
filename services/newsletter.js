@@ -7,13 +7,15 @@ const getNewsletterSubscribers = db.prepare(`
 `);
 
 const getArticlesLast24h = db.prepare(`
-  SELECT * FROM articles
+  SELECT id, title, link, source, category, published_at, summary
+  FROM articles
   WHERE created_at >= datetime('now', '-1 day')
   ORDER BY published_at DESC
 `);
 
 const getTopByCategory = db.prepare(`
-  SELECT * FROM articles
+  SELECT id, title, link, source, category, published_at, summary
+  FROM articles
   WHERE created_at >= datetime('now', '-1 day') AND category = ?
   ORDER BY published_at DESC LIMIT 5
 `);
@@ -58,9 +60,13 @@ async function sendDailyNewsletter() {
   if (ransomware.length > 0) sections['Ransomware'] = ransomware;
 
   let sentCount = 0;
-  for (const subscriber of subscribers) {
-    const sent = await sendNewsletter(subscriber, sections);
-    if (sent) sentCount++;
+  const CHUNK = 10;
+  for (let i = 0; i < subscribers.length; i += CHUNK) {
+    const chunk = subscribers.slice(i, i + CHUNK);
+    const results = await Promise.allSettled(chunk.map(s => sendNewsletter(s, sections)));
+    for (const r of results) {
+      if (r.status === 'fulfilled' && r.value) sentCount++;
+    }
   }
 
   console.log(`[Newsletter] Sent to ${sentCount}/${subscribers.length} subscribers`);

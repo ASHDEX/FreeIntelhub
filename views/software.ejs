@@ -6,6 +6,7 @@
 </div>
 
 <%
+  // Priority order for known types; any unlisted type falls through at end
   const swTypeOrder = ['ransomware','stealer','loader','rat','backdoor','c2','trojan','wiper','rootkit','spyware','keylogger','botnet','unknown'];
   const swTypeLabel = {
     ransomware:'Ransomware', stealer:'Stealer/Infostealer', loader:'Loader/Dropper',
@@ -19,22 +20,26 @@
     trojan:'badge-orange', wiper:'badge-red', rootkit:'badge-purple',
     spyware:'badge-blue', keylogger:'badge-blue', botnet:'badge-orange', unknown:'badge-gray'
   };
+
+  // Build byType map from actual data
+  const byType = {};
+  for (const sw of software) {
+    const t = (sw.type || 'unknown').toLowerCase();
+    if (!byType[t]) byType[t] = [];
+    byType[t].push(sw);
+  }
+
+  // Ordered list: known priority types first, then any extra types from Malpedia/MITRE data
+  const knownSet = new Set(swTypeOrder);
+  const extraTypes = Object.keys(byType).filter(t => !knownSet.has(t)).sort();
+  const orderedTypes = [...swTypeOrder, ...extraTypes];
 %>
 
 <% if (software.length === 0) { %>
   <p class="empty">No software/malware indexed yet. Articles are being processed.</p>
 <% } else { %>
 
-  <%
-    const byType = {};
-    for (const sw of software) {
-      const t = sw.type || 'unknown';
-      if (!byType[t]) byType[t] = [];
-      byType[t].push(sw);
-    }
-  %>
-
-  <% for (const type of swTypeOrder) { %>
+  <% for (const type of orderedTypes) { %>
     <% if (!byType[type] || byType[type].length === 0) continue; %>
     <section class="entity-section">
       <h2 class="entity-section-title">

@@ -1,0 +1,64 @@
+<%- include('partials/head', { pageTitle: 'Paste Monitoring' }) %>
+
+<div class="page-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem">
+  <div>
+    <h1>Paste Site Monitoring</h1>
+    <p>Recent paste hits matching your monitored keywords. Powered by psbdmp.ws and Pastebin RSS.</p>
+  </div>
+  <button onclick="triggerScan(this)" class="btn btn-primary">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;display:inline;margin-right:.3rem"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+    Scan Now
+  </button>
+</div>
+
+<% if (hits.length === 0) { %>
+  <div class="dash-widget" style="text-align:center;padding:3rem;color:var(--text-muted)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:48px;height:48px;margin:0 auto 1rem;opacity:.4"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+    <p>No paste hits yet.</p>
+    <p style="font-size:.82rem;margin-top:.5rem">Configure paste monitoring keywords in your alert rules, then click <strong>Scan Now</strong>.</p>
+  </div>
+<% } else { %>
+  <div class="article-list">
+    <% hits.forEach(function(h) { %>
+      <article class="article-card">
+        <div class="article-meta">
+          <span class="badge badge-source"><%= h.source %></span>
+          <% if (h.keyword) { %><span class="badge badge-category">Keyword: <%= h.keyword %></span><% } %>
+          <time><%= h.found_at ? new Date(h.found_at).toLocaleString() : '' %></time>
+        </div>
+        <h3>
+          <% if (h.full_url) { %>
+            <a href="<%= safeHref(h.full_url) %>" target="_blank" rel="noopener noreferrer"><%= h.title || h.paste_id %></a>
+          <% } else { %>
+            <%= h.title || h.paste_id %>
+          <% } %>
+        </h3>
+        <% if (h.content_snippet) { %>
+          <p class="summary" style="font-family:var(--font-mono);font-size:.78rem;white-space:pre-wrap;max-height:120px;overflow:hidden"><%= h.content_snippet %></p>
+        <% } %>
+      </article>
+    <% }); %>
+  </div>
+<% } %>
+
+<script nonce="<%= nonce %>">
+async function triggerScan(btn) {
+  btn.disabled = true;
+  btn.textContent = 'Scanning...';
+  try {
+    const r = await fetch('/api/pastes/scan', { method: 'POST' });
+    const d = await r.json();
+    if (d.found !== undefined) {
+      btn.textContent = `Found ${d.found} new hits`;
+      setTimeout(() => location.reload(), 1500);
+    } else {
+      btn.textContent = d.error || 'Scan failed';
+    }
+  } catch (_) {
+    btn.textContent = 'Scan failed';
+  }
+  setTimeout(() => { btn.disabled = false; btn.textContent = 'Scan Now'; }, 3000);
+}
+</script>
+
+<%- include('partials/footer') %>

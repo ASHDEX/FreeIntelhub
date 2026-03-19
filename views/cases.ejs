@@ -1,0 +1,191 @@
+<%- include('partials/head', { pageTitle: 'Cases' }) %>
+
+<%
+  const totalCases    = cases.length;
+  const openCount     = cases.filter(c => c.status === 'open').length;
+  const inProgCount   = cases.filter(c => c.status === 'in-progress').length;
+  const closedCount   = cases.filter(c => c.status === 'closed').length;
+  const criticalCount = cases.filter(c => c.severity === 'critical').length;
+%>
+
+<!-- Page header -->
+<div class="cases-ph">
+  <div class="cases-ph-left">
+    <h1>Investigation Cases</h1>
+    <p class="cases-ph-sub">Group articles into investigations, track status, and add analyst notes.</p>
+  </div>
+  <button class="btn btn-primary" id="open-modal-btn">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:14px;height:14px"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    New Case
+  </button>
+</div>
+
+<!-- Stats -->
+<div class="cases-stats">
+  <div class="cases-stat-pill">
+    <div class="csp-icon csp-icon-all">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+    </div>
+    <div class="csp-body">
+      <span class="csp-num"><%= totalCases %></span>
+      <span class="csp-lbl">Total</span>
+    </div>
+  </div>
+  <div class="cases-stat-pill">
+    <div class="csp-icon csp-icon-open">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+    </div>
+    <div class="csp-body">
+      <span class="csp-num"><%= openCount %></span>
+      <span class="csp-lbl">Open</span>
+    </div>
+  </div>
+  <div class="cases-stat-pill">
+    <div class="csp-icon csp-icon-prog">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+    </div>
+    <div class="csp-body">
+      <span class="csp-num"><%= inProgCount %></span>
+      <span class="csp-lbl">In Progress</span>
+    </div>
+  </div>
+  <div class="cases-stat-pill">
+    <div class="csp-icon csp-icon-closed">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+    </div>
+    <div class="csp-body">
+      <span class="csp-num"><%= closedCount %></span>
+      <span class="csp-lbl">Closed</span>
+    </div>
+  </div>
+  <% if (criticalCount > 0) { %>
+  <div class="cases-stat-pill">
+    <div class="csp-icon csp-icon-crit">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    </div>
+    <div class="csp-body">
+      <span class="csp-num"><%= criticalCount %></span>
+      <span class="csp-lbl">Critical</span>
+    </div>
+  </div>
+  <% } %>
+</div>
+
+<!-- Status filter tabs -->
+<div class="cases-tabs">
+  <% [['','All'],['open','Open'],['in-progress','In Progress'],['closed','Closed'],['false-positive','False Positive']].forEach(function(tab) { %>
+    <a href="/cases<%= tab[0] ? '?status=' + tab[0] : '' %>"
+       class="case-tab <%= statusFilter === tab[0] ? 'case-tab-active' : '' %>">
+      <%= tab[1] %>
+    </a>
+  <% }); %>
+</div>
+
+<!-- Cases grid -->
+<% if (cases.length === 0) { %>
+  <div class="cases-empty">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+    <p>No cases found. Create one to start tracking an investigation.</p>
+    <button class="btn btn-primary btn-sm" id="open-modal-btn-empty">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      New Case
+    </button>
+  </div>
+<% } else { %>
+  <div class="cases-grid">
+    <% cases.forEach(function(c) { %>
+      <a href="/cases/<%= c.id %>" class="case-card">
+        <div class="case-sev-bar cs-<%= c.severity %>"></div>
+        <div class="case-body">
+          <div class="case-meta">
+            <span class="badge-status badge-status-<%= c.status.replace(' ','-') %>"><%= c.status %></span>
+            <span class="badge-case-severity badge-case-severity-<%= c.severity %>"><%= c.severity %></span>
+            <div class="case-meta-right">
+              <span class="case-article-count">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                <%= c.article_count %> article<%= c.article_count !== 1 ? 's' : '' %>
+              </span>
+            </div>
+          </div>
+          <p class="case-title"><%= c.title %></p>
+          <% if (c.description) { %>
+            <p class="case-desc"><%= c.description %></p>
+          <% } %>
+          <div class="case-footer">
+            <span>Opened <%= new Date(c.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) %></span>
+            <% if (c.updated_at !== c.created_at) { %>
+              <span class="case-footer-dot">&middot;</span>
+              <span>Updated <%= new Date(c.updated_at).toLocaleDateString('en-US',{month:'short',day:'numeric'}) %></span>
+            <% } %>
+            <% if (c.closed_at) { %>
+              <span class="case-footer-dot">&middot;</span>
+              <span>Closed <%= new Date(c.closed_at).toLocaleDateString('en-US',{month:'short',day:'numeric'}) %></span>
+            <% } %>
+          </div>
+        </div>
+        <div class="case-chevron">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+        </div>
+      </a>
+    <% }); %>
+  </div>
+<% } %>
+
+<!-- New Case Modal -->
+<div class="modal-overlay" id="new-case-modal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h2 class="modal-title">New Investigation Case</h2>
+      <button class="modal-close" id="close-modal-btn" aria-label="Close">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <form method="POST" action="/cases" class="modal-form">
+      <div class="modal-field">
+        <label class="modal-label" for="case-title">Case Title *</label>
+        <input id="case-title" type="text" name="title" required
+          placeholder="e.g. APT29 Spearphishing Campaign Q1 2026"
+          class="modal-input">
+      </div>
+      <div class="modal-field">
+        <label class="modal-label" for="case-severity">Severity</label>
+        <select id="case-severity" name="severity" class="modal-select">
+          <option value="low">Low</option>
+          <option value="medium" selected>Medium</option>
+          <option value="high">High</option>
+          <option value="critical">Critical</option>
+        </select>
+      </div>
+      <div class="modal-field">
+        <label class="modal-label" for="case-desc">Description</label>
+        <textarea id="case-desc" name="description" rows="3"
+          placeholder="Brief description of the investigation..."
+          class="modal-textarea"></textarea>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-sm" id="cancel-modal-btn">Cancel</button>
+        <button type="submit" class="btn btn-primary btn-sm">Create Case</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script nonce="<%= nonce %>">
+  (function () {
+    var modal   = document.getElementById('new-case-modal');
+    var openBtn = document.getElementById('open-modal-btn');
+    var openEmpty = document.getElementById('open-modal-btn-empty');
+    var closeBtn = document.getElementById('close-modal-btn');
+    var cancelBtn = document.getElementById('cancel-modal-btn');
+    function open()  { modal.classList.add('open'); }
+    function close() { modal.classList.remove('open'); }
+    if (openBtn)   openBtn.addEventListener('click', open);
+    if (openEmpty) openEmpty.addEventListener('click', open);
+    if (closeBtn)  closeBtn.addEventListener('click', close);
+    if (cancelBtn) cancelBtn.addEventListener('click', close);
+    modal.addEventListener('click', function(e) { if (e.target === modal) close(); });
+    document.addEventListener('keydown', function(e) { if (e.key === 'Escape') close(); });
+  })();
+</script>
+
+<%- include('partials/footer') %>
