@@ -1,6 +1,5 @@
 import json
 import os
-import pickle
 
 import numpy as np
 import voyageai
@@ -14,7 +13,7 @@ class VectorDB:
         self.embeddings = []
         self.metadata = []
         self.query_cache = {}
-        self.db_path = "../data/vector_db.pkl"
+        self.db_path = "../data/vector_db.npz"
 
     def load_data(self, data):
         # Check if the vector database is already loaded
@@ -29,6 +28,7 @@ class VectorDB:
 
         texts = [item["text"] for item in data]
 
+
         # Embed more than 128 documents with a for loop
         batch_size = 128
         result = [
@@ -39,7 +39,7 @@ class VectorDB:
         # Flatten the embeddings
         self.embeddings = [embedding for batch in result for embedding in batch]
         self.metadata = [item for item in data]
-        # Save the vector database to disk
+        self.save_db()
         print("Vector database loaded and saved.")
 
     def search(self, query, k=5, similarity_threshold=0.85):
@@ -70,14 +70,22 @@ class VectorDB:
 
         return top_examples
 
+    def save_db(self):
+        os.makedirs(os.path.dirname(os.path.abspath(self.db_path)), exist_ok=True)
+        np.savez(
+            self.db_path,
+            embeddings=np.array(self.embeddings) if self.embeddings else np.empty(0),
+            metadata=np.array(json.dumps(self.metadata)),
+            query_cache=np.array(json.dumps(self.query_cache)),
+        )
+
     def load_db(self):
         if not os.path.exists(self.db_path):
             raise ValueError(
                 "Vector database file not found. Use load_data to create a new database."
             )
 
-        with open(self.db_path, "rb") as file:
-            data = pickle.load(file)
-        self.embeddings = data["embeddings"]
-        self.metadata = data["metadata"]
-        self.query_cache = json.loads(data["query_cache"])
+        data = np.load(self.db_path, allow_pickle=False)
+        self.embeddings = data["embeddings"].tolist()
+        self.metadata = json.loads(str(data["metadata"]))
+        self.query_cache = json.loads(str(data["query_cache"]))

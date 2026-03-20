@@ -1915,7 +1915,7 @@ def generate_postmortem_content(
                 <td>{esc(item.get("due_date", "TBD"))}</td>
                 <td>Open</td>
             </tr>
-            """
+            """  # nosemgrep: python.django.security.injection.raw-html-format.raw-html-format
     else:
         action_items_html += (
             "<tr><td colspan='4'><em>Action items to be added</em></td></tr>"
@@ -1926,10 +1926,10 @@ def generate_postmortem_content(
     pd_link = ""
     if pagerduty_incident_id:
         pd_link = (
-            f"<p><strong>PagerDuty Incident:</strong> {esc(pagerduty_incident_id)}</p>"
+            f"<p><strong>PagerDuty Incident:</strong> {esc(pagerduty_incident_id)}</p>"  # nosemgrep: python.django.security.injection.raw-html-format.raw-html-format
         )
 
-    return f"""
+    return f"""  # nosemgrep: python.django.security.injection.raw-html-format.raw-html-format,python.flask.security.audit.directly-returned-format-string.directly-returned-format-string
     <h1>Incident Summary</h1>
     {pd_link}
     <p>{esc(incident_summary)}</p>

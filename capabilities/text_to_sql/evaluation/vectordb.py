@@ -1,26 +1,22 @@
 import json
 import os
-import pickle
 
 import numpy as np
 import voyageai
 
 
 class VectorDB:
-    def __init__(self, db_path="../data/vector_db.pkl"):
+    def __init__(self, db_path="../data/vector_db.npz"):
         self.client = voyageai.Client(api_key=os.getenv("VOYAGE_API_KEY"))
         self.db_path = db_path
         self.load_db()
 
     def load_db(self):
         if os.path.exists(self.db_path):
-            with open(self.db_path, "rb") as file:
-                data = pickle.load(file)
-            self.embeddings, self.metadata, self.query_cache = (
-                data["embeddings"],
-                data["metadata"],
-                json.loads(data["query_cache"]),
-            )
+            data = np.load(self.db_path, allow_pickle=False)
+            self.embeddings = data["embeddings"].tolist()
+            self.metadata = json.loads(str(data["metadata"]))
+            self.query_cache = json.loads(str(data["query_cache"]))
         else:
             self.embeddings, self.metadata, self.query_cache = [], [], {}
 
@@ -52,12 +48,10 @@ class VectorDB:
         ][:k]
 
     def save_db(self):
-        with open(self.db_path, "wb") as file:
-            pickle.dump(
-                {
-                    "embeddings": self.embeddings,
-                    "metadata": self.metadata,
-                    "query_cache": json.dumps(self.query_cache),
-                },
-                file,
-            )
+        os.makedirs(os.path.dirname(os.path.abspath(self.db_path)), exist_ok=True)
+        np.savez(
+            self.db_path,
+            embeddings=np.array(self.embeddings) if self.embeddings else np.empty(0),
+            metadata=np.array(json.dumps(self.metadata)),
+            query_cache=np.array(json.dumps(self.query_cache)),
+        )

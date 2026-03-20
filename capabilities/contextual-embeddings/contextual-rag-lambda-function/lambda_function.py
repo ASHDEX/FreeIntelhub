@@ -67,7 +67,7 @@ def lambda_handler(event, context):
                 content_metadata = content.get("contentMetadata", {})
 
                 # Update chunk with additional context
-                prompt = contextual_retrieval_prompt.format(
+                prompt = contextual_retrieval_prompt.format(  # nosemgrep: python.aws-lambda.security.tainted-html-string.tainted-html-string
                     doc_content=original_document_content, chunk_content=content_body
                 )
                 response_stream = inference_adapter.invoke_model_with_response_stream(prompt)

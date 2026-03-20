@@ -1,6 +1,8 @@
+import re
 import sqlite3
 
 DATABASE_PATH = "../data/data.db"
+_VALID_IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 
 def get_schema_info():
@@ -14,6 +16,8 @@ def get_schema_info():
     tables = cursor.fetchall()
 
     for (table_name,) in tables:
+        if not _VALID_IDENTIFIER.match(table_name):
+            continue
         # Get columns for this table
         cursor.execute(f"PRAGMA table_info({table_name})")
         columns = cursor.fetchall()
@@ -153,6 +157,7 @@ def generate_prompt_with_rag(context):
                     "metadata": {"table": table[0], "column": col[1], "type": col[2]},
                 }
                 for table in cursor.fetchall()
+                if _VALID_IDENTIFIER.match(table[0])
                 for col in cursor.execute(f"PRAGMA table_info({table[0]})").fetchall()
             ]
         vectordb.load_data(schema_data)

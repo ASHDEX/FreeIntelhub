@@ -154,62 +154,62 @@ class TicketGenerator:
     @staticmethod
     def generate_ticket(ticket_id: int = None) -> Ticket:
         """Generate a single realistic ticket"""
-        template = random.choice(TicketGenerator.TICKET_TEMPLATES)
+        template = random.choice(TicketGenerator.TICKET_TEMPLATES)  # nosec B311
         category = template["category"]
 
-        # Random values for placeholder substitution
-        date1 = (datetime.now() - timedelta(days=random.randint(1, 30))).strftime("%Y-%m-%d")
-        date2 = (datetime.now() - timedelta(days=random.randint(1, 15))).strftime("%Y-%m-%d")
-        amount = random.choice([9.99, 19.99, 29.99, 49.99, 99.99])
+        # Random values for placeholder substitution (all random calls below generate synthetic demo data)
+        date1 = (datetime.now() - timedelta(days=random.randint(1, 30))).strftime("%Y-%m-%d")  # nosec B311
+        date2 = (datetime.now() - timedelta(days=random.randint(1, 15))).strftime("%Y-%m-%d")  # nosec B311
+        amount = random.choice([9.99, 19.99, 29.99, 49.99, 99.99])  # nosec B311
 
-        subject = random.choice(template["subjects"])
-        description_template = random.choice(template["descriptions"])
+        subject = random.choice(template["subjects"])  # nosec B311
+        description_template = random.choice(template["descriptions"])  # nosec B311
 
         # Replace placeholders
         description = description_template.format(
             date1=date1,
             date2=date2,
             amount=amount,
-            email=f"customer{random.randint(1000, 9999)}@example.com",
-            old_email=f"old{random.randint(100, 999)}@example.com",
-            new_email=f"new{random.randint(100, 999)}@example.com",
-            version=f"v{random.randint(1, 5)}.{random.randint(0, 9)}.{random.randint(0, 20)}",
-            device=random.choice(["iPhone 14", "Samsung Galaxy S23", "iPad Pro", "MacBook Pro"]),
-            os=random.choice(["iOS 17", "Android 14", "macOS 14.2", "Windows 11"]),
-            error_msg=random.choice(
+            email=f"customer{random.randint(1000, 9999)}@example.com",  # nosec B311
+            old_email=f"old{random.randint(100, 999)}@example.com",  # nosec B311
+            new_email=f"new{random.randint(100, 999)}@example.com",  # nosec B311
+            version=f"v{random.randint(1, 5)}.{random.randint(0, 9)}.{random.randint(0, 20)}",  # nosec B311
+            device=random.choice(["iPhone 14", "Samsung Galaxy S23", "iPad Pro", "MacBook Pro"]),  # nosec B311
+            os=random.choice(["iOS 17", "Android 14", "macOS 14.2", "Windows 11"]),  # nosec B311
+            error_msg=random.choice(  # nosec B311
                 ["ERR_CONNECTION_TIMEOUT", "FILE_TOO_LARGE", "INVALID_FORMAT", "PERMISSION_DENIED"]
             ),
-            file_type=random.choice(["PDF", "DOCX", "PNG", "CSV"]),
-            file_size=random.randint(15, 100),
-            feature=random.choice(
+            file_type=random.choice(["PDF", "DOCX", "PNG", "CSV"]),  # nosec B311
+            file_size=random.randint(15, 100),  # nosec B311
+            feature=random.choice(  # nosec B311
                 ["analytics dashboard", "bulk import", "API access", "custom reports"]
             ),
-            tool_name=random.choice(["Slack", "Salesforce", "Zapier", "Google Sheets"]),
-            workflow=random.choice(["project management", "customer tracking", "data analysis"]),
-            product=random.choice(
+            tool_name=random.choice(["Slack", "Salesforce", "Zapier", "Google Sheets"]),  # nosec B311
+            workflow=random.choice(["project management", "customer tracking", "data analysis"]),  # nosec B311
+            product=random.choice(  # nosec B311
                 ["Wireless Headphones", "Smart Watch", "Laptop Stand", "USB-C Hub"]
             ),
-            order_id=f"ORD-{random.randint(10000, 99999)}",
-            ordered_item=random.choice(["Blue Widget Pro", "Red Gadget Plus", "Green Device Max"]),
-            received_item=random.choice(
+            order_id=f"ORD-{random.randint(10000, 99999)}",  # nosec B311
+            ordered_item=random.choice(["Blue Widget Pro", "Red Gadget Plus", "Green Device Max"]),  # nosec B311
+            received_item=random.choice(  # nosec B311
                 ["Yellow Widget Lite", "Purple Gadget Basic", "Orange Device Mini"]
             ),
             new_address="456 New St, Different City, ST 12345",
-            tracking_num=f"1Z{random.randint(100000000000, 999999999999)}",
+            tracking_num=f"1Z{random.randint(100000000000, 999999999999)}",  # nosec B311
         )
 
-        ticket_id_str = f"TICKET-{ticket_id if ticket_id else random.randint(1000, 9999)}"
+        ticket_id_str = f"TICKET-{ticket_id if ticket_id else random.randint(1000, 9999)}"  # nosec B311
 
         return Ticket(
             id=ticket_id_str,
-            customer_name=f"{random.choice(['John', 'Jane', 'Alex', 'Sam', 'Chris', 'Morgan'])} {random.choice(['Smith', 'Johnson', 'Williams', 'Brown', 'Jones', 'Davis'])}",
-            customer_email=f"customer{random.randint(1000, 9999)}@example.com",
+            customer_name=f"{random.choice(['John', 'Jane', 'Alex', 'Sam', 'Chris', 'Morgan'])} {random.choice(['Smith', 'Johnson', 'Williams', 'Brown', 'Jones', 'Davis'])}",  # nosec B311
+            customer_email=f"customer{random.randint(1000, 9999)}@example.com",  # nosec B311
             subject=subject,
             description=description,
             category=category,
             priority=None,  # To be determined by agent
             status=TicketStatus.NEW,
-            created_at=datetime.now() - timedelta(hours=random.randint(0, 48)),
+            created_at=datetime.now() - timedelta(hours=random.randint(0, 48)),  # nosec B311
         )
 
     @staticmethod

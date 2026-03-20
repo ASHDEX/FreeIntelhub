@@ -2,42 +2,23 @@
 
 ## Description
 
-<!-- Provide a clear and detailed description of your changes. -->
-<!-- For cookbook contributions, explain what the cookbook demonstrates and why it's valuable. -->
+<!-- Provide a clear description of your changes and why you made them. -->
 
 ## Type of Change
 
-<!-- Check all that apply by replacing [ ] with [x] -->
-
-- [ ] New cookbook
-- [ ] Bug fix (fixes an issue in existing cookbook)
+- [ ] Bug fix
+- [ ] New feature
 - [ ] Documentation update
-- [ ] Code quality improvement (refactoring, optimization)
+- [ ] Performance / security improvement
 - [ ] Dependency update
 - [ ] Other (please describe):
 
-## Cookbook Checklist (if applicable)
-
-<!-- For new cookbooks or significant updates to existing ones -->
-
-- [ ] Cookbook has a clear, descriptive title
-- [ ] Includes a problem statement or use case description
-- [ ] Code is well-commented and easy to follow
-- [ ] Includes expected outputs or results
-- [ ] Added entry to `registry.yaml` (run `/add-registry <notebook-path>` or add manually)
-
 ## Testing
 
-<!-- Describe how you tested your changes -->
-
-- [ ] I have tested this cookbook/change locally
-- [ ] All cells execute without errors
+- [ ] Tested locally — the app starts and the affected feature works as expected
+- [ ] No regressions in related functionality
 
 ## Additional Context
 
-<!-- Add any other context, screenshots, or information about the pull request here -->
-<!-- Link to related issues, documentation, or discussions -->
-
----
-
-**Note:** Pull requests that do not follow these guidelines or lack sufficient detail may be closed. This helps us maintain high-quality, useful cookbooks for the community. If you're unsure about any requirements, please open an issue to discuss before submitting a PR.
+<!-- Screenshots, related issues, or anything else reviewers should know -->
+<!-- Link related issues: Fixes #123 -->

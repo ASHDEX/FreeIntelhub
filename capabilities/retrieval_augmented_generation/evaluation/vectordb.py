@@ -1,6 +1,5 @@
 import json
 import os
-import pickle
 
 import numpy as np
 import voyageai
@@ -15,7 +14,7 @@ class VectorDB:
         self.embeddings = []
         self.metadata = []
         self.query_cache = {}
-        self.db_path = f"./data/{name}/vector_db.pkl"
+        self.db_path = f"./data/{name}/vector_db.npz"
 
     def load_data(self, data):
         if self.embeddings and self.metadata:
@@ -68,25 +67,23 @@ class VectorDB:
         return top_examples
 
     def save_db(self):
-        data = {
-            "embeddings": self.embeddings,
-            "metadata": self.metadata,
-            "query_cache": json.dumps(self.query_cache),
-        }
-        os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
-        with open(self.db_path, "wb") as file:
-            pickle.dump(data, file)
+        os.makedirs(os.path.dirname(os.path.abspath(self.db_path)), exist_ok=True)
+        np.savez(
+            self.db_path,
+            embeddings=np.array(self.embeddings) if self.embeddings else np.empty(0),
+            metadata=np.array(json.dumps(self.metadata)),
+            query_cache=np.array(json.dumps(self.query_cache)),
+        )
 
     def load_db(self):
         if not os.path.exists(self.db_path):
             raise ValueError(
                 "Vector database file not found. Use load_data to create a new database."
             )
-        with open(self.db_path, "rb") as file:
-            data = pickle.load(file)
-        self.embeddings = data["embeddings"]
-        self.metadata = data["metadata"]
-        self.query_cache = json.loads(data["query_cache"])
+        data = np.load(self.db_path, allow_pickle=False)
+        self.embeddings = data["embeddings"].tolist()
+        self.metadata = json.loads(str(data["metadata"]))
+        self.query_cache = json.loads(str(data["query_cache"]))
 
 
 class SummaryIndexedVectorDB:
@@ -98,7 +95,7 @@ class SummaryIndexedVectorDB:
         self.embeddings = []
         self.metadata = []
         self.query_cache = {}
-        self.db_path = f"./data/{name}/summary_indexed_vector_db.pkl"
+        self.db_path = f"./data/{name}/summary_indexed_vector_db.npz"
 
     def load_data(self, data):
         if self.embeddings and self.metadata:
@@ -153,22 +150,20 @@ class SummaryIndexedVectorDB:
         return top_examples
 
     def save_db(self):
-        data = {
-            "embeddings": self.embeddings,
-            "metadata": self.metadata,
-            "query_cache": json.dumps(self.query_cache),
-        }
-        os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
-        with open(self.db_path, "wb") as file:
-            pickle.dump(data, file)
+        os.makedirs(os.path.dirname(os.path.abspath(self.db_path)), exist_ok=True)
+        np.savez(
+            self.db_path,
+            embeddings=np.array(self.embeddings) if self.embeddings else np.empty(0),
+            metadata=np.array(json.dumps(self.metadata)),
+            query_cache=np.array(json.dumps(self.query_cache)),
+        )
 
     def load_db(self):
         if not os.path.exists(self.db_path):
             raise ValueError(
                 "Vector database file not found. Use load_data to create a new database."
             )
-        with open(self.db_path, "rb") as file:
-            data = pickle.load(file)
-        self.embeddings = data["embeddings"]
-        self.metadata = data["metadata"]
-        self.query_cache = json.loads(data["query_cache"])
+        data = np.load(self.db_path, allow_pickle=False)
+        self.embeddings = data["embeddings"].tolist()
+        self.metadata = json.loads(str(data["metadata"]))
+        self.query_cache = json.loads(str(data["query_cache"]))

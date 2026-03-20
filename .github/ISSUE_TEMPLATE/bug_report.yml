@@ -1,5 +1,5 @@
 name: Bug Report
-description: Report a bug or issue with a cookbook
+description: Report a bug or issue with FreeIntelHub
 title: "[BUG] "
 labels:
   - bug
@@ -7,18 +7,15 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for taking the time to report this issue! Please fill out the sections below to help us understand and fix the problem.
-
-        Before submitting, please:
-        - Search [existing issues](https://github.com/anthropics/claude-cookbooks/issues) to check if this has been reported
-        - Verify you're using the latest version of dependencies
+        Thanks for reporting! Please fill out the sections below.
+        Before submitting, search [existing issues](https://github.com/ASHDEX/FreeIntelhub/issues) to check if this has already been reported.
 
   - type: input
-    id: notebook
+    id: affected
     attributes:
-      label: Affected Notebook/File
-      description: Which notebook or file has the issue?
-      placeholder: "e.g., misc/prompt_caching.ipynb"
+      label: Affected Feature / Page
+      description: Which feature, route, or page has the issue?
+      placeholder: "e.g., /lookup, feed aggregation, alert emails"
     validations:
       required: true
 
@@ -26,12 +23,12 @@ body:
     id: description
     attributes:
       label: Bug Description
-      description: What's wrong? Be specific about what you expected vs what happened.
+      description: What's wrong? Describe what you expected vs what happened.
       placeholder: |
-        When I run cell 5 in the prompt caching notebook, I get an ImportError...
+        When I navigate to /lookup and enter an IP address, I get a 500 error.
 
-        Expected: The cell should execute and show cached response times
-        Actual: ImportError: No module named 'anthropic'
+        Expected: IP reputation data is returned
+        Actual: Internal Server Error
     validations:
       required: true
 
@@ -41,18 +38,18 @@ body:
       label: Steps to Reproduce
       description: How can we reproduce this issue?
       placeholder: |
-        1. Open the notebook in Jupyter
-        2. Run cells 1-4 (setup)
-        3. Run cell 5
-        4. Error appears
+        1. Go to /lookup
+        2. Enter IP: 1.2.3.4
+        3. Click Lookup
+        4. 500 error appears
     validations:
       required: true
 
   - type: textarea
     id: error
     attributes:
-      label: Error Message
-      description: If there's an error message or traceback, paste it here
+      label: Error Message / Logs
+      description: Paste any error messages or server logs here
       render: shell
     validations:
       required: false
@@ -63,10 +60,9 @@ body:
       label: Environment
       description: Your environment details
       placeholder: |
-        - Python version: 3.11.5
-        - OS: macOS 14.0 / Ubuntu 22.04 / Windows 11
-        - anthropic SDK version: 0.71.0
-        - Jupyter: notebook 7.0.0 / VS Code
+        - Node.js version: 20.x
+        - OS: Ubuntu 22.04 / Windows 11 / macOS
+        - Deployment: local / Hostinger / Docker
     validations:
       required: false
 
