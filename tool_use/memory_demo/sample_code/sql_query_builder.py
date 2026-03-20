@@ -27,8 +27,8 @@ class QueryBuilder:
         Using string formatting with user input allows SQL injection.
         """
         # DANGEROUS: Never use f-strings or % formatting with user input!
-        query = f"SELECT * FROM users WHERE username = '{username}'"
-        results = self.db.execute(query)
+        query = f"SELECT * FROM users WHERE username = '{username}'"  # nosemgrep: python.lang.security.audit.formatted-sql-query.formatted-sql-query
+        results = self.db.execute(query)  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
         return results[0] if results else None
 
     def get_user_by_name_safe(self, username: str) -> dict | None:
@@ -46,8 +46,8 @@ class QueryBuilder:
         BUG: SQL INJECTION through LIKE clause!
         """
         # DANGEROUS: User input directly in LIKE clause
-        query = f"SELECT * FROM users WHERE name LIKE '%{search_term}%' LIMIT {limit}"
-        return self.db.execute(query)
+        query = f"SELECT * FROM users WHERE name LIKE '%{search_term}%' LIMIT {limit}"  # nosemgrep: python.lang.security.audit.formatted-sql-query.formatted-sql-query
+        return self.db.execute(query)  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
 
     def delete_user(self, user_id: str) -> bool:
         """
@@ -57,8 +57,8 @@ class QueryBuilder:
         This is especially dangerous as it can lead to data loss.
         """
         # DANGEROUS: Unvalidated user input in DELETE
-        query = f"DELETE FROM users WHERE id = {user_id}"
-        self.db.execute(query)
+        query = f"DELETE FROM users WHERE id = {user_id}"  # nosemgrep: python.lang.security.audit.formatted-sql-query.formatted-sql-query
+        self.db.execute(query)  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
         return True
 
     def get_users_by_role(self, role: str, order_by: str = "name") -> list[dict]:
@@ -69,8 +69,8 @@ class QueryBuilder:
         Even the ORDER BY clause can be exploited.
         """
         # DANGEROUS: User-controlled ORDER BY
-        query = f"SELECT * FROM users WHERE role = '{role}' ORDER BY {order_by}"
-        return self.db.execute(query)
+        query = f"SELECT * FROM users WHERE role = '{role}' ORDER BY {order_by}"  # nosemgrep: python.lang.security.audit.formatted-sql-query.formatted-sql-query
+        return self.db.execute(query)  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
 
 
 if __name__ == "__main__":

@@ -52,10 +52,10 @@ load_dotenv()
 ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY")
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 
-assert ELEVENLABS_API_KEY is not None, (
+assert ELEVENLABS_API_KEY is not None, (  # nosec B101
     "ERROR: ELEVENLABS_API_KEY not found. Please copy .env.example to .env and add your API keys."
 )
-assert ANTHROPIC_API_KEY is not None, (
+assert ANTHROPIC_API_KEY is not None, (  # nosec B101
     "ERROR: ANTHROPIC_API_KEY not found. Please copy .env.example to .env and add your API keys."
 )
 

@@ -1,4 +1,4 @@
-FROM python:3.11
+FROM python:3.11-slim
 
 WORKDIR /app
 
@@ -30,6 +30,9 @@ RUN pip install --no-cache-dir \
     mcp-server-git
 
 RUN claude --version
+
+RUN groupadd -r appuser && useradd -r -g appuser appuser && chown -R appuser:appuser /app
+USER appuser
 
 EXPOSE 8000
 

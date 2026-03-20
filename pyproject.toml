@@ -24,10 +24,21 @@ dev = [
     "pytest>=8.3.3",
     "nbval>=0.11.0",
     "pre-commit>=3.8.0",
-    "nbconvert>=7.16.0",
+    "nbconvert>7.16.6",  # CVE-2025-53000: Uncontrolled Search Path via Inkscape on Windows
     "pyyaml>=6.0.3",
     "tox>=4.32.0",
     "tox-uv>=1.29.0",
+]
+
+[tool.uv]
+# Security: force patched versions of vulnerable transitive dependencies (Semgrep SC findings 2026-03-19)
+constraint-dependencies = [
+    "aiohttp>3.13.2",        # CVE-2025-69223/24/25/26/27/28/29/30: zip bomb DoS, smuggling, path traversal, info disclosure
+    "virtualenv>20.35.4",    # CVE-2026-22702: race condition / link following
+    "orjson>3.11.4",         # CVE-2025-67221: resource exhaustion
+    "filelock>3.20.0",       # CVE-2025-68146, CVE-2026-22701: TOCTOU race / link following
+    "langsmith>0.4.47",      # CVE-2026-25528: SSRF
+    "langchain-core>1.1.0",  # CVE-2026-26013: SSRF
 ]
 
 [tool.hatch.build.targets.wheel]

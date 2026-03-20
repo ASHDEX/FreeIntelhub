@@ -249,7 +249,7 @@ def get_expenses(employee_id: str, quarter: str) -> str:
 
     # Generate a deterministic but varied number of expenses based on employee_id
     random.seed(hash(employee_id + quarter))
-    num_expenses = random.randint(
+    num_expenses = random.randint(  # nosec B311
         EXPENSE_LINE_ITEMS_PER_PERSON_MIN, EXPENSE_LINE_ITEMS_PER_PERSON_MAX
     )
 
@@ -398,23 +398,23 @@ def get_expenses(employee_id: str, quarter: str) -> str:
 
     expenses = []
     for i in range(num_expenses):
-        category, desc_template, min_amt, max_amt = random.choice(expense_categories)
+        category, desc_template, min_amt, max_amt = random.choice(expense_categories)  # nosec B311
 
         # Generate random date within quarter
         days_diff = (end_date - start_date).days
-        random_days = random.randint(0, days_diff)
+        random_days = random.randint(0, days_diff)  # nosec B311
         expense_date = start_date + timedelta(days=random_days)
 
         # Generate amount
-        amount = round(random.uniform(min_amt, max_amt), 2)
+        amount = round(random.uniform(min_amt, max_amt), 2)  # nosec B311
 
         # Status (most are approved)
         status = random.choices(["approved", "pending", "rejected"], weights=[0.85, 0.10, 0.05])[0]
 
         # Generate additional metadata
-        approved_by = random.choice(managers) if status == "approved" else None
-        store_name = random.choice(merchants.get(category, ["Unknown Merchant"]))
-        store_location = random.choice(cities)
+        approved_by = random.choice(managers) if status == "approved" else None  # nosec B311
+        store_name = random.choice(merchants.get(category, ["Unknown Merchant"]))  # nosec B311
+        store_location = random.choice(cities)  # nosec B311
         payment_method = random.choice(["corporate_card", "personal_reimbursement"])
         project_code = random.choice(project_codes)
         notes = random.choice(justifications.get(category, ["Business expense"]))
