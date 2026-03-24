@@ -359,6 +359,11 @@ addColumn('malware_software', 'malpedia_attribution', 'TEXT');
 addColumn('threat_groups', 'malpedia_slug', 'TEXT');
 addColumn('threat_groups', 'malpedia_uuid', 'TEXT');
 addColumn('threat_groups', 'malpedia_refs', 'TEXT');
+// Threat actor profiling fields (skill: profiling-threat-actor-groups)
+addColumn('threat_groups', 'motivation', 'TEXT');                  // espionage | financial | disruption | ip-theft | unknown
+addColumn('threat_groups', 'attribution_confidence', 'TEXT');      // low | medium | high
+addColumn('threat_groups', 'targeting_sectors', 'TEXT');           // JSON array of sector strings
+addColumn('threat_groups', 'targeting_geographies', 'TEXT');       // JSON array of country/region strings
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS malpedia_sync_log (
