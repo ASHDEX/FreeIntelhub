@@ -77,12 +77,24 @@
         </div>
 
         <div class="nav-dropdown">
-          <a href="/trending" class="nav-tab<%= currentPath === '/trending' || currentPath === '/bookmarks' || currentPath === '/mitre' || currentPath === '/iocs' || currentPath === '/heatmap' ? ' active' : '' %>">Tools <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></a>
-          <div class="dropdown-menu">
+          <a href="/trending" class="nav-tab<%= currentPath === '/trending' || currentPath === '/bookmarks' || currentPath === '/mitre' || currentPath === '/iocs' || currentPath === '/heatmap' || currentPath === '/geomap' || currentPath === '/yara-rules' || currentPath === '/ssl-blacklist' || currentPath === '/pastes' || currentPath === '/cases' || currentPath.startsWith('/cases/') || currentPath === '/watchlist' || currentPath === '/cve-priority' || currentPath === '/vulnerability' ? ' active' : '' %>">Tools <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></a>
+          <div class="dropdown-menu dropdown-menu-scroll">
+            <a href="/lookup" class="dropdown-item">IOC Lookup</a>
+            <a href="/cve-priority" class="dropdown-item">CVE Priority</a>
+            <a href="/vulnerability" class="dropdown-item">CVE Lookup</a>
+            <div class="dropdown-divider"></div>
             <a href="/trending" class="dropdown-item">Trending</a>
             <a href="/heatmap" class="dropdown-item">Threat Heatmap</a>
+            <a href="/geomap" class="dropdown-item">Geo Map</a>
             <a href="/mitre" class="dropdown-item">MITRE ATT&CK</a>
             <a href="/iocs" class="dropdown-item">IOC Feed</a>
+            <div class="dropdown-divider"></div>
+            <a href="/yara-rules" class="dropdown-item">YARA Rules</a>
+            <a href="/ssl-blacklist" class="dropdown-item">SSL Blacklist</a>
+            <a href="/pastes" class="dropdown-item">Paste Monitor</a>
+            <div class="dropdown-divider"></div>
+            <a href="/cases" class="dropdown-item">Cases</a>
+            <a href="/watchlist" class="dropdown-item">Watchlist</a>
             <a href="/bookmarks" class="dropdown-item">Bookmarks</a>
             <div class="dropdown-divider"></div>
             <a href="/feed/all.xml" class="dropdown-item">RSS Feed</a>
