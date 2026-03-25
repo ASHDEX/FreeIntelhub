@@ -348,9 +348,7 @@ router.use((req, res, next) => {
 // =============================================
 
 // Landing page
-router.get('/', (req, res) => res.redirect(301, '/feed'));
-
-router.get('/landing', (req, res) => {
+router.get('/', (req, res) => {
   const totalArticles = stmts.totalCount.get().count;
   const threatGroupCount = db.prepare('SELECT COUNT(*) as count FROM threat_groups').get().count;
   const sourceCount = feeds.length;
