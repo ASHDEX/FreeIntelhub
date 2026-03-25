@@ -348,7 +348,9 @@ router.use((req, res, next) => {
 // =============================================
 
 // Landing page
-router.get('/', (req, res) => {
+router.get('/', (req, res) => res.redirect(301, '/feed'));
+
+router.get('/landing', (req, res) => {
   const totalArticles = stmts.totalCount.get().count;
   const threatGroupCount = db.prepare('SELECT COUNT(*) as count FROM threat_groups').get().count;
   const sourceCount = feeds.length;
@@ -1380,6 +1382,8 @@ router.get('/threat-group/:name', (req, res) => {
   const dailyCounts = getDailyCounts(tgStmts.dailyCounts.all(group.id));
 
   const aliases = group.aliases ? JSON.parse(group.aliases) : [];
+  const targetingSectors = group.targeting_sectors ? (() => { try { return JSON.parse(group.targeting_sectors); } catch (_) { return []; } })() : [];
+  const targetingGeographies = group.targeting_geographies ? (() => { try { return JSON.parse(group.targeting_geographies); } catch (_) { return []; } })() : [];
 
   // Related malware (co-occurring in same articles) for relationship graph
   const relatedMalware = db.prepare(`
@@ -1392,13 +1396,85 @@ router.get('/threat-group/:name', (req, res) => {
     GROUP BY ms.id ORDER BY count DESC LIMIT 6
   `).all(group.id);
 
+  // Aggregate MITRE ATT&CK techniques observed in articles for this group
+  const ttpRows = db.prepare(`
+    SELECT a.mitre_techniques FROM articles a
+    JOIN article_threat_groups atg ON atg.article_id = a.id
+    WHERE atg.threat_group_id = ? AND a.mitre_techniques IS NOT NULL
+  `).all(group.id);
+
+  const ttpMap = {};
+  for (const row of ttpRows) {
+    try {
+      const techs = JSON.parse(row.mitre_techniques);
+      if (!Array.isArray(techs)) continue;
+      for (const t of techs) {
+        const key = t.id || t;
+        if (!ttpMap[key]) ttpMap[key] = { id: t.id || t, name: t.name || t.id || t, tactic: t.tactic || 'unknown', count: 0 };
+        ttpMap[key].count++;
+      }
+    } catch (_) {}
+  }
+  // Group by tactic, sorted by count desc within each tactic
+  const TACTIC_ORDER = ['reconnaissance','resource-development','initial-access','execution','persistence','privilege-escalation','defense-evasion','credential-access','discovery','lateral-movement','collection','command-and-control','exfiltration','impact'];
+  const ttpByTactic = {};
+  for (const t of Object.values(ttpMap)) {
+    const tactic = t.tactic || 'unknown';
+    if (!ttpByTactic[tactic]) ttpByTactic[tactic] = [];
+    ttpByTactic[tactic].push(t);
+  }
+  for (const tactic of Object.keys(ttpByTactic)) {
+    ttpByTactic[tactic].sort((a, b) => b.count - a.count);
+  }
+  const observedTtps = TACTIC_ORDER
+    .filter(t => ttpByTactic[t])
+    .map(t => ({ tactic: t, techniques: ttpByTactic[t] }));
+  if (ttpByTactic['unknown']) observedTtps.push({ tactic: 'unknown', techniques: ttpByTactic['unknown'] });
+
   res.render('threatgroup', {
     pageTitle: group.name,
-    group: { ...group, aliases },
+    group: { ...group, aliases, targetingSectors, targetingGeographies },
     articles, page, pages, total, showAll, dailyCounts,
     baseUrl: `/threat-group/${encodeURIComponent(name)}`,
     relatedMalware,
+    observedTtps,
   });
+});
+
+// Analyst: update threat actor profile fields (motivation, confidence, sectors, geographies)
+router.post('/api/threat-group/:id/profile', requireAuth('analyst'), (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) return res.status(400).json({ error: 'Invalid id' });
+
+  const VALID_MOTIVATIONS = ['espionage', 'financial', 'disruption', 'ip-theft', 'unknown'];
+  const VALID_CONFIDENCE  = ['low', 'medium', 'high'];
+
+  const { motivation, attribution_confidence, targeting_sectors, targeting_geographies } = req.body || {};
+
+  const updates = [];
+  const params  = [];
+
+  if (motivation !== undefined) {
+    if (!VALID_MOTIVATIONS.includes(motivation)) return res.status(400).json({ error: 'Invalid motivation' });
+    updates.push('motivation = ?'); params.push(motivation);
+  }
+  if (attribution_confidence !== undefined) {
+    if (!VALID_CONFIDENCE.includes(attribution_confidence)) return res.status(400).json({ error: 'Invalid attribution_confidence' });
+    updates.push('attribution_confidence = ?'); params.push(attribution_confidence);
+  }
+  if (targeting_sectors !== undefined) {
+    if (!Array.isArray(targeting_sectors)) return res.status(400).json({ error: 'targeting_sectors must be array' });
+    updates.push('targeting_sectors = ?'); params.push(JSON.stringify(targeting_sectors));
+  }
+  if (targeting_geographies !== undefined) {
+    if (!Array.isArray(targeting_geographies)) return res.status(400).json({ error: 'targeting_geographies must be array' });
+    updates.push('targeting_geographies = ?'); params.push(JSON.stringify(targeting_geographies));
+  }
+
+  if (!updates.length) return res.status(400).json({ error: 'No fields to update' });
+  params.push(id);
+  db.prepare(`UPDATE threat_groups SET ${updates.join(', ')} WHERE id = ?`).run(...params);
+  res.json({ ok: true });
 });
 
 // ── Software & Malware ────────────────────────────────────────────────────────
