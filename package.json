@@ -4,8 +4,10 @@
   "description": "Cybersecurity Threat Intelligence RSS Hub",
   "main": "app.js",
   "scripts": {
-    "start": "node app.js",
-    "dev": "node --watch app.js"
+    "start": "node --env-file=.env app.js",
+    "dev": "node --env-file=.env --watch app.js",
+    "build:css": "tailwindcss -i tailwind.source.css -o public/tailwind.css --minify",
+    "watch:css": "tailwindcss -i tailwind.source.css -o public/tailwind.css --watch"
   },
   "engines": {
     "node": ">=18.0.0"
@@ -19,13 +21,19 @@
   "dependencies": {
     "bcrypt": "^6.0.0",
     "better-sqlite3": "^11.7.0",
+    "cheerio": "^1.2.0",
     "ejs": "^3.1.10",
     "express": "^4.21.0",
     "express-rate-limit": "^7.5.0",
     "express-session": "^1.19.0",
+    "geoip-lite": "^1.4.7",
     "helmet": "^8.1.0",
     "node-cron": "^4.2.1",
     "nodemailer": "^8.0.1",
-    "rss-parser": "^3.13.0"
+    "rss-parser": "^3.13.0",
+    "socks-proxy-agent": "^10.0.0"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.4.19"
   }
 }

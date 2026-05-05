@@ -326,6 +326,62 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_case_articles_case ON case_articles(case_id);
 `);
 
+// ── Dark web monitoring tables ────────────────────────────────────────────────
+db.exec(`
+  CREATE TABLE IF NOT EXISTS dw_gang_list (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    group_name TEXT NOT NULL,
+    onion_url TEXT NOT NULL UNIQUE,
+    status TEXT,
+    fetched_at INTEGER NOT NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS darkweb_hits (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    site_name TEXT NOT NULL,
+    onion_url TEXT NOT NULL,
+    category TEXT NOT NULL,
+    title TEXT,
+    content_snippet TEXT,
+    discovered_at INTEGER NOT NULL,
+    severity TEXT DEFAULT 'medium'
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_dw_discovered ON darkweb_hits(discovered_at DESC);
+  CREATE INDEX IF NOT EXISTS idx_dw_category ON darkweb_hits(category, discovered_at DESC);
+
+  CREATE TABLE IF NOT EXISTS dw_forum_list (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    forum_name TEXT NOT NULL,
+    url TEXT NOT NULL UNIQUE,
+    status TEXT,
+    fetched_at INTEGER NOT NULL
+  );
+`);
+
+// Migrations: add IOCs and entities_processed columns to darkweb_hits if missing
+addColumn('darkweb_hits', 'iocs', 'TEXT');
+addColumn('darkweb_hits', 'entities_processed', 'INTEGER DEFAULT 0');
+
+// ── IOC geolocation enrichment ────────────────────────────────────────────────
+db.exec(`
+  CREATE TABLE IF NOT EXISTS ioc_geo (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ip TEXT UNIQUE NOT NULL,
+    country TEXT,
+    country_name TEXT,
+    lat REAL,
+    lon REAL,
+    first_seen INTEGER,
+    last_seen INTEGER,
+    source TEXT,
+    article_id INTEGER,
+    darkweb_hit_id INTEGER
+  );
+  CREATE INDEX IF NOT EXISTS idx_ioc_geo_country ON ioc_geo(country);
+  CREATE INDEX IF NOT EXISTS idx_ioc_geo_last_seen ON ioc_geo(last_seen DESC);
+`);
+
 // AI intelligence brief cache (Gemini-generated summaries, 24h TTL)
 db.exec(`
   CREATE TABLE IF NOT EXISTS ai_summaries (
