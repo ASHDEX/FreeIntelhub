@@ -35,5 +35,10 @@
   },
   "devDependencies": {
     "tailwindcss": "^3.4.19"
+  },
+  "overrides": {
+    "geoip-lite": {
+      "ip-address": "^10.1.1"
+    }
   }
 }
