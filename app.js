@@ -9,6 +9,8 @@ const routes = require('./routes');
 const { fetchAllFeeds } = require('./services/rssFetcher');
 const { startNewsletterCron } = require('./services/newsletter');
 const { cleanupOldArticles } = require('./services/articleCleanup');
+const { cleanupStorage } = require('./services/storageCleanup');
+const { optimize: dbOptimize, vacuum: dbVacuum } = require('./services/dbMaintenance');
 const { seedEntities, backfillEntities } = require('./services/entityExtractor');
 const darkweb = require('./services/darkweb');
 
@@ -165,12 +167,29 @@ app.listen(PORT, BIND_HOST, () => {
   setTimeout(cleanupOldArticles, 10000);
   setInterval(cleanupOldArticles, CLEANUP_INTERVAL);
 
-  // Dark web monitoring: sync gang + forum lists on startup, then every 24h
-  // Scan all monitored sites every 4h
-  setTimeout(() => darkweb.syncGangList(),  15000);
-  setTimeout(() => darkweb.syncForumList(), 18000);
-  setInterval(() => darkweb.syncGangList(),  DW_SYNC_INTERVAL);
-  setInterval(() => darkweb.syncForumList(), DW_SYNC_INTERVAL);
-  setTimeout(() => darkweb.scanAll(), 30000);
-  setInterval(() => darkweb.scanAll(), DW_SCAN_INTERVAL);
+  // Storage cleanup for unbounded tables: run 12h after start, then daily
+  setTimeout(cleanupStorage, 12 * 1000);
+  setInterval(cleanupStorage, CLEANUP_INTERVAL);
+
+  // SQLite maintenance: optimize on startup, VACUUM weekly
+  setTimeout(dbOptimize, 20 * 1000);
+  setInterval(dbVacuum, 7 * CLEANUP_INTERVAL);
+
+  // Dark web monitoring — disabled by default since most hosts (Hostinger
+  // included) cannot run a Tor daemon. Set DW_ENABLED=true on a host that has
+  // a reachable SOCKS5 Tor proxy.
+  if (process.env.DW_ENABLED === 'true') {
+    const safe = (label, fn) => async () => {
+      try { await fn(); }
+      catch (err) { console.warn(`[Darkweb] ${label} failed: ${err.message}`); }
+    };
+    setTimeout(safe('syncGangList',  darkweb.syncGangList),  15000);
+    setTimeout(safe('syncForumList', darkweb.syncForumList), 18000);
+    setInterval(safe('syncGangList',  darkweb.syncGangList),  DW_SYNC_INTERVAL);
+    setInterval(safe('syncForumList', darkweb.syncForumList), DW_SYNC_INTERVAL);
+    setTimeout(safe('scanAll', darkweb.scanAll), 30000);
+    setInterval(safe('scanAll', darkweb.scanAll), DW_SCAN_INTERVAL);
+  } else {
+    console.log('[Darkweb] Disabled (set DW_ENABLED=true to enable)');
+  }
 });

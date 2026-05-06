@@ -363,6 +363,41 @@ router.get('/', (req, res) => {
   res.render('landing', { totalArticles, threatGroupCount, sourceCount });
 });
 
+// Lightweight health endpoint — for Hostinger uptime monitors and quick triage.
+// No auth: only exposes coarse stats, no row data, no env values.
+router.get('/api/health', (req, res) => {
+  let dbSizeMb = null;
+  try {
+    const fs = require('fs');
+    const path = require('path');
+    const dbPath = process.env.DB_PATH || path.join(__dirname, '..', 'db', 'freeintelhub.sqlite');
+    dbSizeMb = Math.round(fs.statSync(dbPath).size / (1024 * 1024) * 10) / 10;
+  } catch (_) {}
+
+  let lastArticleAt = null, articleCount = null;
+  try {
+    articleCount = db.prepare('SELECT COUNT(*) c FROM articles').get().c;
+    lastArticleAt = db.prepare('SELECT MAX(created_at) m FROM articles').get().m;
+  } catch (_) {}
+
+  let lastDarkwebAt = null;
+  try { lastDarkwebAt = db.prepare('SELECT MAX(discovered_at) m FROM darkweb_hits').get().m; } catch (_) {}
+
+  const mem = process.memoryUsage();
+  res.json({
+    status: 'ok',
+    uptime_sec: Math.round(process.uptime()),
+    node: process.version,
+    mem_rss_mb: Math.round(mem.rss / (1024 * 1024)),
+    mem_heap_used_mb: Math.round(mem.heapUsed / (1024 * 1024)),
+    db_size_mb: dbSizeMb,
+    article_count: articleCount,
+    last_article_at: lastArticleAt,
+    last_darkweb_hit_at: lastDarkwebAt,
+    darkweb_enabled: process.env.DW_ENABLED === 'true',
+  });
+});
+
 // Threat Feed
 router.get('/feed', async (req, res) => {
   const page = parseInt(req.query.page, 10) || 1;
