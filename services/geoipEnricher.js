@@ -1,4 +1,5 @@
-const geoip = require('geoip-lite');
+let geoip;
+try { geoip = require('geoip-lite'); } catch (_) { console.warn('[GeoIP] geoip-lite not available — IP geolocation disabled'); }
 const db = require('../db');
 
 // Mapping of ISO-2 codes to human-readable country names
@@ -74,6 +75,7 @@ const COUNTRY_NAMES = {
  */
 function lookup(ip) {
   try {
+    if (!geoip) return null;
     const result = geoip.lookup(ip);
     if (!result) return null;
 
