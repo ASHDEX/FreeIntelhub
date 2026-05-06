@@ -7,6 +7,7 @@ const { isNewsArticle } = require('./contentFilter');
 const { detectMitreTechniques } = require('./mitreMapper');
 const { extractIOCs } = require('./iocExtractor');
 const { extractEntities, linkArticle } = require('./entityExtractor');
+const { upsertIp } = require('./geoipEnricher');
 
 const parser = new RSSParser({ timeout: 10000 });
 
@@ -92,12 +93,26 @@ async function fetchFeed(feed) {
     });
     insert(articles);
 
-    // Extract and link entities for new articles
+    // Extract and link entities for new articles, and enrich IPs with geolocation
     for (const { row, fullText } of newlyInserted) {
       try {
         linkArticle(row.id, extractEntities(fullText));
       } catch (err) {
         console.error(`[Entities] Failed for article ${row.id}: ${err.message}`);
+      }
+
+      // Enrich extracted IPs with geolocation data
+      if (row.iocs) {
+        try {
+          const iocs = JSON.parse(row.iocs);
+          if (iocs.ipv4 && Array.isArray(iocs.ipv4)) {
+            for (const ip of iocs.ipv4) {
+              upsertIp(ip, { source: 'rss', article_id: row.id });
+            }
+          }
+        } catch (err) {
+          console.error(`[GeoIP] Enrichment failed for article ${row.id}: ${err.message}`);
+        }
       }
     }
 

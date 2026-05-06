@@ -13,6 +13,7 @@ const { hashToken, encryptWebhookUrl } = require('../services/crypto');
 const { getAiContext } = require('../services/aiContext');
 
 const threatmapConfig = require('../config/threatmap.json');
+const countryCentroids = require('../data/country-centroids.json');
 const router = express.Router();
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
@@ -206,10 +207,17 @@ const stmts = {
     SELECT COUNT(*) as count FROM articles WHERE mitre_techniques LIKE ?
   `),
   articlesWithIOCs: db.prepare(`
-    SELECT * FROM articles WHERE iocs IS NOT NULL ORDER BY published_at DESC LIMIT ? OFFSET ?
+    SELECT id, title, link, source, published_at, iocs, 'rss' as origin FROM articles WHERE iocs IS NOT NULL
+    UNION ALL
+    SELECT id, title, onion_url as link, site_name as source, discovered_at as published_at, iocs, 'darkweb' as origin FROM darkweb_hits WHERE iocs IS NOT NULL
+    ORDER BY published_at DESC LIMIT ? OFFSET ?
   `),
   iocCount: db.prepare(`
-    SELECT COUNT(*) as count FROM articles WHERE iocs IS NOT NULL
+    SELECT COUNT(*) as count FROM (
+      SELECT id FROM articles WHERE iocs IS NOT NULL
+      UNION ALL
+      SELECT id FROM darkweb_hits WHERE iocs IS NOT NULL
+    )
   `),
   // Trending
   trendingCategories: db.prepare(`
@@ -1811,6 +1819,15 @@ const {
   urlhausHost, syncSslBlacklist, getRecentSslBlacklist,
   searchSslBlacklist, getSslBlacklistCount, getLastSslSync,
 } = require('../services/abusech');
+const { malshareHash, malshareRecent } = require('../services/malshare');
+const { getSources: getExploitSources, DEEP_LINK_PATTERNS: EXPLOIT_DEEP_LINKS, checkExploitDB, checkCisaKev } = require('../services/exploit');
+const { searchAwesomeYara } = require('../services/github-yara');
+const { searchYaraRules }  = require('../services/yara-search');
+const {
+  getSources: getPhishingSources, DEEP_LINK_PATTERNS,
+  checkUrlscan, checkPhishStats, checkCheckPhish, checkPhishingInitiative,
+  checkOpenPhish, checkPhishingDatabase, checkPhishingArmy,
+} = require('../services/phishing');
 
 router.get('/lookup', (req, res) => {
   res.render('lookup', { pageTitle: 'IOC Lookup' });
@@ -1860,14 +1877,26 @@ router.get('/api/lookup/hash', async (req, res) => {
   if (!/^[a-f0-9]{32}$|^[a-f0-9]{40}$|^[a-f0-9]{64}$/.test(q)) {
     return res.status(400).json({ error: 'Invalid hash (MD5/SHA1/SHA256 expected)' });
   }
-  const [vtResult, mbResult] = await Promise.allSettled([
+  const [vtResult, mbResult, msResult] = await Promise.allSettled([
     lookupHash(q),
     malwareBazaarHash(q),
+    malshareHash(q),
   ]);
   res.json({
-    data: vtResult.status === 'fulfilled' ? vtResult.value : null,
+    data:          vtResult.status === 'fulfilled' ? vtResult.value : null,
     malwarebazaar: mbResult.status === 'fulfilled' ? mbResult.value : null,
+    malshare:      msResult.status === 'fulfilled' ? msResult.value : null,
   });
+});
+
+// API: MalShare recent 24h sample feed (cached 1 hour)
+router.get('/api/malshare/recent', async (req, res) => {
+  try {
+    const samples = await malshareRecent();
+    res.json({ samples, ts: Date.now(), count: samples.length });
+  } catch (e) {
+    res.json({ samples: [], ts: Date.now(), count: 0 });
+  }
 });
 
 // =============================================
@@ -1882,11 +1911,89 @@ router.get('/api/yara-rules', async (req, res) => {
   const q = (req.query.q || '').trim().slice(0, 100);
   if (!q) return res.status(400).json({ error: 'Tag or malware name required' });
   try {
-    const results = await malwareBazaarTag(q, 20);
-    res.json({ results, query: q });
+    const [rulesR, resultsR, sourcesR] = await Promise.allSettled([
+      searchYaraRules(q, 20),
+      malwareBazaarTag(q, 10),
+      searchAwesomeYara(q, 10),
+    ]);
+    const rules   = rulesR.status   === 'fulfilled' ? rulesR.value   : [];
+    const results = resultsR.status === 'fulfilled' ? resultsR.value : [];
+    const sources = sourcesR.status === 'fulfilled' ? sourcesR.value : [];
+    res.json({ rules, results, sources, query: q });
   } catch (err) {
     console.error('[ERROR] YARA lookup:', err);
     res.status(502).json({ error: 'YARA lookup failed' });
+  }
+});
+
+// =============================================
+// Phishing Lookup (/phishing-lookup)
+// =============================================
+
+router.get('/phishing-lookup', (req, res) => {
+  res.render('phishinglookup', { pageTitle: 'Phishing Lookup' });
+});
+
+router.get('/api/phishing-sources', async (req, res) => {
+  const url = (req.query.url || '').trim().slice(0, 500);
+  if (!url) return res.status(400).json({ error: 'URL required' });
+  try {
+    const [urlscan, phishstats, checkphish, phishinitiative, openphish, phishdb, phisharmy, sources] = await Promise.all([
+      checkUrlscan(url),
+      checkPhishStats(url),
+      checkCheckPhish(url),
+      checkPhishingInitiative(url),
+      checkOpenPhish(url),
+      checkPhishingDatabase(url),
+      checkPhishingArmy(url),
+      getPhishingSources(),
+    ]);
+    const tools = sources
+      .filter(s => s.status === 'ONLINE')
+      .map(s => ({
+        name: s.name,
+        checkUrl: DEEP_LINK_PATTERNS[s.name] ? DEEP_LINK_PATTERNS[s.name](url) : s.url,
+        hasDeepLink: !!DEEP_LINK_PATTERNS[s.name],
+      }));
+    res.json({ query: url, urlscan, phishstats, checkphish, phishinitiative, openphish, phishdb, phisharmy, tools });
+  } catch (err) {
+    console.error('[ERROR] phishing-sources:', err);
+    res.status(502).json({ error: 'Failed to load results' });
+  }
+});
+
+// =============================================
+// Exploit Lookup (/exploit-lookup)
+// =============================================
+
+router.get('/exploit-lookup', (req, res) => {
+  res.render('exploitlookup', { pageTitle: 'Exploit Lookup' });
+});
+
+router.get('/api/exploit-sources', async (req, res) => {
+  const q = (req.query.q || '').trim().slice(0, 200);
+  if (!q) return res.status(400).json({ error: 'Query required' });
+  try {
+    const [edbR, kevR, sourcesR] = await Promise.allSettled([
+      checkExploitDB(q),
+      checkCisaKev(q),
+      getExploitSources(),
+    ]);
+    const exploits  = edbR.status  === 'fulfilled' ? edbR.value  : { found: 0, total: 0, records: [], error: 'Lookup failed' };
+    const inthewild = kevR.status  === 'fulfilled' ? kevR.value  : { skipped: true };
+    const sources   = sourcesR.status   === 'fulfilled' ? sourcesR.value   : [];
+    const tools = sources
+      .filter(s => s.status === 'ONLINE')
+      .map(s => ({
+        name:        s.name,
+        checkUrl:    EXPLOIT_DEEP_LINKS[s.name] ? EXPLOIT_DEEP_LINKS[s.name](q) : s.url,
+        hasDeepLink: !!EXPLOIT_DEEP_LINKS[s.name],
+      }));
+    // keep 'sploitus' key for backwards-compat with existing views
+    res.json({ query: q, sploitus: exploits, inthewild, tools });
+  } catch (err) {
+    console.error('[ERROR] exploit-sources:', err);
+    res.status(502).json({ error: 'Failed to load results' });
   }
 });
 
@@ -1926,9 +2033,19 @@ router.get('/export/iocs', (req, res) => {
 
   let rows;
   if (days > 0) {
-    rows = db.prepare(`SELECT title, link, source, published_at, iocs FROM articles WHERE iocs IS NOT NULL AND published_at >= datetime('now', '-' || ? || ' days')`).all(days);
+    rows = db.prepare(`
+      SELECT title, link, source, published_at, iocs, 'rss' as origin FROM articles WHERE iocs IS NOT NULL AND published_at >= datetime('now', '-' || ? || ' days')
+      UNION ALL
+      SELECT title, onion_url as link, site_name as source, discovered_at as published_at, iocs, 'darkweb' as origin FROM darkweb_hits WHERE iocs IS NOT NULL AND discovered_at >= (strftime('%s', 'now') - ? * 86400) * 1000
+      ORDER BY published_at DESC
+    `).all(days, days);
   } else {
-    rows = db.prepare(`SELECT title, link, source, published_at, iocs FROM articles WHERE iocs IS NOT NULL ORDER BY published_at DESC LIMIT 10000`).all();
+    rows = db.prepare(`
+      SELECT title, link, source, published_at, iocs, 'rss' as origin FROM articles WHERE iocs IS NOT NULL
+      UNION ALL
+      SELECT title, onion_url as link, site_name as source, discovered_at as published_at, iocs, 'darkweb' as origin FROM darkweb_hits WHERE iocs IS NOT NULL
+      ORDER BY published_at DESC LIMIT 10000
+    `).all();
   }
 
   const iocList = [];
@@ -1939,7 +2056,7 @@ router.get('/export/iocs', (req, res) => {
     for (const type of types) {
       if (!Array.isArray(iocData[type])) continue;
       for (const value of iocData[type]) {
-        iocList.push({ type: type.replace(/s$/, ''), value, source: row.source, article_title: row.title, article_url: row.link, published_at: row.published_at });
+        iocList.push({ type: type.replace(/s$/, ''), value, source: row.source, article_title: row.title, article_url: row.link, published_at: row.published_at, origin: row.origin });
       }
     }
   }
@@ -1948,8 +2065,8 @@ router.get('/export/iocs', (req, res) => {
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader('Content-Disposition', 'attachment; filename="freeintelhub-iocs.csv"');
     const escCsv = (s) => `"${String(s || '').replace(/"/g, '""')}"`;
-    const header = 'type,value,source,article_title,article_url,published_at\n';
-    const body = iocList.map(i => [i.type, i.value, i.source, i.article_title, i.article_url, i.published_at].map(escCsv).join(',')).join('\n');
+    const header = 'type,value,source,article_title,article_url,published_at,origin\n';
+    const body = iocList.map(i => [i.type, i.value, i.source, i.article_title, i.article_url, i.published_at, i.origin].map(escCsv).join(',')).join('\n');
     return res.send(header + body);
   }
 
@@ -1971,7 +2088,7 @@ router.get('/export/iocs', (req, res) => {
         type: 'indicator', spec_version: '2.1', id,
         created: now, modified: now, name: ioc.value, pattern,
         pattern_type: 'stix', valid_from: ioc.published_at || now,
-        labels: [ioc.type],
+        labels: [ioc.type, ioc.origin],
         external_references: [{ source_name: ioc.source, url: ioc.article_url || '' }]
       };
     });
@@ -2216,6 +2333,74 @@ router.get('/geomap', (req, res) => {
 });
 
 // =============================================
+// Geomap API (GeoJSON for map visualization)
+// =============================================
+router.get('/api/geomap', (req, res) => {
+  const days = parseInt(req.query.days, 10) || 30;
+
+  // Query 1: Threat actor origins by country
+  const threatActorData = db.prepare(`
+    SELECT tg.country, COUNT(DISTINCT atg.article_id) as count, GROUP_CONCAT(DISTINCT tg.name) as actors
+    FROM threat_groups tg
+    JOIN article_threat_groups atg ON atg.threat_group_id = tg.id
+    JOIN articles a ON a.id = atg.article_id
+    WHERE tg.country IS NOT NULL AND tg.country != ''
+    AND a.published_at >= datetime('now', '-' || ? || ' days')
+    GROUP BY tg.country
+  `).all(days);
+
+  // Query 2: IOC IP hotspots by country
+  const iocGeoData = db.prepare(`
+    SELECT country, country_name, AVG(lat) as lat, AVG(lon) as lon, COUNT(*) as ip_count
+    FROM ioc_geo
+    WHERE last_seen >= (strftime('%s', 'now') - ? * 86400) * 1000
+    GROUP BY country
+  `).all(days);
+
+  // Build GeoJSON FeatureCollection
+  const features = [];
+
+  // Add threat actor origins
+  for (const row of threatActorData) {
+    const countryInfo = countryCentroids[row.country];
+    if (!countryInfo) continue;
+
+    const actorList = row.actors ? row.actors.split(',') : [];
+    features.push({
+      type: 'Feature',
+      geometry: { type: 'Point', coordinates: [countryInfo.lon, countryInfo.lat] },
+      properties: {
+        layer: 'actors',
+        country: row.country,
+        count: row.count,
+        details: actorList.slice(0, 5),
+      },
+    });
+  }
+
+  // Add IOC hotspots
+  for (const row of iocGeoData) {
+    if (!row.lat || !row.lon) continue;
+
+    features.push({
+      type: 'Feature',
+      geometry: { type: 'Point', coordinates: [row.lon, row.lat] },
+      properties: {
+        layer: 'iocs',
+        country: row.country_name || row.country,
+        count: row.ip_count,
+        sample_ips: 'See map details',
+      },
+    });
+  }
+
+  res.json({
+    type: 'FeatureCollection',
+    features,
+  });
+});
+
+// =============================================
 // Analyst Notes & Article Tagging
 // =============================================
 router.post('/api/notes', (req, res) => {
@@ -2359,6 +2544,80 @@ router.post('/api/pastes/scan', requireAuth('analyst'), async (req, res) => {
   }
 
   res.json({ found: totalFound, keywords: keywords.slice(0, 3) });
+});
+
+// =============================================
+// Dark Web Monitoring (/darkweb)
+// =============================================
+const darkweb = require('../services/darkweb');
+
+router.get('/darkweb', requireAuth('analyst'), (req, res) => {
+  const page     = Math.max(1, parseInt(req.query.page, 10) || 1);
+  const category = req.query.category || null;
+  const PER_PAGE = 20;
+  const hits     = darkweb.getRecent({ page, perPage: PER_PAGE, category });
+  const total    = darkweb.getCount(category);
+  const pages    = Math.ceil(total / PER_PAGE) || 1;
+
+  // Stats for the summary cards
+  const gangList    = darkweb.getGangList();
+  const forumList   = darkweb.getForumList();
+  const gangCount   = gangList.length;
+  const onlineGangs = gangList.filter(g => g.status === 'ONLINE').length;
+  const forumCount  = forumList.filter(f => (f.status || '').toUpperCase() === 'ONLINE').length;
+  const totalHits   = darkweb.getCount(null);
+  const ransomHits  = darkweb.getCount('ransomware');
+  const forumHits   = darkweb.getCount('forum');
+  const lastHit     = db.prepare(`SELECT discovered_at FROM darkweb_hits ORDER BY discovered_at DESC LIMIT 1`).get();
+  const lastScan    = lastHit ? new Date(lastHit.discovered_at).toLocaleString() : 'Never';
+
+  res.render('darkweb', {
+    pageTitle: 'Dark Web Monitoring',
+    hits, page, pages, total, category,
+    gangCount, onlineGangs, forumCount, totalHits, ransomHits, forumHits, lastScan,
+    baseUrl: '/darkweb' + (category ? `?category=${encodeURIComponent(category)}` : ''),
+  });
+});
+
+router.post('/api/darkweb/scan', requireAuth('analyst'), async (req, res) => {
+  try {
+    const result = await darkweb.scanAll();
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/api/darkweb/sync-gangs', requireAuth('analyst'), async (req, res) => {
+  try {
+    const result = await darkweb.syncGangList(true);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/api/darkweb/tor-status', requireAuth('analyst'), async (req, res) => {
+  const ok = await darkweb.checkTor();
+  res.json({ tor: ok ? 'connected' : 'unavailable' });
+});
+
+router.post('/api/darkweb/scan-forums', requireAuth('analyst'), async (req, res) => {
+  try {
+    const result = await darkweb.scanForums();
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/api/darkweb/sync-forums', requireAuth('analyst'), async (req, res) => {
+  try {
+    const result = await darkweb.syncForumList(true);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // =============================================

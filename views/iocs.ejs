@@ -7,13 +7,13 @@
   </div>
   <div style="display:flex;gap:.5rem;flex-wrap:wrap">
     <a href="/export/iocs?format=json" class="btn btn-sm" download>
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px;display:inline;margin-right:.3rem"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>JSON
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13" style="display:inline; margin-right:.3rem"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>JSON
     </a>
     <a href="/export/iocs?format=csv" class="btn btn-sm" download>
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px;display:inline;margin-right:.3rem"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>CSV
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13" style="display:inline; margin-right:.3rem"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>CSV
     </a>
     <a href="/export/iocs?format=stix" class="btn btn-sm" download>
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px;display:inline;margin-right:.3rem"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>STIX 2.1
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13" style="display:inline; margin-right:.3rem"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>STIX 2.1
     </a>
     <a href="/export/iocs?format=json&days=7" class="btn btn-sm">Last 7d</a>
   </div>
@@ -27,6 +27,11 @@
       <article class="article-card">
         <div class="article-meta">
           <span class="badge badge-source"><%= a.source %></span>
+          <% if (a.origin) { %>
+            <span class="badge" style="<%= a.origin === 'darkweb' ? 'background-color: #d14747;' : 'background-color: #4b7abb;' %>">
+              <%= a.origin === 'darkweb' ? '🕷️ Dark Web' : '📡 RSS' %>
+            </span>
+          <% } %>
           <% if (a.category) { %><span class="badge badge-category"><%= a.category %></span><% } %>
           <time datetime="<%= a.published_at || '' %>"><%= a.published_at ? new Date(a.published_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '' %></time>
         </div>

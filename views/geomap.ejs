@@ -1,9 +1,45 @@
 <%- include('partials/head', { pageTitle: 'Geographic Threat Map' }) %>
 
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script defer src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<style>
+  #geomap {
+    height: 480px;
+    border-radius: 8px;
+    margin: 1rem 0;
+    border: 1px solid #ddd;
+  }
+  .geomap-layer-toggles {
+    display: flex;
+    gap: 0.5rem;
+    margin: 0.5rem 0 1rem 0;
+    flex-wrap: wrap;
+  }
+  .geomap-layer-toggles button {
+    padding: 0.5rem 1rem;
+    border: 1px solid #ccc;
+    background: #f5f5f5;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9rem;
+  }
+  .geomap-layer-toggles button.active {
+    background: #333;
+    color: white;
+  }
+  .geomap-layer-toggles button:hover {
+    background: #e0e0e0;
+  }
+  .geomap-layer-toggles button.active:hover {
+    background: #1a1a1a;
+  }
+</style>
+
 <div class="geomap-header">
   <div class="geomap-header-left">
     <h1>Geographic Threat Map</h1>
-    <p class="geomap-header-sub">Threat actor activity by country of origin &mdash; last <%= days %> days.</p>
+    <p class="geomap-header-sub">Threat actor activity and IOC hotspots by geographic origin &mdash; last <%= days %> days.</p>
   </div>
   <div class="geomap-time-btns">
     <a href="/geomap?days=7"  class="geomap-time-btn <%= days===7  ? 'active' : '' %>">7d</a>
@@ -12,9 +48,114 @@
   </div>
 </div>
 
+<!-- Leaflet map -->
+<div id="geomap"></div>
+
+<div class="geomap-layer-toggles">
+  <button id="toggle-both" class="layer-toggle active">Both Layers</button>
+  <button id="toggle-actors" class="layer-toggle">Threat Actor Origins</button>
+  <button id="toggle-iocs" class="layer-toggle">IOC Hotspots</button>
+</div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', async function() {
+    // Initialize Leaflet map
+    const map = L.map('geomap').setView([20, 0], 2);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors',
+      maxZoom: 19
+    }).addTo(map);
+
+    // Layer groups for toggling
+    const actorsLayer = L.layerGroup();
+    const iocsLayer = L.layerGroup();
+
+    // Fetch GeoJSON data
+    try {
+      const response = await fetch('/api/geomap?days=<%= days %>');
+      const geojson = await response.json();
+
+      if (!geojson.features || geojson.features.length === 0) {
+        console.log('No geographic data available');
+        return;
+      }
+
+      // Add features to appropriate layers
+      for (const feature of geojson.features) {
+        const { layer, country, count, details } = feature.properties;
+        const [lon, lat] = feature.geometry.coordinates;
+
+        if (!lat || !lon) continue;
+
+        const isActor = layer === 'actors';
+        const color = isActor ? '#d14747' : '#ff8c00';
+        const radius = Math.sqrt(count) * 2.5;
+
+        const marker = L.circleMarker([lat, lon], {
+          radius: Math.max(radius, 5),
+          color: color,
+          weight: 2,
+          opacity: 0.8,
+          fillColor: color,
+          fillOpacity: 0.6
+        });
+
+        // Build popup content
+        let popupHtml = '<div style="font-size:0.9rem;"><strong>' + country + '</strong><br/>';
+        popupHtml += 'Count: ' + count + '<br/>';
+        if (isActor && details && details.length > 0) {
+          popupHtml += '<em>' + details.slice(0, 3).join(', ') + '</em>';
+        }
+        popupHtml += '</div>';
+
+        marker.bindPopup(popupHtml);
+        marker.addTo(isActor ? actorsLayer : iocsLayer);
+      }
+
+      // Add layers to map
+      actorsLayer.addTo(map);
+      iocsLayer.addTo(map);
+
+      // Toggle button handlers
+      document.getElementById('toggle-both').addEventListener('click', function() {
+        map.addLayer(actorsLayer);
+        map.addLayer(iocsLayer);
+        updateToggleButtons('both');
+      });
+
+      document.getElementById('toggle-actors').addEventListener('click', function() {
+        map.addLayer(actorsLayer);
+        map.removeLayer(iocsLayer);
+        updateToggleButtons('actors');
+      });
+
+      document.getElementById('toggle-iocs').addEventListener('click', function() {
+        map.removeLayer(actorsLayer);
+        map.addLayer(iocsLayer);
+        updateToggleButtons('iocs');
+      });
+
+      function updateToggleButtons(active) {
+        document.querySelectorAll('.layer-toggle').forEach(btn => {
+          btn.classList.remove('active');
+        });
+        if (active === 'both') {
+          document.getElementById('toggle-both').classList.add('active');
+        } else if (active === 'actors') {
+          document.getElementById('toggle-actors').classList.add('active');
+        } else if (active === 'iocs') {
+          document.getElementById('toggle-iocs').classList.add('active');
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load geomap data:', err);
+    }
+  });
+</script>
+
 <% if (countryData.length === 0) { %>
   <div class="geomap-empty">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+    <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
     <p>No country data yet. Ensure threat groups have country fields populated in MITRE ATT&amp;CK data.</p>
   </div>
 <% } else { %>
