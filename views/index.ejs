@@ -6,7 +6,8 @@
   <div class="search-box">
     <form action="/search" method="GET" autocomplete="off">
       <div class="search-wrapper">
-        <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <label for="hero-search" class="sr-only">Search threats, vendors, CVEs</label>
         <input type="text" id="hero-search" name="q" placeholder="Search threats, vendors, CVEs..." value="">
         <kbd class="search-hint">/</kbd>
       </div>
@@ -15,23 +16,30 @@
   </div>
 </section>
 
+<div class="feed-filter-chips">
+  <a href="/feed" class="filter-chip<%= !currentPath.startsWith('/category') ? ' active' : '' %>">All</a>
+  <% categories.slice(0, 8).forEach(function(c) { %>
+    <a href="/category/<%= encodeURIComponent(c.category) %>" class="filter-chip"><%= c.category %></a>
+  <% }); %>
+</div>
+
 <% if (cves && cves.length > 0) { %>
 <section class="cve-ticker-section">
   <div class="cve-ticker-label">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="cve-icon"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="cve-icon"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
     LATEST CVEs
   </div>
   <div class="cve-ticker-wrapper">
     <div class="cve-ticker-track" id="cve-ticker">
       <% cves.forEach(function(cve) { %>
         <a href="<%= safeHref(cve.link) %>" target="_blank" rel="noopener noreferrer" class="cve-ticker-item">
-          <span class="cve-id<% if (cve.severity === 'CRITICAL') { %> cve-critical<% } else if (cve.severity === 'HIGH') { %> cve-high<% } else if (cve.severity === 'MEDIUM') { %> cve-medium<% } %>"><%= cve.id %></span>
+          <span class="cve-id<% if (cve.severity === 'CRITICAL') { %> cve-critical<% } else if (cve.severity === 'HIGH') { %> cve-high<% } else if (cve.severity === 'MEDIUM') { %> cve-medium<% } %>"><% if (cve.severity === 'CRITICAL') { %>CRIT · <% } else if (cve.severity === 'HIGH') { %>HIGH · <% } else if (cve.severity === 'MEDIUM') { %>MED · <% } %><%= cve.id %></span>
           <span class="cve-desc"><%= cve.description %></span>
         </a>
       <% }); %>
       <% cves.forEach(function(cve) { %>
         <a href="<%= safeHref(cve.link) %>" target="_blank" rel="noopener noreferrer" class="cve-ticker-item" aria-hidden="true">
-          <span class="cve-id<% if (cve.severity === 'CRITICAL') { %> cve-critical<% } else if (cve.severity === 'HIGH') { %> cve-high<% } else if (cve.severity === 'MEDIUM') { %> cve-medium<% } %>"><%= cve.id %></span>
+          <span class="cve-id<% if (cve.severity === 'CRITICAL') { %> cve-critical<% } else if (cve.severity === 'HIGH') { %> cve-high<% } else if (cve.severity === 'MEDIUM') { %> cve-medium<% } %>"><% if (cve.severity === 'CRITICAL') { %>CRIT · <% } else if (cve.severity === 'HIGH') { %>HIGH · <% } else if (cve.severity === 'MEDIUM') { %>MED · <% } %><%= cve.id %></span>
           <span class="cve-desc"><%= cve.description %></span>
         </a>
       <% }); %>

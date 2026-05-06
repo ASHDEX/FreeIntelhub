@@ -8,163 +8,146 @@
   const criticalCount = cases.filter(c => c.severity === 'critical').length;
 %>
 
-<!-- Page header -->
-<div class="cases-ph">
-  <div class="cases-ph-left">
-    <h1>Investigation Cases</h1>
-    <p class="cases-ph-sub">Group articles into investigations, track status, and add analyst notes.</p>
-  </div>
-  <button class="btn btn-primary" id="open-modal-btn">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:14px;height:14px"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-    New Case
-  </button>
-</div>
+<link rel="stylesheet" href="/tailwind.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Manrope:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<style>
+  .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+  .glass-panel { background: rgba(35, 38, 44, 0.6); backdrop-filter: blur(20px); border: 1px solid rgba(246, 246, 252, 0.05); }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  .neon-glow-primary { box-shadow: 0 0 15px rgba(129, 236, 255, 0.3); }
+  .cases-container { background-color: var(--bg, #0c0e12); color: var(--text, #f6f6fc); font-family: 'Manrope', sans-serif; min-height: 100vh; padding: 2rem; }
+</style>
 
-<!-- Stats -->
-<div class="cases-stats">
-  <div class="cases-stat-pill">
-    <div class="csp-icon csp-icon-all">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-    </div>
-    <div class="csp-body">
-      <span class="csp-num"><%= totalCases %></span>
-      <span class="csp-lbl">Total</span>
-    </div>
-  </div>
-  <div class="cases-stat-pill">
-    <div class="csp-icon csp-icon-open">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-    </div>
-    <div class="csp-body">
-      <span class="csp-num"><%= openCount %></span>
-      <span class="csp-lbl">Open</span>
-    </div>
-  </div>
-  <div class="cases-stat-pill">
-    <div class="csp-icon csp-icon-prog">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-    </div>
-    <div class="csp-body">
-      <span class="csp-num"><%= inProgCount %></span>
-      <span class="csp-lbl">In Progress</span>
-    </div>
-  </div>
-  <div class="cases-stat-pill">
-    <div class="csp-icon csp-icon-closed">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
-    </div>
-    <div class="csp-body">
-      <span class="csp-num"><%= closedCount %></span>
-      <span class="csp-lbl">Closed</span>
-    </div>
-  </div>
-  <% if (criticalCount > 0) { %>
-  <div class="cases-stat-pill">
-    <div class="csp-icon csp-icon-crit">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-    </div>
-    <div class="csp-body">
-      <span class="csp-num"><%= criticalCount %></span>
-      <span class="csp-lbl">Critical</span>
-    </div>
-  </div>
-  <% } %>
-</div>
-
-<!-- Status filter tabs -->
-<div class="cases-tabs">
-  <% [['','All'],['open','Open'],['in-progress','In Progress'],['closed','Closed'],['false-positive','False Positive']].forEach(function(tab) { %>
-    <a href="/cases<%= tab[0] ? '?status=' + tab[0] : '' %>"
-       class="case-tab <%= statusFilter === tab[0] ? 'case-tab-active' : '' %>">
-      <%= tab[1] %>
-    </a>
-  <% }); %>
-</div>
-
-<!-- Cases grid -->
-<% if (cases.length === 0) { %>
-  <div class="cases-empty">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-    <p>No cases found. Create one to start tracking an investigation.</p>
-    <button class="btn btn-primary btn-sm" id="open-modal-btn-empty">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-      New Case
-    </button>
-  </div>
-<% } else { %>
-  <div class="cases-grid">
-    <% cases.forEach(function(c) { %>
-      <a href="/cases/<%= c.id %>" class="case-card">
-        <div class="case-sev-bar cs-<%= c.severity %>"></div>
-        <div class="case-body">
-          <div class="case-meta">
-            <span class="badge-status badge-status-<%= c.status.replace(' ','-') %>"><%= c.status %></span>
-            <span class="badge-case-severity badge-case-severity-<%= c.severity %>"><%= c.severity %></span>
-            <div class="case-meta-right">
-              <span class="case-article-count">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                <%= c.article_count %> article<%= c.article_count !== 1 ? 's' : '' %>
-              </span>
-            </div>
-          </div>
-          <p class="case-title"><%= c.title %></p>
-          <% if (c.description) { %>
-            <p class="case-desc"><%= c.description %></p>
-          <% } %>
-          <div class="case-footer">
-            <span>Opened <%= new Date(c.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) %></span>
-            <% if (c.updated_at !== c.created_at) { %>
-              <span class="case-footer-dot">&middot;</span>
-              <span>Updated <%= new Date(c.updated_at).toLocaleDateString('en-US',{month:'short',day:'numeric'}) %></span>
-            <% } %>
-            <% if (c.closed_at) { %>
-              <span class="case-footer-dot">&middot;</span>
-              <span>Closed <%= new Date(c.closed_at).toLocaleDateString('en-US',{month:'short',day:'numeric'}) %></span>
-            <% } %>
-          </div>
-        </div>
-        <div class="case-chevron">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-        </div>
-      </a>
-    <% }); %>
-  </div>
-<% } %>
-
-<!-- New Case Modal -->
-<div class="modal-overlay" id="new-case-modal">
-  <div class="modal-box">
-    <div class="modal-header">
-      <h2 class="modal-title">New Investigation Case</h2>
-      <button class="modal-close" id="close-modal-btn" aria-label="Close">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-      </button>
-    </div>
-    <form method="POST" action="/cases" class="modal-form">
-      <div class="modal-field">
-        <label class="modal-label" for="case-title">Case Title *</label>
-        <input id="case-title" type="text" name="title" required
-          placeholder="e.g. APT29 Spearphishing Campaign Q1 2026"
-          class="modal-input">
+<div class="cases-container">
+  <div class="max-w-7xl mx-auto">
+    <!-- Header Section -->
+    <section class="mb-12 flex justify-between items-end">
+      <div>
+        <h2 class="text-4xl font-headline font-bold tracking-tight mb-2 text-on-surface">Investigation Cases</h2>
+        <p class="text-on-surface-variant max-w-2xl text-sm">Group articles into investigations, track status, and add analyst notes.</p>
       </div>
-      <div class="modal-field">
-        <label class="modal-label" for="case-severity">Severity</label>
-        <select id="case-severity" name="severity" class="modal-select">
+      <button id="open-modal-btn" class="bg-primary text-[#003840] px-6 py-2 rounded-xl font-bold font-['Space_Grotesk'] hover:brightness-110 transition-all active:scale-95 neon-glow-primary">
+          New Case
+      </button>
+    </section>
+
+    <!-- Stats Section -->
+    <div class="flex gap-4 overflow-x-auto no-scrollbar pb-8 mb-4">
+      <div class="min-w-[150px] bg-surface-container-low p-6 rounded-xl">
+        <p class="text-[11px] font-label font-bold uppercase tracking-widest text-on-surface-variant mb-2">Total</p>
+        <h3 class="text-3xl font-headline font-bold text-on-surface"><%= totalCases %></h3>
+      </div>
+      <div class="min-w-[150px] bg-surface-container-low p-6 rounded-xl">
+        <p class="text-[11px] font-label font-bold uppercase tracking-widest text-primary mb-2">Open</p>
+        <h3 class="text-3xl font-headline font-bold text-primary"><%= openCount %></h3>
+      </div>
+      <div class="min-w-[150px] bg-surface-container-low p-6 rounded-xl">
+        <p class="text-[11px] font-label font-bold uppercase tracking-widest text-tertiary mb-2">In Progress</p>
+        <h3 class="text-3xl font-headline font-bold text-tertiary"><%= inProgCount %></h3>
+      </div>
+      <div class="min-w-[150px] bg-surface-container-low p-6 rounded-xl">
+        <p class="text-[11px] font-label font-bold uppercase tracking-widest text-on-surface-variant mb-2">Closed</p>
+        <h3 class="text-3xl font-headline font-bold text-on-surface-variant"><%= closedCount %></h3>
+      </div>
+      <div class="min-w-[150px] bg-surface-container-low p-6 rounded-xl border-l-2 border-outline-variant/10">
+        <p class="text-[11px] font-label font-bold uppercase tracking-widest text-error mb-2">Critical</p>
+        <h3 class="text-3xl font-headline font-bold text-error"><%= criticalCount %></h3>
+      </div>
+    </div>
+
+    <!-- Sticky Filter Tabs -->
+    <div class="sticky top-0 z-30 bg-[#0c0e12]/80 backdrop-blur-md py-4 mb-8">
+      <div class="flex items-center gap-1 p-1 bg-surface-container-low rounded-xl w-fit">
+        <% [['','All'],['open','Open'],['in-progress','In Progress'],['closed','Closed'],['false-positive','False Positive']].forEach(function(tab) { 
+            var isActive = statusFilter === tab[0];
+            var classes = isActive ? 'bg-surface-container-high text-primary' : 'text-on-surface-variant hover:text-on-surface transition-colors';
+        %>
+          <a href="/cases<%= tab[0] ? '?status=' + tab[0] : '' %>" class="px-5 py-2 rounded-lg font-bold font-label text-xs <%= classes %>">
+            <%= tab[1] %>
+          </a>
+        <% }); %>
+      </div>
+    </div>
+
+    <!-- Grid of Case Cards -->
+    <% if (cases.length === 0) { %>
+      <div class="flex flex-col items-center justify-center p-12 bg-surface-container-low rounded-xl text-center">
+        <span class="material-symbols-outlined text-4xl text-on-surface-variant mb-4">inbox</span>
+        <p class="text-on-surface-variant">No cases found. Create one to start tracking an investigation.</p>
+      </div>
+    <% } else { %>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <% cases.forEach(function(c) { 
+          var _sCol = c.severity === 'critical' ? 'bg-error' : c.severity === 'high' ? 'bg-secondary' : c.severity === 'medium' ? 'bg-tertiary' : 'bg-primary';
+          var _sTx = c.severity === 'critical' ? 'text-error' : c.severity === 'high' ? 'text-secondary' : c.severity === 'medium' ? 'text-tertiary' : 'text-primary';
+          
+          var _stBg = c.status === 'open' ? 'bg-primary/10' : c.status === 'in-progress' ? 'bg-tertiary/10' : 'bg-on-surface-variant/10';
+          var _stTx = c.status === 'open' ? 'text-primary' : c.status === 'in-progress' ? 'text-tertiary' : 'text-on-surface-variant';
+        %>
+          <a href="/cases/<%= c.id %>" class="bg-surface-container rounded-xl overflow-hidden relative group hover:bg-surface-container-high transition-all cursor-pointer block">
+            <div class="absolute left-0 top-0 bottom-0 w-1 <%= _sCol %> opacity-80 group-hover:opacity-100"></div>
+            <div class="p-6">
+              <div class="flex justify-between items-start mb-4">
+                <div class="flex gap-2">
+                  <span class="px-2 py-1 rounded <%= _sTx %> <%= _sCol %>/10 text-[11px] font-bold font-label uppercase"><%= c.severity %></span>
+                  <span class="px-2 py-1 rounded <%= _stBg %> <%= _stTx %> text-[11px] font-bold font-label uppercase"><%= c.status %></span>
+                </div>
+                <div class="flex items-center gap-1.5 text-on-surface-variant group-hover:text-on-surface transition-colors">
+                  <span class="material-symbols-outlined text-sm">article</span>
+                  <span class="text-[11px] font-bold font-label"><%= c.article_count %> <%= c.article_count === 1 ? 'Article' : 'Articles' %></span>
+                </div>
+              </div>
+              <h4 class="text-lg font-headline font-bold text-on-surface mb-2 pt-2 group-hover:text-primary transition-colors pr-4"><%= c.title %></h4>
+              <p class="text-on-surface-variant text-xs line-clamp-2 mb-6" title="<%= c.description || '' %>"><%= c.description || 'No description provided.' %></p>
+              
+              <div class="flex items-center justify-between pt-4 border-t border-outline-variant/10">
+                <span class="text-[11px] text-on-surface-variant/70 font-label uppercase">Opened <%= new Date(c.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric'}) %></span>
+                <% if (c.updated_at !== c.created_at) { %>
+                  <span class="text-[11px] text-on-surface-variant/70 font-label uppercase">Updated <%= new Date(c.updated_at).toLocaleDateString('en-US',{month:'short',day:'numeric'}) %></span>
+                <% } else if (c.closed_at) { %>
+                  <span class="text-[11px] text-on-surface-variant/70 font-label uppercase">Closed <%= new Date(c.closed_at).toLocaleDateString('en-US',{month:'short',day:'numeric'}) %></span>
+                <% } %>
+              </div>
+            </div>
+          </a>
+        <% }); %>
+      </div>
+    <% } %>
+  </div>
+</div>
+
+<!-- New Case Modal Overlay -->
+<div class="fixed inset-0 z-50 items-center justify-center p-6 bg-background/60 backdrop-blur-sm hidden" id="new-case-modal">
+  <div class="glass-panel max-w-lg w-full rounded-2xl p-8 shadow-2xl relative" style="border:1px solid rgba(246, 246, 252, 0.1)">
+    <header class="mb-6">
+      <h3 class="text-2xl font-headline font-bold text-on-surface tracking-tight">Create New Case</h3>
+      <p class="text-on-surface-variant text-sm mt-1">Initiate a new investigation cluster from global telemetry.</p>
+    </header>
+    <form method="POST" action="/cases" class="space-y-5">
+      <div>
+        <label class="block text-[11px] font-label font-bold uppercase tracking-widest text-on-surface-variant mb-2">Case Title *</label>
+        <input name="title" required class="w-full bg-surface-container-lowest border border-outline-variant/20 rounded-xl p-3 text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/50 transition-all text-sm" placeholder="e.g. Unusual Traffic Pattern - Frankfurt" type="text"/>
+      </div>
+      <div>
+        <label class="block text-[11px] font-label font-bold uppercase tracking-widest text-on-surface-variant mb-2">Severity</label>
+        <select name="severity" class="w-full bg-surface-container-lowest border border-outline-variant/20 rounded-xl p-3 text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/50 transition-all text-sm">
           <option value="low">Low</option>
           <option value="medium" selected>Medium</option>
           <option value="high">High</option>
           <option value="critical">Critical</option>
         </select>
       </div>
-      <div class="modal-field">
-        <label class="modal-label" for="case-desc">Description</label>
-        <textarea id="case-desc" name="description" rows="3"
-          placeholder="Brief description of the investigation..."
-          class="modal-textarea"></textarea>
+      <div>
+        <label class="block text-[11px] font-label font-bold uppercase tracking-widest text-on-surface-variant mb-2">Description</label>
+        <textarea name="description" class="w-full bg-surface-container-lowest border border-outline-variant/20 rounded-xl p-3 text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/50 transition-all placeholder:text-outline/50 resize-y text-sm" placeholder="Detail the indicators of compromise..." rows="3"></textarea>
       </div>
-      <div class="modal-actions">
-        <button type="button" class="btn btn-sm" id="cancel-modal-btn">Cancel</button>
-        <button type="submit" class="btn btn-primary btn-sm">Create Case</button>
+      <div class="flex items-center justify-end gap-3 pt-3 border-t border-outline-variant/10 mt-2">
+        <button id="cancel-modal-btn" class="px-5 py-2 rounded-xl text-sm font-bold font-label text-on-surface-variant hover:text-on-surface transition-colors" type="button">Cancel</button>
+        <button class="bg-primary text-[#003840] px-6 py-2 rounded-xl text-sm font-bold font-label hover:brightness-110 transition-all active:scale-95 neon-glow-primary" type="submit">Create Case</button>
       </div>
     </form>
   </div>
@@ -174,14 +157,10 @@
   (function () {
     var modal   = document.getElementById('new-case-modal');
     var openBtn = document.getElementById('open-modal-btn');
-    var openEmpty = document.getElementById('open-modal-btn-empty');
-    var closeBtn = document.getElementById('close-modal-btn');
     var cancelBtn = document.getElementById('cancel-modal-btn');
-    function open()  { modal.classList.add('open'); }
-    function close() { modal.classList.remove('open'); }
+    function open()  { modal.classList.remove('hidden'); modal.classList.add('flex'); }
+    function close() { modal.classList.remove('flex'); modal.classList.add('hidden'); }
     if (openBtn)   openBtn.addEventListener('click', open);
-    if (openEmpty) openEmpty.addEventListener('click', open);
-    if (closeBtn)  closeBtn.addEventListener('click', close);
     if (cancelBtn) cancelBtn.addEventListener('click', close);
     modal.addEventListener('click', function(e) { if (e.target === modal) close(); });
     document.addEventListener('keydown', function(e) { if (e.key === 'Escape') close(); });

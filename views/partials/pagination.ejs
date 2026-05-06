@@ -1,7 +1,7 @@
 <% if (pages > 1) { %>
-<nav class="pagination">
+<nav class="pagination" aria-label="Page navigation">
   <% if (page > 1) { %>
-    <a href="<%= baseUrl %><%= baseUrl.includes('?') ? '&' : '?' %>page=<%= page - 1 %>" class="page-btn">&laquo; Prev</a>
+    <a href="<%= baseUrl %><%= baseUrl.includes('?') ? '&' : '?' %>page=<%= page - 1 %>" class="page-btn"><span aria-hidden="true">&laquo;</span><span class="sr-only">Previous page</span></a>
   <% } %>
   <%
     var start = Math.max(1, page - 2);
@@ -12,7 +12,7 @@
   <% }
     for (var i = start; i <= end; i++) { %>
       <% if (i === page) { %>
-        <span class="page-num active"><%= i %></span>
+        <span class="page-num active" aria-current="page"><%= i %></span>
       <% } else { %>
         <a href="<%= baseUrl %><%= baseUrl.includes('?') ? '&' : '?' %>page=<%= i %>" class="page-num"><%= i %></a>
       <% } %>
@@ -22,7 +22,7 @@
       <a href="<%= baseUrl %><%= baseUrl.includes('?') ? '&' : '?' %>page=<%= pages %>" class="page-num"><%= pages %></a>
   <% } %>
   <% if (page < pages) { %>
-    <a href="<%= baseUrl %><%= baseUrl.includes('?') ? '&' : '?' %>page=<%= page + 1 %>" class="page-btn">Next &raquo;</a>
+    <a href="<%= baseUrl %><%= baseUrl.includes('?') ? '&' : '?' %>page=<%= page + 1 %>" class="page-btn"><span class="sr-only">Next page</span><span aria-hidden="true">&raquo;</span></a>
   <% } %>
 </nav>
 <% } %>

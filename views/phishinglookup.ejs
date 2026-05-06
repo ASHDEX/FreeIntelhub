@@ -1,0 +1,138 @@
+<%- include('partials/head', { pageTitle: 'Phishing Lookup' }) %>
+
+<section class="lookup-hero">
+  <h1>Phishing Lookup</h1>
+  <p>Enter a URL or domain to check it against phishing intelligence databases</p>
+</section>
+
+<div class="lookup-panel active" style="max-width:900px;margin:0 auto">
+  <div class="lookup-input-wrap">
+    <input type="text" id="phish-input" placeholder="https://suspicious-site.com/login or domain.com"
+      autocomplete="off" autocorrect="off" spellcheck="false">
+    <button class="lookup-btn" id="phish-btn">Check</button>
+  </div>
+  <div id="phish-result">
+    <div class="lookup-placeholder">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="32" height="32" style="display:block;margin:0 auto .75rem"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
+      Enter a URL or domain to check it against phishing intelligence databases.
+    </div>
+  </div>
+</div>
+
+<script nonce="<%= nonce %>">
+(function() {
+  function esc(s) { var d = document.createElement('div'); d.textContent = String(s || ''); return d.innerHTML; }
+
+  function doLookup() {
+    var q = document.getElementById('phish-input').value.trim();
+    if (!q) return;
+    var r = document.getElementById('phish-result');
+    r.innerHTML = '<div class="lookup-loading"><span class="suggestion-spinner"></span> Querying intelligence databases\u2026</div>';
+
+    fetch('/api/phishing-sources?url=' + encodeURIComponent(q))
+      .then(function(res) { return res.json(); })
+      .then(function(json) {
+        if (json.error) {
+          r.innerHTML = '<div class="lookup-error">' + esc(json.error) + '</div>';
+          return;
+        }
+
+        var urlscan = json.urlscan || { found: 0, malicious: 0, records: [] };
+        var phishstats = json.phishstats || { found: 0, records: [] };
+        var checkphish = json.checkphish || { skipped: true };
+        var phishinitiative = json.phishinitiative || { skipped: true };
+        var openphish = json.openphish || {};
+        var phishdb = json.phishdb || {};
+        var phisharmy = json.phisharmy || {};
+        var tools = json.tools || [];
+        var html = '';
+
+        // ── Verdict banner ─────────────────────────────────────────────────────
+        var isMalicious = (urlscan.malicious || 0) > 0
+          || (phishstats.found || 0) > 0
+          || (!checkphish.skipped && checkphish.malicious)
+          || (!phishinitiative.skipped && phishinitiative.malicious)
+          || openphish.found || phishdb.found || phisharmy.found;
+        var allErrored = urlscan.error && phishstats.error
+          && (checkphish.skipped || checkphish.error)
+          && (phishinitiative.skipped || phishinitiative.error)
+          && openphish.error && phishdb.error && phisharmy.error;
+
+        if (isMalicious) {
+          html += '<div style="display:flex;align-items:center;gap:.75rem;padding:1.1rem 1.25rem;'
+            + 'background:rgba(var(--danger-rgb,220,38,38),.1);border:1px solid rgba(var(--danger-rgb,220,38,38),.35);'
+            + 'border-radius:10px;margin-bottom:1.5rem">'
+            + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22" style="color:var(--danger,#dc2626);flex-shrink:0"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>'
+            + '<div>'
+            + '<div style="font-weight:700;font-size:1rem;color:var(--danger,#dc2626)">Flagged as Phishing</div>'
+            + '<div style="font-size:.8rem;color:var(--text-muted);margin-top:.2rem">This URL or domain has been identified in one or more phishing intelligence databases.</div>'
+            + '</div></div>';
+        } else if (!allErrored) {
+          html += '<div style="display:flex;align-items:center;gap:.75rem;padding:1.1rem 1.25rem;'
+            + 'background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.3);'
+            + 'border-radius:10px;margin-bottom:1.5rem">'
+            + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22" style="color:#22c55e;flex-shrink:0"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>'
+            + '<div>'
+            + '<div style="font-weight:700;font-size:1rem;color:#22c55e">Not Found in Databases</div>'
+            + '<div style="font-size:.8rem;color:var(--text-muted);margin-top:.2rem">No phishing reports found \u2014 this does not guarantee the URL is safe.</div>'
+            + '</div></div>';
+        } else {
+          html += '<div style="display:flex;align-items:center;gap:.75rem;padding:1.1rem 1.25rem;'
+            + 'background:var(--bg-card);border:1px solid var(--border);border-radius:10px;margin-bottom:1.5rem">'
+            + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22" style="color:var(--text-muted);flex-shrink:0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>'
+            + '<div>'
+            + '<div style="font-weight:700;font-size:1rem;color:var(--text)">Unable to Check</div>'
+            + '<div style="font-size:.8rem;color:var(--text-muted);margin-top:.2rem">Could not reach intelligence databases. Please try again later.</div>'
+            + '</div></div>';
+        }
+
+        // ── All 18 services ────────────────────────────────────────────────────
+        if (tools.length) {
+          html += '<div style="margin-top:.5rem">';
+          html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem;flex-wrap:wrap;gap:.5rem">';
+          html += '<h3 style="font-size:.85rem;font-weight:700;color:var(--text);margin:0">All ' + tools.length + ' Services</h3>';
+          html += '<button id="open-all-btn" style="font-size:.78rem;font-weight:600;color:var(--accent);background:transparent;border:1px solid var(--accent);border-radius:6px;padding:.3rem .75rem;cursor:pointer">Open all \u2197</button>';
+          html += '</div>';
+          html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:.5rem">';
+          tools.forEach(function(s) {
+            html += '<a href="' + esc(s.checkUrl) + '" target="_blank" rel="noopener noreferrer" '
+              + 'style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;padding:.6rem .85rem;'
+              + 'background:var(--bg-card);border:1px solid var(--border);border-radius:7px;'
+              + 'text-decoration:none;transition:border-color .15s" '
+              + 'onmouseover="this.style.borderColor=\'var(--accent)\'" '
+              + 'onmouseout="this.style.borderColor=\'var(--border)\'">';
+            html += '<span style="font-size:.82rem;font-weight:600;color:var(--text)">' + esc(s.name) + '</span>';
+            html += '<span style="font-size:.7rem;color:' + (s.hasDeepLink ? 'var(--accent)' : 'var(--text-muted)') + '">Open \u2197</span>';
+            html += '</a>';
+          });
+          html += '</div></div>';
+
+          // Attach Open all handler after DOM is updated (next tick)
+          setTimeout(function() {
+            var btn = document.getElementById('open-all-btn');
+            if (!btn) return;
+            btn.addEventListener('click', function() {
+              tools.forEach(function(s) { window.open(s.checkUrl, '_blank', 'noopener,noreferrer'); });
+            });
+          }, 0);
+        }
+
+        r.innerHTML = html;
+      })
+      .catch(function() {
+        r.innerHTML = '<div class="lookup-error">Failed to load results. Please try again.</div>';
+      });
+  }
+
+  document.getElementById('phish-btn').addEventListener('click', doLookup);
+  document.getElementById('phish-input').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') doLookup();
+  });
+
+  // Auto-run from ?url= param
+  var q = new URLSearchParams(window.location.search).get('url');
+  if (q) { document.getElementById('phish-input').value = q; doLookup(); }
+})();
+</script>
+
+<%- include('partials/footer') %>

@@ -19,7 +19,7 @@
 <!-- Advanced Filters -->
 <details class="search-filters" <%= (typeof filters !== 'undefined' && (filters.dateFrom || filters.dateTo || filters.sector || filters.source || filters.tlp || filters.highRiskOnly)) ? 'open' : '' %>>
   <summary style="cursor:pointer;padding:.6rem .8rem;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);font-size:.85rem;font-weight:600;list-style:none;display:flex;align-items:center;gap:.5rem;margin-bottom:.75rem">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
     Advanced Filters
     <% if (typeof filters !== 'undefined' && (filters.dateFrom || filters.dateTo || filters.sector || filters.source || filters.tlp || filters.highRiskOnly)) { %>
       <span class="badge badge-risk badge-risk-medium" style="font-size:.7rem">Active</span>

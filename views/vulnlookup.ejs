@@ -20,7 +20,7 @@
       <div id="vuln-suggestions" class="vuln-suggestions"></div>
       <p class="vuln-search-hint">Type a CVE ID like <code>CVE-2024-3400</code> or <code>CVE-2023-44228</code> &mdash; press Enter to search</p>
       <!-- Search history chips -->
-      <div id="vuln-history" class="vuln-history" style="display:none;"></div>
+      <div id="vuln-history" class="hidden vuln-history"></div>
     </div>
   </div>
 </div>
@@ -39,7 +39,7 @@
 </div>
 
 <!-- Loading state -->
-<div id="vuln-loading" class="vuln-loading" style="display:none;">
+<div id="vuln-loading" class="hidden vuln-loading">
   <div class="vuln-spinner"></div>
   <p id="vuln-loading-text">Querying NVD, MITRE, GitHub Advisory, OSV.dev, CISA KEV, EPSS and more...</p>
   <div class="vuln-loading-sources" id="vuln-loading-sources">
@@ -52,20 +52,20 @@
 </div>
 
 <!-- Error state -->
-<div id="vuln-error" class="vuln-error" style="display:none;"></div>
+<div id="vuln-error" class="hidden vuln-error"></div>
 
 <!-- Results container -->
-<div id="vuln-results" style="display:none;">
+<div class="hidden" id="vuln-results">
 
   <!-- ===== 1. CVE Overview Card ===== -->
   <div id="vuln-header-card" class="vuln-card vuln-header-card"></div>
 
   <!-- ===== 2. EPSS Score Card ===== -->
-  <div id="vuln-epss-card" class="vuln-card vuln-epss-card" style="display:none;"></div>
+  <div id="vuln-epss-card" class="hidden vuln-card vuln-epss-card"></div>
 
 
   <!-- ===== 3. CVSS Breakdown ===== -->
-  <div id="vuln-cvss-breakdown" class="vuln-card" style="display:none;"></div>
+  <div id="vuln-cvss-breakdown" class="hidden vuln-card"></div>
 
   <!-- ===== 4. Exploitation & PoC Status Panel ===== -->
   <div class="vuln-panel vuln-panel-status">
@@ -76,11 +76,20 @@
     <div id="vuln-exploit-status" class="vuln-status-grid"></div>
   </div>
 
+  <!-- ===== 4b. Live Exploit Database Results ===== -->
+  <div id="vuln-exploit-db" class="hidden vuln-panel">
+    <h2 class="vuln-panel-title">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+      Known Exploits
+    </h2>
+    <div id="vuln-exploit-db-content"></div>
+  </div>
+
   <!-- ===== 5. CISA KEV details ===== -->
-  <div id="vuln-cisa" class="vuln-card vuln-cisa-card" style="display:none;"></div>
+  <div id="vuln-cisa" class="hidden vuln-card vuln-cisa-card"></div>
 
   <!-- ===== 5b. Threat Intelligence Panel ===== -->
-  <div id="vuln-threat-intel" class="vuln-panel vuln-panel-threat" style="display:none;">
+  <div id="vuln-threat-intel" class="hidden vuln-panel vuln-panel-threat">
     <h2 class="vuln-panel-title">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M12 8v4"/><circle cx="12" cy="16" r="0.5"/></svg>
       Threat Intelligence
@@ -121,7 +130,7 @@
   </div>
 
   <!-- ===== 7. Affected Packages ===== -->
-  <div id="vuln-affected" class="vuln-card" style="display:none;">
+  <div id="vuln-affected" class="hidden vuln-card">
     <h3 class="vuln-card-title">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
       Affected Packages
@@ -130,7 +139,7 @@
   </div>
 
   <!-- ===== 8. References ===== -->
-  <div id="vuln-references" class="vuln-card" style="display:none;">
+  <div id="vuln-references" class="hidden vuln-card">
     <h3 class="vuln-card-title">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
       References
@@ -419,8 +428,13 @@
     errorEl.style.display = 'none';
     results.style.display = 'none';
 
+    // Reset exploit panel so stale results don't show
+    document.getElementById('vuln-exploit-db').classList.add('hidden');
+    document.getElementById('vuln-exploit-db-content').innerHTML = '';
+
     history.replaceState(null, '', '/vulnerability?cve=' + encodeURIComponent(cveId));
 
+    // Fire both lookups simultaneously
     fetch('/api/vuln/' + encodeURIComponent(cveId))
       .then(function(r) {
         if (!r.ok) return r.json().then(function(j) { throw new Error(j.error || 'Lookup failed'); });
@@ -436,6 +450,72 @@
         errorEl.style.display = 'block';
         errorEl.innerHTML = '<p>' + escHtml(err.message || 'Something went wrong. Please try again.') + '</p>';
       });
+
+    fetch('/api/exploit-sources?q=' + encodeURIComponent(cveId))
+      .then(function(r) { return r.json(); })
+      .then(function(json) { renderExploitDb(json); })
+      .catch(function() {}); // silent fail — main vuln data is primary
+  }
+
+  function renderExploitDb(json) {
+    var panel = document.getElementById('vuln-exploit-db');
+    var content = document.getElementById('vuln-exploit-db-content');
+    var sploitus  = json.sploitus  || { found: 0, total: 0, records: [] };
+    var inthewild = json.inthewild || { skipped: true };
+
+    var exploitsFound = (sploitus.found || 0) > 0;
+    var inTheWildHit  = !inthewild.skipped && inthewild.found;
+
+    if (!exploitsFound && !inTheWildHit) { panel.classList.add('hidden'); return; }
+
+    var html = '';
+
+    if (inTheWildHit && inthewild.sources && inthewild.sources.length) {
+      var earliest = inthewild.sources.reduce(function(min, s) {
+        return (!min || (s.dateAdded && s.dateAdded < min)) ? s.dateAdded : min;
+      }, null);
+      html += '<div style="display:flex;align-items:center;gap:.5rem;margin-bottom:1rem;flex-wrap:wrap">'
+        + '<span style="font-size:.72rem;font-weight:700;color:var(--danger,#dc2626);background:rgba(var(--danger-rgb,220,38,38),.12);padding:.2rem .55rem;border-radius:4px">ACTIVELY EXPLOITED</span>'
+        + (earliest ? '<span style="font-size:.78rem;color:var(--text-muted)">First confirmed: ' + escHtml(earliest) + '</span>' : '')
+        + '</div>';
+    }
+
+    if (!sploitus.error && sploitus.records && sploitus.records.length > 0) {
+      if (sploitus.total > 0) {
+        html += '<p style="font-size:.78rem;color:var(--text-muted);margin:0 0 .75rem">'
+          + sploitus.total + ' known exploit' + (sploitus.total !== 1 ? 's' : '') + ' found.'
+          + '</p>';
+      }
+      sploitus.records.forEach(function(rec) {
+        html += '<div class="vuln-card" style="margin-bottom:.5rem;padding:.75rem 1rem">';
+        html += '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:.5rem;flex-wrap:wrap">';
+        html += '<div style="flex:1;min-width:0">';
+        if (rec.href) {
+          html += '<a href="' + escHtml(rec.href) + '" target="_blank" rel="noopener noreferrer" '
+            + 'style="font-size:.84rem;font-weight:600;color:var(--accent);text-decoration:none;'
+            + 'display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'
+            + escHtml(rec.title || rec.href) + '</a>';
+        } else {
+          html += '<div style="font-size:.84rem;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escHtml(rec.title) + '</div>';
+        }
+        html += '</div>';
+        html += '<div style="display:flex;gap:.4rem;align-items:center;flex-shrink:0">';
+        if (rec.cvss) {
+          var cc = rec.cvss >= 9 ? 'var(--danger,#dc2626)' : rec.cvss >= 7 ? '#f97316' : rec.cvss >= 4 ? '#eab308' : 'var(--text-muted)';
+          html += '<span style="font-size:.72rem;font-weight:700;color:' + cc + ';background:var(--bg-elevated);padding:.15rem .45rem;border-radius:4px">CVSS ' + rec.cvss + '</span>';
+        }
+        if (rec.type) {
+          html += '<span style="font-size:.7rem;color:var(--text-muted);background:var(--bg-elevated);padding:.15rem .45rem;border-radius:4px">' + escHtml(rec.type) + '</span>';
+        }
+        html += '</div></div>';
+        if (rec.published) {
+          html += '<div style="margin-top:.3rem"><span style="font-size:.72rem;color:var(--text-muted)">' + escHtml(rec.published) + '</span></div>';
+        }
+        html += '</div>';
+      });
+    }
+
+    if (html) { content.innerHTML = html; panel.classList.remove('hidden'); }
   }
 
   function renderResults(data) {

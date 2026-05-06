@@ -1,7 +1,6 @@
 <%- include('partials/head') %>
 
 <%
-  // Compute risk distribution from highRiskArticles + estimate
   var critCount = highRiskArticles.filter(function(a){ return a.riskScore >= 75; }).length;
   var highCount = highRiskArticles.filter(function(a){ return a.riskScore >= 50 && a.riskScore < 75; }).length;
   var medCount  = highRiskArticles.filter(function(a){ return a.riskScore >= 25 && a.riskScore < 50; }).length;
@@ -11,279 +10,219 @@
   var medPct    = Math.round((medCount  / totalRisk) * 100);
   var lowPct    = Math.max(0, 100 - critPct - highPct - medPct);
 
-  // Feed health pct
   var _healthy  = feedHealth ? feedHealth.healthy || 0 : 0;
   var _total    = feedHealth ? feedHealth.total   || 0 : 0;
   var _hPct     = _total > 0 ? Math.round((_healthy / _total) * 100) : 100;
 
-  // CVE count from latestCves
   var cveCount  = latestCves ? latestCves.length : 0;
+
+  var avgRisk = highRiskArticles.length > 0
+    ? Math.round(highRiskArticles.reduce(function(s,a){return s+a.riskScore;},0) / highRiskArticles.length)
+    : 0;
+  
+  var actMax = 1;
+  activity7d.forEach(function(d){ if(d.count > actMax) actMax = d.count; });
 %>
 
-<!-- Page header -->
-<div class="dash-page-header">
-  <div>
-    <h1 class="dash-page-title">
-      Threat Intelligence Dashboard
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;opacity:.4;display:inline;vertical-align:middle;margin-left:6px"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
-    </h1>
-    <p class="dash-page-sub">Real-time overview · Last updated: <span id="dash-ts"></span></p>
-  </div>
-</div>
-<script nonce="<%= nonce %>">document.getElementById('dash-ts').textContent = new Date().toLocaleTimeString();</script>
+<link rel="stylesheet" href="/tailwind.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Manrope:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
 
-<!-- ── 6 Metric Cards ── -->
-<div class="iw-metric-row">
-
-  <div class="iw-metric-card">
-    <div class="iw-metric-top">
-      <span class="iw-metric-label">Total Intel</span>
-      <div class="iw-metric-icon">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+<div class="dash-container">
+  <div class="max-w-7xl mx-auto space-y-8">
+    
+    <!-- TopAppBar -->
+    <header class="flex items-center justify-between pb-4 w-full border-b border-outline-variant/10">
+      <div class="flex flex-col">
+        <h1 class="font-headline font-bold text-2xl tracking-tight text-[#81ecff]">Threat Intelligence Dashboard</h1>
+        <p class="text-sm text-on-surface-variant font-medium">Real-time overview &middot; <span id="dash-ts"></span></p>
       </div>
-    </div>
-    <div class="iw-metric-value"><%= totalCount.toLocaleString() %></div>
-    <div class="iw-metric-sub">All ingested items</div>
-  </div>
+    </header>
+    <script nonce="<%= nonce %>">document.getElementById('dash-ts').textContent = new Date().toLocaleTimeString();</script>
 
-  <div class="iw-metric-card">
-    <div class="iw-metric-top">
-      <span class="iw-metric-label">Last 24 Hours</span>
-      <div class="iw-metric-icon">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-      </div>
-    </div>
-    <div class="iw-metric-value"><%= articles24h.toLocaleString() %></div>
-    <div class="iw-metric-sub">New items today</div>
-  </div>
-
-  <div class="iw-metric-card">
-    <div class="iw-metric-top">
-      <span class="iw-metric-label">Avg Risk Score</span>
-      <div class="iw-metric-icon">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
-      </div>
-    </div>
-    <%
-      var avgRisk = highRiskArticles.length > 0
-        ? Math.round(highRiskArticles.reduce(function(s,a){return s+a.riskScore;},0) / highRiskArticles.length)
-        : 0;
-      var riskColor = avgRisk >= 75 ? '#ef4444' : avgRisk >= 50 ? '#f97316' : avgRisk >= 25 ? '#fbbf24' : '#22c55e';
-    %>
-    <div class="iw-metric-value" style="color:<%= riskColor %>"><%= avgRisk %></div>
-    <div class="iw-metric-sub">Across all intel</div>
-  </div>
-
-  <div class="iw-metric-card">
-    <div class="iw-metric-top">
-      <span class="iw-metric-label">CVEs in Feed</span>
-      <div class="iw-metric-icon">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-      </div>
-    </div>
-    <div class="iw-metric-value" style="color:#f97316"><%= cveCount %></div>
-    <div class="iw-metric-sub">Known exploited vulns</div>
-  </div>
-
-  <div class="iw-metric-card">
-    <div class="iw-metric-top">
-      <span class="iw-metric-label">Threat Actors</span>
-      <div class="iw-metric-icon">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-      </div>
-    </div>
-    <div class="iw-metric-value"><%= threatGroups7d %></div>
-    <div class="iw-metric-sub">Active this week</div>
-  </div>
-
-  <div class="iw-metric-card">
-    <div class="iw-metric-top">
-      <span class="iw-metric-label">Feed Health</span>
-      <div class="iw-metric-icon">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
-      </div>
-    </div>
-    <div class="iw-metric-value" style="color:<%= _hPct >= 80 ? '#22c55e' : _hPct >= 50 ? '#fbbf24' : '#ef4444' %>"><%= _hPct %>%</div>
-    <div class="iw-metric-sub"><%= _healthy %>/<%= _total %> sources healthy</div>
-  </div>
-
-</div>
-
-<!-- ── Threat Level Distribution Bar ── -->
-<div class="iw-dist-card">
-  <div class="iw-dist-header">
-    <span class="iw-dist-title">Threat Level Distribution</span>
-    <span style="font-size:.72rem;color:var(--text-muted)"><%= highRiskArticles.length %> high-risk articles analysed</span>
-  </div>
-  <div class="iw-dist-bar">
-    <% if (critPct > 0) { %>
-    <div class="iw-dist-seg iw-seg-critical" style="width:<%= critPct %>%">
-      <% if (critPct >= 8) { %><span><%= critPct %>%</span><small>Critical</small><% } %>
-    </div>
-    <% } %>
-    <% if (highPct > 0) { %>
-    <div class="iw-dist-seg iw-seg-high" style="width:<%= highPct %>%">
-      <% if (highPct >= 8) { %><span><%= highPct %>%</span><small>High</small><% } %>
-    </div>
-    <% } %>
-    <% if (medPct > 0) { %>
-    <div class="iw-dist-seg iw-seg-medium" style="width:<%= medPct %>%">
-      <% if (medPct >= 8) { %><span><%= medPct %>%</span><small>Medium</small><% } %>
-    </div>
-    <% } %>
-    <% if (lowPct > 0) { %>
-    <div class="iw-dist-seg iw-seg-low" style="width:<%= lowPct %>%">
-      <% if (lowPct >= 8) { %><span><%= lowPct %>%</span><small>Low</small><% } %>
-    </div>
-    <% } %>
-  </div>
-  <div class="iw-dist-legend">
-    <span><span class="iw-leg-dot" style="background:#ef4444"></span>Critical: <%= critCount %></span>
-    <span><span class="iw-leg-dot" style="background:#f97316"></span>High: <%= highCount %></span>
-    <span><span class="iw-leg-dot" style="background:#fbbf24"></span>Medium: <%= medCount %></span>
-    <span><span class="iw-leg-dot" style="background:#22c55e"></span>Low: <%= highRiskArticles.length - critCount - highCount - medCount %></span>
-  </div>
-</div>
-
-<!-- ── Two Donut Charts ── -->
-<div class="iw-charts-row">
-
-  <!-- Severity Breakdown -->
-  <div class="iw-chart-card">
-    <div class="iw-chart-header">
-      <span class="iw-chart-title">Severity Breakdown</span>
-      <a href="/iocs" class="iw-chart-link">View IOCs →</a>
-    </div>
-    <div class="iw-donut-wrap">
-      <canvas id="severity-chart" width="200" height="200"></canvas>
-      <div class="iw-donut-center">
-        <span class="iw-donut-num"><%= highRiskArticles.length %></span>
-        <span class="iw-donut-lbl">TOTAL</span>
-      </div>
-    </div>
-    <div class="iw-chart-legend">
-      <div class="iw-leg-row"><span class="iw-leg-dot" style="background:#ef4444"></span><span>Critical</span><span class="iw-leg-count"><%= critCount %></span></div>
-      <div class="iw-leg-row"><span class="iw-leg-dot" style="background:#f97316"></span><span>High</span><span class="iw-leg-count"><%= highCount %></span></div>
-      <div class="iw-leg-row"><span class="iw-leg-dot" style="background:#fbbf24"></span><span>Medium</span><span class="iw-leg-count"><%= medCount %></span></div>
-      <div class="iw-leg-row"><span class="iw-leg-dot" style="background:#22c55e"></span><span>Low</span><span class="iw-leg-count"><%= highRiskArticles.length - critCount - highCount - medCount %></span></div>
-    </div>
-  </div>
-
-  <!-- Intel by Category -->
-  <div class="iw-chart-card">
-    <div class="iw-chart-header">
-      <span class="iw-chart-title">Intel by Category</span>
-      <a href="/categories" class="iw-chart-link">All categories →</a>
-    </div>
-    <div class="iw-donut-wrap">
-      <canvas id="category-chart" width="200" height="200"></canvas>
-      <div class="iw-donut-center">
-        <span class="iw-donut-num"><%= categoryDist.length %></span>
-        <span class="iw-donut-lbl">TYPES</span>
-      </div>
-    </div>
-    <div class="iw-chart-legend">
-      <% var catColors = ['#22d3ee','#f97316','#a78bfa','#f05252','#20d07a','#fbbf24','#60a5fa','#e879f9']; %>
-      <% categoryDist.slice(0,6).forEach(function(c,i) { %>
-      <div class="iw-leg-row">
-        <span class="iw-leg-dot" style="background:<%= catColors[i] || '#888' %>"></span>
-        <span><%= c.category %></span>
-        <span class="iw-leg-count"><%= c.count.toLocaleString() %></span>
-      </div>
-      <% }); %>
-    </div>
-  </div>
-
-</div>
-
-<!-- ── Bottom row: High-Risk Articles + Latest CVEs ── -->
-<div class="iw-bottom-row">
-
-  <!-- High-Risk Articles -->
-  <div class="iw-table-card">
-    <div class="iw-table-header">
-      <span class="iw-chart-title">High-Risk Articles</span>
-      <a href="/iocs" class="iw-chart-link">IOC feed →</a>
-    </div>
-    <% if (highRiskArticles.length > 0) { %>
-    <div class="iw-article-list">
-      <% highRiskArticles.slice(0,6).forEach(function(a) { %>
-      <%
-        var _rs = a.riskScore >= 75 ? 'Critical' : a.riskScore >= 50 ? 'High' : 'Medium';
-        var _rc = a.riskScore >= 75 ? '#ef4444' : a.riskScore >= 50 ? '#f97316' : '#fbbf24';
-        var _rcbg = a.riskScore >= 75 ? 'rgba(239,68,68,.12)' : a.riskScore >= 50 ? 'rgba(249,115,22,.12)' : 'rgba(251,191,36,.12)';
-        var _ageMs = a.published_at ? (Date.now() - new Date(a.published_at).getTime()) : Infinity;
-        var _ageMins = Math.floor(_ageMs / 60000);
-        var _rel = _ageMins < 60 ? _ageMins + 'm ago' : _ageMins < 1440 ? Math.floor(_ageMins/60) + 'h ago' : Math.floor(_ageMins/1440) + 'd ago';
-      %>
-      <div class="iw-article-row">
-        <span class="iw-risk-badge" style="background:<%= _rcbg %>;color:<%= _rc %>"><%= _rs %></span>
-        <a href="<%= safeHref(a.link) %>" target="_blank" rel="noopener noreferrer" class="iw-article-title"><%= a.title %></a>
-        <span class="iw-article-age"><%= _rel %></span>
-      </div>
-      <% }); %>
-    </div>
-    <% } else { %>
-    <p style="color:var(--text-muted);font-size:.82rem;padding:.5rem 0">No high-risk articles detected yet.</p>
-    <% } %>
-  </div>
-
-  <!-- Latest CVEs + 7-day activity -->
-  <div style="display:flex;flex-direction:column;gap:1rem">
-
-    <div class="iw-table-card">
-      <div class="iw-table-header">
-        <span class="iw-chart-title">Latest CVEs</span>
-        <a href="/vulnerability" class="iw-chart-link">Lookup →</a>
-      </div>
-      <% if (latestCves.length > 0) { %>
-      <div style="display:flex;flex-direction:column;gap:.4rem">
-        <% latestCves.slice(0,5).forEach(function(cve) { %>
-        <%
-          var _sc = cve.severity === 'CRITICAL' ? '#ef4444' : cve.severity === 'HIGH' ? '#f97316' : cve.severity === 'MEDIUM' ? '#a78bfa' : 'var(--text-muted)';
-          var _sb = cve.severity === 'CRITICAL' ? 'rgba(239,68,68,.12)' : cve.severity === 'HIGH' ? 'rgba(249,115,22,.12)' : cve.severity === 'MEDIUM' ? 'rgba(167,139,250,.12)' : 'var(--bg-elevated)';
-        %>
-        <div style="display:flex;align-items:center;gap:.5rem">
-          <a href="<%= safeHref(cve.link) %>" target="_blank" rel="noopener noreferrer" class="cve-id cve-<%= (cve.severity||'').toLowerCase() %>" style="flex-shrink:0"><%= cve.id %></a>
-          <span style="flex:1;font-size:.75rem;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><%= cve.description %></span>
-          <% if (cve.severity) { %><span style="font-size:.6rem;font-weight:700;padding:.1rem .4rem;border-radius:3px;background:<%= _sb %>;color:<%= _sc %>;flex-shrink:0"><%= cve.severity %></span><% } %>
+    <!-- Metric Cards Grid -->
+    <section class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+      <div class="glass-card p-4 rounded-xl flex flex-col justify-between">
+        <span class="material-symbols-outlined text-primary text-xl mb-3">analytics</span>
+        <div>
+          <p class="text-[11px] font-label uppercase tracking-widest text-on-surface-variant">Total Intel</p>
+          <p class="text-xl font-headline font-bold text-on-surface"><%= totalCount.toLocaleString() %></p>
         </div>
-        <% }); %>
       </div>
-      <% } else { %>
-      <p style="color:var(--text-muted);font-size:.82rem">CVE feed loading...</p>
-      <% } %>
-    </div>
+      <div class="glass-card p-4 rounded-xl flex flex-col justify-between">
+        <span class="material-symbols-outlined text-secondary text-xl mb-3">update</span>
+        <div>
+          <p class="text-[11px] font-label uppercase tracking-widest text-on-surface-variant">Last 24h</p>
+          <p class="text-xl font-headline font-bold text-on-surface">+<%= articles24h.toLocaleString() %></p>
+        </div>
+      </div>
+      <div class="glass-card p-4 rounded-xl flex flex-col justify-between">
+        <span class="material-symbols-outlined text-error text-xl mb-3">warning</span>
+        <div>
+          <p class="text-[11px] font-label uppercase tracking-widest text-on-surface-variant">Avg Risk</p>
+          <p class="text-xl font-headline font-bold" style="color:<%= avgRisk >= 75 ? '#ff716c' : avgRisk >= 50 ? '#ff725e' : avgRisk >= 25 ? '#ffe792' : '#81ecff' %>"><%= avgRisk %></p>
+        </div>
+      </div>
+      <div class="glass-card p-4 rounded-xl flex flex-col justify-between">
+        <span class="material-symbols-outlined text-tertiary text-xl mb-3">bug_report</span>
+        <div>
+          <p class="text-[11px] font-label uppercase tracking-widest text-on-surface-variant">CVEs in Feed</p>
+          <p class="text-xl font-headline font-bold text-on-surface"><%= cveCount %></p>
+        </div>
+      </div>
+      <div class="glass-card p-4 rounded-xl flex flex-col justify-between">
+        <span class="material-symbols-outlined text-primary-fixed-dim text-xl mb-3">group_work</span>
+        <div>
+          <p class="text-[11px] font-label uppercase tracking-widest text-on-surface-variant">Actors</p>
+          <p class="text-xl font-headline font-bold text-on-surface"><%= threatGroups7d %> Active</p>
+        </div>
+      </div>
+      <div class="glass-card p-4 rounded-xl flex flex-col justify-between">
+        <span class="material-symbols-outlined text-primary text-xl mb-3">health_metrics</span>
+        <div>
+          <p class="text-[11px] font-label uppercase tracking-widest text-on-surface-variant">Feed Health</p>
+          <p class="text-xl font-headline font-bold text-primary"><%= _hPct %>%</p>
+        </div>
+      </div>
+    </section>
 
-    <div class="iw-table-card">
-      <div class="iw-table-header">
-        <span class="iw-chart-title">7-Day Activity</span>
-        <a href="/" class="iw-chart-link">Full feed →</a>
+    <!-- Bento Grid Layout -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <!-- MAIN CHARTS COLUMN -->
+      <div class="lg:col-span-7 space-y-6">
+        
+        <!-- Threat Level Distribution -->
+        <section class="glass-card p-6 rounded-xl">
+          <div class="flex justify-between items-end mb-6">
+            <div>
+              <h2 class="font-headline font-bold text-lg uppercase tracking-wider text-on-surface">Threat Level Distribution</h2>
+              <p class="text-xs text-on-surface-variant"><%= highRiskArticles.length %> high-risk articles analysed</p>
+            </div>
+          </div>
+          <div class="h-4 w-full bg-surface-container-highest rounded-full flex overflow-hidden">
+            <% if (critPct > 0) { %><div class="h-full bg-error" style="width: <%= critPct %>%"></div><% } %>
+            <% if (highPct > 0) { %><div class="h-full bg-secondary" style="width: <%= highPct %>%"></div><% } %>
+            <% if (medPct > 0) { %><div class="h-full bg-tertiary" style="width: <%= medPct %>%"></div><% } %>
+            <% if (lowPct > 0) { %><div class="h-full bg-primary" style="width: <%= lowPct %>%"></div><% } %>
+          </div>
+          <div class="mt-4 grid grid-cols-4 gap-2 text-center">
+            <div><p class="text-[11px] font-label uppercase text-error">Critical</p><p class="text-sm font-bold"><%= critPct %>%</p></div>
+            <div><p class="text-[11px] font-label uppercase text-secondary">High</p><p class="text-sm font-bold"><%= highPct %>%</p></div>
+            <div><p class="text-[11px] font-label uppercase text-tertiary">Medium</p><p class="text-sm font-bold"><%= medPct %>%</p></div>
+            <div><p class="text-[11px] font-label uppercase text-primary">Low</p><p class="text-sm font-bold"><%= lowPct %>%</p></div>
+          </div>
+        </section>
+
+        <!-- Donut Charts using original Chart.js -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <section class="glass-card p-6 rounded-xl flex flex-col items-center relative">
+            <h3 class="font-label text-xs uppercase tracking-widest text-on-surface-variant mb-6 w-full text-center">Severity Breakdown</h3>
+            <div class="relative w-[180px] h-[180px]">
+              <canvas id="severity-chart"></canvas>
+            </div>
+            <div class="absolute inset-0 top-[40px] flex flex-col items-center justify-center pointer-events-none">
+              <span class="text-2xl font-headline font-bold text-on-surface"><%= highRiskArticles.length %></span>
+              <span class="text-[11px] uppercase tracking-tighter text-on-surface-variant">TOTAL</span>
+            </div>
+          </section>
+          
+          <section class="glass-card p-6 rounded-xl flex flex-col items-center relative">
+            <h3 class="font-label text-xs uppercase tracking-widest text-on-surface-variant mb-6 w-full text-center">Intel by Category</h3>
+            <div class="relative w-[180px] h-[180px]">
+              <canvas id="category-chart"></canvas>
+            </div>
+            <div class="absolute inset-0 top-[40px] flex flex-col items-center justify-center pointer-events-none">
+              <span class="text-2xl font-headline font-bold text-on-surface"><%= categoryDist.length %></span>
+              <span class="text-[11px] uppercase tracking-tighter text-on-surface-variant">TYPES</span>
+            </div>
+          </section>
+        </div>
+
       </div>
-      <%
-        var actMax = 1;
-        activity7d.forEach(function(d){ if(d.count > actMax) actMax = d.count; });
-      %>
-      <div class="iw-sparkline">
-        <% activity7d.forEach(function(d) { %>
-        <% var pct = actMax > 0 ? Math.max(4, Math.round((d.count/actMax)*100)) : 4; %>
-        <div class="iw-spark-bar" style="height:<%= pct %>%" title="<%= d.label %>: <%= d.count %>"></div>
-        <% }); %>
-      </div>
-      <div class="iw-spark-labels">
-        <span><%= activity7d.length > 0 ? activity7d[0].label : '' %></span>
-        <span>Today</span>
+
+      <!-- FEEDS COLUMN -->
+      <div class="lg:col-span-5 space-y-6">
+        
+        <!-- High-Risk Articles -->
+        <section class="glass-card p-6 rounded-xl h-[330px] overflow-hidden flex flex-col">
+          <h2 class="font-headline font-bold text-lg uppercase tracking-wider text-on-surface mb-6">High-Risk Articles</h2>
+          <div class="space-y-5 overflow-y-auto pr-2 scrollbar-hide flex-1">
+            <% if (highRiskArticles.length > 0) { %>
+              <% highRiskArticles.slice(0,4).forEach(function(a) { 
+                var _rs = a.riskScore >= 75 ? 'Critical' : a.riskScore >= 50 ? 'High' : 'Medium';
+                var _clsbg = a.riskScore >= 75 ? 'bg-error/20 text-error border-error/30 neon-glow-error' : a.riskScore >= 50 ? 'bg-secondary/20 text-secondary border-secondary/30' : 'bg-tertiary/20 text-tertiary border-tertiary/30';
+                var _ageMs = a.published_at ? (Date.now() - new Date(a.published_at).getTime()) : Infinity;
+                var _ageMins = Math.floor(_ageMs / 60000);
+                var _rel = _ageMins < 60 ? _ageMins + 'm ago' : _ageMins < 1440 ? Math.floor(_ageMins/60) + 'h ago' : Math.floor(_ageMins/1440) + 'd ago';
+              %>
+                <div class="group">
+                  <div class="flex justify-between items-start mb-1">
+                    <span class="<%= _clsbg %> text-[11px] font-bold px-2 py-0.5 rounded uppercase border"><%= _rs %></span>
+                    <span class="text-[11px] text-on-surface-variant"><%= _rel %></span>
+                  </div>
+                  <a href="<%= safeHref(a.link) %>" target="_blank" rel="noopener noreferrer" class="text-sm font-bold text-on-surface group-hover:text-primary transition-colors block leading-tight"><%= a.title %></a>
+                </div>
+              <% }); %>
+            <% } else { %>
+              <p class="text-on-surface-variant text-sm">No high-risk articles detected.</p>
+            <% } %>
+          </div>
+          <a href="/iocs" class="mt-4 text-center block w-full py-2 text-[11px] font-label uppercase tracking-widest text-primary border border-primary/20 rounded-lg hover:bg-primary/5 transition-all">View Feed</a>
+        </section>
+
+        <!-- Latest CVEs -->
+        <section class="glass-card p-6 rounded-xl">
+          <h2 class="font-headline font-bold text-lg uppercase tracking-wider text-on-surface mb-6">Latest CVEs</h2>
+          <div class="space-y-3">
+            <% if (latestCves.length > 0) { %>
+              <% latestCves.slice(0,3).forEach(function(cve) { 
+                var _dot = cve.severity === 'CRITICAL' ? 'bg-error' : cve.severity === 'HIGH' ? 'bg-secondary' : cve.severity === 'MEDIUM' ? 'bg-tertiary' : 'bg-on-surface-variant';
+              %>
+                <div class="p-3 bg-surface-container-low rounded-xl border border-outline-variant/10 hover:border-outline-variant/30 transition-colors">
+                  <div class="flex items-center justify-between mb-1">
+                    <a href="<%= safeHref(cve.link) %>" target="_blank" rel="noopener noreferrer" class="text-xs font-headline font-bold text-[#81ecff] hover:underline"><%= cve.id %></a>
+                    <span class="w-2 h-2 rounded-full <%= _dot %>"></span>
+                  </div>
+                  <p class="text-[11px] text-on-surface-variant leading-snug line-clamp-2" title="<%= cve.description %>"><%= cve.description %></p>
+                </div>
+              <% }); %>
+            <% } else { %>
+              <p class="text-on-surface-variant text-sm">CVE feed loading...</p>
+            <% } %>
+          </div>
+        </section>
+
       </div>
     </div>
-
   </div>
+</div>
+
+<!-- Recent Malware Samples (MalShare) -->
+<div class="max-w-7xl mx-auto px-4 pb-6">
+  <section class="glass-card p-6 rounded-xl" id="malshare-widget">
+    <div class="flex items-center justify-between mb-4">
+      <div>
+        <h2 class="font-headline font-bold text-lg uppercase tracking-wider text-on-surface">Recent Malware Samples</h2>
+        <p class="text-xs text-on-surface-variant">Last 24h &middot; <span id="malshare-ts">loading&hellip;</span></p>
+      </div>
+      <a href="https://malshare.com" target="_blank" rel="noopener noreferrer"
+         class="text-[11px] font-label uppercase tracking-widest text-primary border border-primary/20 rounded-lg px-3 py-1.5 hover:bg-primary/5 transition-all">
+        View all
+      </a>
+    </div>
+    <div id="malshare-list" class="space-y-2">
+      <p class="text-on-surface-variant text-sm">Loading samples&hellip;</p>
+    </div>
+  </section>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
 <script nonce="<%= nonce %>">
 (function(){
-  var isDark = document.documentElement.getAttribute('data-theme') !== 'light';
-  var gridColor = isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.06)';
+  // Stitch Colors
+  var cCrit = '#ff716c', cHigh = '#ff725e', cMed = '#ffe792', cLow = '#81ecff', cBg = '#0c0e12';
 
   // Severity donut
   var sevCtx = document.getElementById('severity-chart');
@@ -294,23 +233,19 @@
         labels: ['Critical','High','Medium','Low'],
         datasets: [{
           data: [<%= critCount %>, <%= highCount %>, <%= medCount %>, <%= Math.max(0, highRiskArticles.length - critCount - highCount - medCount) %>],
-          backgroundColor: ['#ef4444','#f97316','#fbbf24','#22c55e'],
-          borderWidth: 0,
-          hoverOffset: 4,
+          backgroundColor: [cCrit, cHigh, cMed, cLow],
+          borderWidth: 0, hoverOffset: 4,
+          borderColor: cBg
         }]
       },
-      options: {
-        cutout: '72%',
-        plugins: { legend: { display: false }, tooltip: { callbacks: { label: function(c){ return ' ' + c.label + ': ' + c.raw; } } } },
-        animation: { duration: 600 },
-      }
+      options: { cutout: '80%', plugins: { legend: { display: false } } }
     });
   }
 
   // Category donut
   var catCtx = document.getElementById('category-chart');
   if (catCtx) {
-    var catColors = ['#22d3ee','#f97316','#a78bfa','#f05252','#20d07a','#fbbf24','#60a5fa','#e879f9'];
+    var catColors = ['#81ecff','#00d4ec','#00e3fd','#ff725e','#eb0000','#ffe792','#efc900','#ffd709'];
     var catData = <%- JSON.stringify(categoryDist.slice(0,8).map(function(c){ return c.count; })) %>;
     var catLabels = <%- JSON.stringify(categoryDist.slice(0,8).map(function(c){ return c.category; })) %>;
     new Chart(catCtx, {
@@ -320,17 +255,56 @@
         datasets: [{
           data: catData,
           backgroundColor: catColors.slice(0, catData.length),
-          borderWidth: 0,
-          hoverOffset: 4,
+          borderWidth: 0, hoverOffset: 4,
+          borderColor: cBg
         }]
       },
-      options: {
-        cutout: '72%',
-        plugins: { legend: { display: false }, tooltip: { callbacks: { label: function(c){ return ' ' + c.label + ': ' + c.raw.toLocaleString(); } } } },
-        animation: { duration: 600, delay: 150 },
-      }
+      options: { cutout: '80%', plugins: { legend: { display: false } } }
     });
   }
+})();
+</script>
+
+<script nonce="<%= nonce %>">
+(function() {
+  function esc(s) {
+    if (s == null) return '';
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+  var list = document.getElementById('malshare-list');
+  var tsEl  = document.getElementById('malshare-ts');
+  if (!list) return;
+  fetch('/api/malshare/recent')
+    .then(function(r) { return r.json(); })
+    .then(function(json) {
+      if (!json.samples || json.samples.length === 0) {
+        list.innerHTML = '<p class="text-on-surface-variant text-sm">MalShare feed unavailable — check MALSHARE_API_KEY.</p>';
+        return;
+      }
+      if (tsEl) tsEl.textContent = new Date(json.ts).toLocaleTimeString() + ' \u00b7 ' + json.count + ' samples';
+      var html = '';
+      json.samples.slice(0, 10).forEach(function(s, i) {
+        var sha256Short = s.sha256 ? s.sha256.slice(0, 16) + '\u2026' : 'N/A';
+        var sourceDomain = '';
+        if (s.source) {
+          try { sourceDomain = new URL(s.source).hostname; } catch(_) { sourceDomain = s.source.slice(0, 40); }
+        }
+        var ageHours = Math.round((i / Math.max(json.count - 1, 1)) * 24);
+        var ageLabel = ageHours === 0 ? '<1h ago' : ageHours + 'h ago';
+        html += '<div class="flex items-center gap-3 p-2 bg-surface-container-low rounded-lg border border-outline-variant/10 hover:border-outline-variant/30 transition-colors">';
+        if (s.type) {
+          html += '<span class="text-[10px] font-bold px-2 py-0.5 rounded bg-primary/10 text-primary border border-primary/20 uppercase shrink-0">' + esc(s.type) + '</span>';
+        }
+        html += '<span class="font-mono text-xs text-on-surface flex-1 truncate" title="' + esc(s.sha256 || '') + '">' + esc(sha256Short) + '</span>';
+        if (sourceDomain) html += '<span class="text-[11px] text-on-surface-variant shrink-0">' + esc(sourceDomain) + '</span>';
+        html += '<span class="text-[11px] text-on-surface-variant shrink-0 ml-2">' + esc(ageLabel) + '</span>';
+        html += '</div>';
+      });
+      list.innerHTML = html;
+    })
+    .catch(function() {
+      list.innerHTML = '<p class="text-on-surface-variant text-sm">Could not load MalShare feed.</p>';
+    });
 })();
 </script>
 

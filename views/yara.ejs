@@ -2,7 +2,7 @@
 
 <section class="lookup-hero">
   <h1>YARA Rules</h1>
-  <p>Search MalwareBazaar for YARA detection rules by malware family or tag</p>
+  <p>Search for YARA detection rules by malware family or tag</p>
 </section>
 
 <div class="lookup-panel active" style="max-width:860px;margin:0 auto">
@@ -12,8 +12,8 @@
   </div>
   <div id="yara-result">
     <div class="lookup-placeholder">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:block;margin:0 auto .75rem;width:2rem;height:2rem"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>
-      Enter a malware family name or tag to search YARA rules from MalwareBazaar.
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="32" height="32" style="display:block; margin:0 auto .75rem"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>
+      Enter a malware family name or tag to search for YARA rules.
     </div>
   </div>
 </div>
@@ -26,7 +26,7 @@
     var q = document.getElementById('yara-input').value.trim();
     if (!q) return;
     var r = document.getElementById('yara-result');
-    r.innerHTML = '<div class="lookup-loading"><span class="suggestion-spinner"></span> Searching MalwareBazaar...</div>';
+    r.innerHTML = '<div class="lookup-loading"><span class="suggestion-spinner"></span> Searching...</div>';
 
     fetch('/api/yara-rules?q=' + encodeURIComponent(q))
       .then(function(res) { return res.json(); })
@@ -35,64 +35,87 @@
           r.innerHTML = '<div class="lookup-error">' + esc(json.error) + '</div>';
           return;
         }
+        var rules   = json.rules   || [];
         var results = json.results || [];
-        if (!results.length) {
-          r.innerHTML = '<div class="lookup-placeholder">No YARA rules found for <strong>' + esc(q) + '</strong>. Try a different malware name or tag.</div>';
-          return;
+        var sources = json.sources || [];
+        var html = '';
+
+        // ── Actual YARA Rules (from YARAify) ───────────────────────────────────
+        if (rules.length) {
+          html += '<div style="font-size:.8rem;color:var(--text-muted);margin-bottom:1rem">'
+            + rules.length + ' YARA rule' + (rules.length !== 1 ? 's' : '') + ' found</div>';
+          rules.forEach(function(rule) {
+            html += '<div class="lookup-result-card" style="margin-bottom:1rem">';
+            html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:.5rem;margin-bottom:.5rem">';
+            html += '<div style="font-weight:700;font-size:.92rem;font-family:var(--font-mono)">' + esc(rule.ruleName) + '</div>';
+            html += '<div style="display:flex;gap:.4rem;align-items:center;flex-shrink:0">';
+            if (rule.tlp) {
+              var tlpColor = rule.tlp.toLowerCase() === 'red' ? '#dc2626'
+                : rule.tlp.toLowerCase() === 'amber' ? '#f97316'
+                : rule.tlp.toLowerCase() === 'green' ? '#22c55e' : 'var(--text-muted)';
+              html += '<span style="font-size:.68rem;font-weight:700;color:' + tlpColor + ';background:var(--bg-elevated);padding:.15rem .45rem;border-radius:4px">TLP:' + esc(rule.tlp.toUpperCase()) + '</span>';
+            }
+            if (rule.dateAdded) html += '<span style="font-size:.72rem;color:var(--text-muted)">' + esc(rule.dateAdded) + '</span>';
+            html += '</div></div>';
+            if (rule.author) html += '<div style="font-size:.78rem;color:var(--text-muted);margin-bottom:.3rem">Author: ' + esc(rule.author) + '</div>';
+            if (rule.description) html += '<div style="font-size:.82rem;color:var(--text-secondary);margin-bottom:.5rem">' + esc(rule.description) + '</div>';
+            if (rule.tags && rule.tags.length) {
+              html += '<div style="margin-bottom:.6rem">';
+              rule.tags.forEach(function(t) { html += '<span class="ioc-tag">' + esc(t) + '</span> '; });
+              html += '</div>';
+            }
+            if (rule.ruleContent) {
+              html += '<details style="margin-top:.4rem">';
+              html += '<summary style="cursor:pointer;font-size:.82rem;font-weight:600;color:var(--accent);user-select:none">View Rule ▸</summary>';
+              html += '<pre style="margin-top:.6rem;padding:.75rem;background:var(--bg-elevated);border-radius:6px;font-size:.75rem;font-family:var(--font-mono);overflow-x:auto;white-space:pre;line-height:1.5">'
+                + esc(rule.ruleContent) + '</pre>';
+              html += '</details>';
+            }
+            html += '</div>';
+          });
         }
 
-        var html = '<div style="font-size:.8rem;color:var(--text-muted);margin-bottom:1rem">' + results.length + ' sample' + (results.length !== 1 ? 's' : '') + ' found</div>';
-
-        results.forEach(function(s) {
-          html += '<div class="lookup-result-card" style="margin-bottom:1rem">';
-
-          // Header row
-          html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:.5rem;margin-bottom:.75rem">';
-          html += '<div>';
-          if (s.signature) html += '<div style="font-weight:600;font-size:.95rem">' + esc(s.signature) + '</div>';
-          html += '<div style="font-family:var(--font-mono);font-size:.72rem;color:var(--text-muted);margin-top:.2rem">' + esc(s.sha256) + '</div>';
-          html += '</div>';
-          if (s.first_seen) html += '<div style="font-size:.75rem;color:var(--text-muted);white-space:nowrap">' + esc(s.first_seen) + '</div>';
-          html += '</div>';
-
-          // Metadata row
-          html += '<div class="lookup-result-grid" style="margin-bottom:.5rem">';
-          if (s.file_name) html += '<div class="lookup-kv"><span class="lookup-kv-key">File Name</span><span class="lookup-kv-val">' + esc(s.file_name) + '</span></div>';
-          if (s.file_type) html += '<div class="lookup-kv"><span class="lookup-kv-key">File Type</span><span class="lookup-kv-val">' + esc(s.file_type) + '</span></div>';
-          if (s.file_size) html += '<div class="lookup-kv"><span class="lookup-kv-key">File Size</span><span class="lookup-kv-val">' + esc(s.file_size) + ' bytes</span></div>';
-          html += '</div>';
-
-          // Tags
-          if (s.tags && s.tags.length) {
-            html += '<div style="margin-bottom:.6rem">';
-            s.tags.forEach(function(t) { html += '<span class="ioc-tag">' + esc(t) + '</span> '; });
+        // ── Related Samples (MalwareBazaar) ────────────────────────────────────
+        if (results.length) {
+          html += '<h3 style="font-size:.85rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-top:' + (rules.length ? '2rem' : '0') + ';margin-bottom:.75rem">Related Samples (' + results.length + ')</h3>';
+          results.forEach(function(s) {
+            html += '<div class="lookup-result-card" style="margin-bottom:.65rem">';
+            html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:.5rem;margin-bottom:.35rem">';
+            html += '<div>';
+            if (s.signature) html += '<div style="font-weight:600;font-size:.88rem">' + esc(s.signature) + '</div>';
+            html += '<div style="font-family:var(--font-mono);font-size:.7rem;color:var(--text-muted);margin-top:.15rem">' + esc(s.sha256) + '</div>';
             html += '</div>';
-          }
-
-          // YARA Rules
-          if (s.yara_rules && s.yara_rules.length) {
-            html += '<details style="margin-top:.5rem">';
-            html += '<summary style="cursor:pointer;font-size:.82rem;font-weight:600;color:var(--accent);user-select:none">YARA Rules (' + s.yara_rules.length + ')</summary>';
-            html += '<div style="margin-top:.5rem">';
-            s.yara_rules.forEach(function(yr) {
-              html += '<div style="padding:.5rem .6rem;background:var(--bg-elevated);border-radius:6px;margin-bottom:.35rem;font-size:.8rem">';
-              html += '<div style="font-weight:600;font-family:var(--font-mono)">' + esc(yr.name) + '</div>';
-              if (yr.author) html += '<div style="color:var(--text-muted);margin-top:.1rem">Author: ' + esc(yr.author) + '</div>';
-              if (yr.description) html += '<div style="color:var(--text-secondary);margin-top:.2rem">' + esc(yr.description) + '</div>';
+            if (s.first_seen) html += '<div style="font-size:.72rem;color:var(--text-muted);white-space:nowrap">' + esc(s.first_seen) + '</div>';
+            html += '</div>';
+            if (s.tags && s.tags.length) {
+              html += '<div>';
+              s.tags.forEach(function(t) { html += '<span class="ioc-tag">' + esc(t) + '</span> '; });
               html += '</div>';
-            });
-            html += '</div></details>';
-          } else {
-            html += '<div style="font-size:.78rem;color:var(--text-muted)">No YARA rules attached to this sample.</div>';
-          }
+            }
+            html += '</div>';
+          });
+        }
 
-          html += '</div>';
-        });
+        // ── Rule Repositories (awesome-yara) ───────────────────────────────────
+        if (sources.length) {
+          html += '<h3 style="font-size:.85rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-top:' + (rules.length || results.length ? '2rem' : '0') + ';margin-bottom:.75rem">Rule Repositories (' + sources.length + ')</h3>';
+          sources.forEach(function(s) {
+            html += '<div class="lookup-result-card" style="margin-bottom:.65rem;display:flex;align-items:flex-start;gap:.75rem">';
+            html += '<div style="flex:1;min-width:0">';
+            html += '<a href="' + esc(s.url) + '" target="_blank" rel="noopener noreferrer" style="font-weight:600;font-size:.9rem;color:var(--accent);text-decoration:none">' + esc(s.name) + ' \u2197</a>';
+            if (s.description) html += '<div style="font-size:.8rem;color:var(--text-secondary);margin-top:.25rem">' + esc(s.description) + '</div>';
+            html += '</div></div>';
+          });
+        }
+
+        if (!rules.length && !results.length && !sources.length) {
+          html = '<div class="lookup-placeholder">No YARA rules found for <strong>' + esc(q) + '</strong>. Try a different malware family name or tag.</div>';
+        }
 
         r.innerHTML = html;
       })
       .catch(function() {
-        r.innerHTML = '<div class="lookup-error">Search failed. Ensure ABUSECH_API_KEY is configured.</div>';
+        r.innerHTML = '<div class="lookup-error">Search failed. Please try again later.</div>';
       });
   }
 

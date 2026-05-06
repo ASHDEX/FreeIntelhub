@@ -1,0 +1,169 @@
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-header">
+    <a href="/" class="sidebar-logo">Free<span>Intel</span>Hub</a>
+    <button class="sb-collapse-btn" id="sb-collapse-btn" aria-label="Collapse sidebar" aria-expanded="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M11 19l-7-7 7-7"/><path d="M19 19l-7-7 7-7"/></svg>
+    </button>
+  </div>
+
+  <nav class="sidebar-nav" aria-label="Main navigation">
+
+    <!-- Feed -->
+    <div class="sidebar-section">
+      <span class="sidebar-section-label">Feed</span>
+      <a href="/feed" class="sidebar-link<%= currentPath === '/feed' || currentPath === '/' ? ' active' : '' %>">
+        <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 11a9 9 0 0 1 9 9"/><path d="M4 4a16 16 0 0 1 16 16"/><circle cx="5" cy="19" r="1"/></svg>
+        <span class="sidebar-label">Threat Feed</span>
+      </a>
+      <a href="/search" class="sidebar-link<%= currentPath === '/search' ? ' active' : '' %>">
+        <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <span class="sidebar-label">Search</span>
+      </a>
+      <a href="/trending" class="sidebar-link<%= currentPath === '/trending' ? ' active' : '' %>">
+        <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+        <span class="sidebar-label">Trending</span>
+      </a>
+    </div>
+
+    <!-- Intelligence -->
+    <div class="sidebar-section">
+      <span class="sidebar-section-label">Intelligence</span>
+      <a href="/cve-priority" class="sidebar-link<%= currentPath === '/cve-priority' ? ' active' : '' %>">
+        <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        <span class="sidebar-label">CVE Priority</span>
+      </a>
+      <a href="/vulnerability" class="sidebar-link<%= currentPath === '/vulnerability' ? ' active' : '' %>">
+        <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <span class="sidebar-label">Vulnerability</span>
+      </a>
+      <a href="/lookup" class="sidebar-link<%= currentPath === '/lookup' ? ' active' : '' %>">
+        <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+        <span class="sidebar-label">IOC Lookup</span>
+      </a>
+      <a href="/iocs" class="sidebar-link<%= currentPath === '/iocs' ? ' active' : '' %>">
+        <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        <span class="sidebar-label">IOC Feed</span>
+      </a>
+      <a href="/yara-rules" class="sidebar-link<%= currentPath === '/yara-rules' ? ' active' : '' %>">
+        <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+        <span class="sidebar-label">YARA Rules</span>
+      </a>
+      <a href="/phishing-lookup" class="sidebar-link<%= currentPath === '/phishing-lookup' ? ' active' : '' %>">
+        <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
+        <span class="sidebar-label">Phishing Lookup</span>
+      </a>
+      <a href="/exploit-lookup" class="sidebar-link<%= currentPath === '/exploit-lookup' ? ' active' : '' %>">
+        <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+        <span class="sidebar-label">Exploit Lookup</span>
+      </a>
+      <a href="/pastes" class="sidebar-link<%= currentPath === '/pastes' ? ' active' : '' %>">
+        <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        <span class="sidebar-label">Pastes</span>
+      </a>
+      <a href="/darkweb" class="sidebar-link<%= currentPath === '/darkweb' ? ' active' : '' %>">
+        <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+        <span class="sidebar-label">Dark Web</span>
+      </a>
+    </div>
+
+    <!-- Adversaries -->
+    <div class="sidebar-section">
+      <span class="sidebar-section-label">Adversaries</span>
+      <a href="/threat-groups" class="sidebar-link<%= currentPath === '/threat-groups' || currentPath.startsWith('/threat-group/') ? ' active' : '' %>">
+        <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        <span class="sidebar-label">Threat Groups</span>
+      </a>
+      <a href="/software" class="sidebar-link<%= currentPath === '/software' || currentPath.startsWith('/software/') ? ' active' : '' %>">
+        <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+        <span class="sidebar-label">Software</span>
+      </a>
+      <a href="/campaigns" class="sidebar-link<%= currentPath === '/campaigns' || currentPath.startsWith('/campaign/') ? ' active' : '' %>">
+        <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>
+        <span class="sidebar-label">Campaigns</span>
+      </a>
+    </div>
+
+    <!-- Explore -->
+    <div class="sidebar-section">
+      <span class="sidebar-section-label">Explore</span>
+      <a href="/dashboard" class="sidebar-link<%= currentPath === '/dashboard' ? ' active' : '' %>">
+        <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+        <span class="sidebar-label">Dashboard</span>
+      </a>
+      <a href="/geomap" class="sidebar-link<%= currentPath === '/geomap' ? ' active' : '' %>">
+        <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+        <span class="sidebar-label">Geo Map</span>
+      </a>
+      <a href="/heatmap" class="sidebar-link<%= currentPath === '/heatmap' ? ' active' : '' %>">
+        <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>
+        <span class="sidebar-label">Heatmap</span>
+      </a>
+      <a href="/mitre" class="sidebar-link<%= currentPath === '/mitre' ? ' active' : '' %>">
+        <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+        <span class="sidebar-label">MITRE ATT&amp;CK</span>
+      </a>
+    </div>
+
+    <!-- Manage (auth) -->
+    <% if (typeof currentUser !== 'undefined' && currentUser) { %>
+    <div class="sidebar-section">
+      <span class="sidebar-section-label">Manage</span>
+      <a href="/cases" class="sidebar-link<%= currentPath === '/cases' || currentPath.startsWith('/cases/') ? ' active' : '' %>">
+        <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+        <span class="sidebar-label">Cases</span>
+      </a>
+      <a href="/bookmarks" class="sidebar-link<%= currentPath === '/bookmarks' ? ' active' : '' %>">
+        <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+        <span class="sidebar-label">Bookmarks</span>
+      </a>
+      <a href="/watchlist" class="sidebar-link<%= currentPath === '/watchlist' ? ' active' : '' %>">
+        <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        <span class="sidebar-label">Watchlist</span>
+      </a>
+      <a href="/alerts" class="sidebar-link<%= currentPath === '/alerts' ? ' active' : '' %>">
+        <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        <span class="sidebar-label">Alerts</span>
+      </a>
+    </div>
+    <% } %>
+
+    <!-- Browse -->
+    <div class="sidebar-section">
+      <span class="sidebar-section-label">Browse</span>
+      <a href="/sources" class="sidebar-link<%= currentPath === '/sources' || currentPath.startsWith('/source/') ? ' active' : '' %>">
+        <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 11a9 9 0 0 1 9 9"/><path d="M4 4a16 16 0 0 1 16 16"/><circle cx="5" cy="19" r="1"/></svg>
+        <span class="sidebar-label">Sources</span>
+      </a>
+      <a href="/vendors" class="sidebar-link<%= currentPath === '/vendors' || currentPath.startsWith('/vendor/') ? ' active' : '' %>">
+        <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+        <span class="sidebar-label">Vendors</span>
+      </a>
+      <a href="/categories" class="sidebar-link<%= currentPath === '/categories' || currentPath.startsWith('/category/') ? ' active' : '' %>">
+        <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+        <span class="sidebar-label">Categories</span>
+      </a>
+      <a href="/sectors" class="sidebar-link<%= currentPath === '/sectors' || currentPath.startsWith('/sector/') ? ' active' : '' %>">
+        <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        <span class="sidebar-label">Sectors</span>
+      </a>
+    </div>
+
+  </nav>
+
+  <div class="sidebar-footer">
+    <a href="/feed/all.xml" class="sidebar-footer-link" title="RSS Feed">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 11a9 9 0 0 1 9 9"/><path d="M4 4a16 16 0 0 1 16 16"/><circle cx="5" cy="19" r="1"/></svg>
+      <span class="sidebar-label">RSS</span>
+    </a>
+    <a href="/api/articles" class="sidebar-footer-link" title="API">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+      <span class="sidebar-label">API</span>
+    </a>
+    <% if (typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'admin') { %>
+    <a href="/admin" class="sidebar-footer-link<%= currentPath === '/admin' ? ' active' : '' %>" title="Admin">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41M4.93 4.93l1.41 1.41M19.07 19.07l-1.41-1.41M4.93 19.07l1.41-1.41M12 2v2M12 20v2M2 12h2M20 12h2"/></svg>
+      <span class="sidebar-label">Admin</span>
+    </a>
+    <% } %>
+  </div>
+</aside>

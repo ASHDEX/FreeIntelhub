@@ -10,6 +10,7 @@ const { fetchAllFeeds } = require('./services/rssFetcher');
 const { startNewsletterCron } = require('./services/newsletter');
 const { cleanupOldArticles } = require('./services/articleCleanup');
 const { seedEntities, backfillEntities } = require('./services/entityExtractor');
+const darkweb = require('./services/darkweb');
 
 // Restrict .env file permissions (owner read/write only)
 try {
@@ -22,6 +23,8 @@ const PORT = process.env.PORT || 3000;
 const BIND_HOST = process.env.BIND_HOST || '127.0.0.1';
 const FETCH_INTERVAL = 15 * 60 * 1000; // 15 minutes
 const CLEANUP_INTERVAL = 24 * 60 * 60 * 1000; // 24 hours
+const DW_SCAN_INTERVAL = 4 * 60 * 60 * 1000;  // 4 hours
+const DW_SYNC_INTERVAL = 24 * 60 * 60 * 1000; // 24 hours
 
 // Trust proxy — required when behind a reverse proxy/load balancer (nginx, Cloudflare, etc.)
 // Set TRUST_PROXY=1 in production for correct IP-based rate limiting
@@ -46,12 +49,18 @@ app.use((req, res, next) => {
   next();
 });
 
+// Expose current path to all views for sidebar active state
+app.use((req, res, next) => {
+  res.locals.currentPath = req.path;
+  next();
+});
+
 // Security headers
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", (req, res) => `'nonce-${res.locals.nonce}'`, "https://cdn.jsdelivr.net"],
+      scriptSrc: ["'self'", (req, res) => `'nonce-${res.locals.nonce}'`, "https://cdn.jsdelivr.net", "https://cdn.tailwindcss.com"],
       styleSrc: ["'self'", "'unsafe-hashes'", "https://fonts.googleapis.com"],
       imgSrc: ["'self'", "data:"],
       connectSrc: ["'self'"],
@@ -155,4 +164,13 @@ app.listen(PORT, BIND_HOST, () => {
   // Article cleanup: run on startup and every 24h
   setTimeout(cleanupOldArticles, 10000);
   setInterval(cleanupOldArticles, CLEANUP_INTERVAL);
+
+  // Dark web monitoring: sync gang + forum lists on startup, then every 24h
+  // Scan all monitored sites every 4h
+  setTimeout(() => darkweb.syncGangList(),  15000);
+  setTimeout(() => darkweb.syncForumList(), 18000);
+  setInterval(() => darkweb.syncGangList(),  DW_SYNC_INTERVAL);
+  setInterval(() => darkweb.syncForumList(), DW_SYNC_INTERVAL);
+  setTimeout(() => darkweb.scanAll(), 30000);
+  setInterval(() => darkweb.scanAll(), DW_SCAN_INTERVAL);
 });

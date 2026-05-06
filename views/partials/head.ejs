@@ -12,102 +12,67 @@
   <meta name="twitter:card" content="summary">
   <meta name="robots" content="index, follow">
   <link rel="alternate" type="application/rss+xml" title="FreeIntelHub RSS Feed" href="/feed/all.xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Fira+Sans:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/style.css">
   <script src="/app.js" defer></script>
 </head>
 <body>
-  <nav class="navbar">
-    <div class="container nav-inner">
-      <a href="/" class="logo">Free<span>Intel</span>Hub</a>
+  <a href="#main-content" class="skip-link">Skip to main content</a>
 
-      <div class="nav-tabs" id="nav-tabs">
-        <a href="/feed" class="nav-tab<%= currentPath === '/feed' ? ' active' : '' %>">Feed</a>
+  <div class="app-shell">
+    <%- include('sidebar') %>
 
-        <div class="nav-dropdown">
-          <a href="/sources" class="nav-tab<%= currentPath === '/sources' || currentPath.startsWith('/source/') ? ' active' : '' %>">Sources <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></a>
-          <div class="dropdown-menu">
-            <% navSources.forEach(function(s) { %>
-              <a href="/source/<%= encodeURIComponent(s) %>" class="dropdown-item"><%= s %></a>
-            <% }); %>
-            <div class="dropdown-divider"></div>
-            <a href="/sources" class="dropdown-item dropdown-all">View all sources</a>
-          </div>
-        </div>
+    <div class="app-body" id="app-body">
 
-        <div class="nav-dropdown">
-          <a href="/vendors" class="nav-tab<%= currentPath === '/vendors' || currentPath.startsWith('/vendor/') ? ' active' : '' %>">Vendors <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></a>
-          <div class="dropdown-menu dropdown-menu-scroll">
-            <% (typeof vendors !== 'undefined' ? vendors : []).slice(0, 15).forEach(function(v) { %>
-              <a href="/vendor/<%= encodeURIComponent(v.vendor) %>" class="dropdown-item"><%= v.vendor %></a>
-            <% }); %>
-            <div class="dropdown-divider"></div>
-            <a href="/vendors" class="dropdown-item dropdown-all">View all vendors</a>
-          </div>
-        </div>
-
-        <div class="nav-dropdown">
-          <a href="/categories" class="nav-tab<%= currentPath === '/categories' || currentPath.startsWith('/category/') ? ' active' : '' %>">Threats <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></a>
-          <div class="dropdown-menu">
-            <% navCategories.forEach(function(c) { %>
-              <a href="/category/<%= encodeURIComponent(c) %>" class="dropdown-item"><%= c %></a>
-            <% }); %>
-            <div class="dropdown-divider"></div>
-            <a href="/categories" class="dropdown-item dropdown-all">View all types</a>
-          </div>
-        </div>
-
-        <div class="nav-dropdown">
-          <a href="/sectors" class="nav-tab<%= currentPath === '/sectors' || currentPath.startsWith('/sector/') ? ' active' : '' %>">Sectors <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></a>
-          <div class="dropdown-menu dropdown-menu-scroll">
-            <% navSectors.forEach(function(s) { %>
-              <a href="/sector/<%= encodeURIComponent(s) %>" class="dropdown-item"><%= s %></a>
-            <% }); %>
-            <div class="dropdown-divider"></div>
-            <a href="/sectors" class="dropdown-item dropdown-all">View all sectors</a>
-          </div>
-        </div>
-
-        <div class="nav-dropdown">
-          <a href="/threat-groups" class="nav-tab<%= currentPath === '/threat-groups' || currentPath.startsWith('/threat-group/') || currentPath === '/software' || currentPath.startsWith('/software/') || currentPath === '/campaigns' || currentPath.startsWith('/campaign/') ? ' active' : '' %>">Actors <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></a>
-          <div class="dropdown-menu">
-            <a href="/threat-groups" class="dropdown-item">Threat Groups</a>
-            <a href="/software" class="dropdown-item">Software &amp; Malware</a>
-            <a href="/campaigns" class="dropdown-item">Campaigns</a>
-          </div>
-        </div>
-
-        <div class="nav-dropdown">
-          <a href="/trending" class="nav-tab<%= currentPath === '/trending' || currentPath === '/bookmarks' || currentPath === '/mitre' || currentPath === '/iocs' || currentPath === '/heatmap' ? ' active' : '' %>">Tools <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></a>
-          <div class="dropdown-menu">
-            <a href="/trending" class="dropdown-item">Trending</a>
-            <a href="/heatmap" class="dropdown-item">Threat Heatmap</a>
-            <a href="/mitre" class="dropdown-item">MITRE ATT&CK</a>
-            <a href="/iocs" class="dropdown-item">IOC Feed</a>
-            <a href="/bookmarks" class="dropdown-item">Bookmarks</a>
-            <div class="dropdown-divider"></div>
-            <a href="/feed/all.xml" class="dropdown-item">RSS Feed</a>
-            <a href="/api/articles" class="dropdown-item">API</a>
-          </div>
-        </div>
-
-        <a href="/alerts" class="nav-tab nav-tab-alert<%= currentPath === '/alerts' ? ' active' : '' %>">
-          <svg class="alert-bell" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-          Alerts
-        </a>
-      </div>
-
-      <div class="nav-right">
-        <button class="theme-toggle" id="theme-toggle" title="Toggle theme">
-          <svg class="theme-icon-dark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
-          <svg class="theme-icon-light" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      <!-- Compact app header -->
+      <header class="app-header">
+        <button class="sb-mobile-btn" id="sb-mobile-btn" aria-label="Open navigation menu">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
         </button>
-        <form action="/search" method="GET" class="nav-search">
-          <svg class="nav-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-          <input type="text" name="q" placeholder="Search..." value="<%= typeof query !== 'undefined' ? query : '' %>">
-        </form>
-      </div>
 
-      <button class="nav-toggle" onclick="document.getElementById('nav-tabs').classList.toggle('open')">&#9776;</button>
-    </div>
-  </nav>
-  <main class="container">
+        <a href="/" class="app-header-logo">Free<span>Intel</span>Hub</a>
+
+        <form action="/search" method="GET" class="app-header-search">
+          <svg class="app-header-search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <input type="text" name="q" aria-label="Search articles" placeholder="Search threats, CVEs, vendors…" value="<%= typeof query !== 'undefined' ? query : '' %>">
+          <kbd class="app-header-search-hint">/</kbd>
+        </form>
+
+        <div class="app-header-right">
+          <button class="theme-toggle" id="theme-toggle" aria-label="Toggle color theme">
+            <svg class="theme-icon-dark" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+            <svg class="theme-icon-light" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+          </button>
+
+          <a href="/alerts" class="app-header-btn<%= currentPath === '/alerts' ? ' active' : '' %>" aria-label="Alerts">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          </a>
+
+          <% if (typeof currentUser !== 'undefined' && currentUser) { %>
+          <div class="user-menu">
+            <button class="user-avatar" id="user-menu-btn" aria-label="Account menu" aria-expanded="false" aria-haspopup="true">
+              <%= currentUser.username.slice(0,2).toUpperCase() %>
+            </button>
+            <div class="user-dropdown" id="user-dropdown" role="menu">
+              <div class="user-dropdown-name"><%= currentUser.username %> <span class="user-role-badge"><%= currentUser.role %></span></div>
+              <div class="user-dropdown-divider"></div>
+              <a href="/api-keys" class="user-dropdown-item" role="menuitem">API Keys</a>
+              <a href="/alerts" class="user-dropdown-item" role="menuitem">Alerts</a>
+              <% if (currentUser.role === 'admin') { %>
+              <a href="/admin" class="user-dropdown-item" role="menuitem">Admin Panel</a>
+              <% } %>
+              <div class="user-dropdown-divider"></div>
+              <form action="/logout" method="POST">
+                <button type="submit" class="user-dropdown-item user-dropdown-logout">Sign Out</button>
+              </form>
+            </div>
+          </div>
+          <% } else { %>
+          <a href="/login" class="btn btn-sm btn-primary app-header-login">Sign In</a>
+          <% } %>
+        </div>
+      </header>
+
+      <main class="app-main" id="main-content">

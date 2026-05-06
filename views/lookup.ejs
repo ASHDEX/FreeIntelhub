@@ -22,7 +22,7 @@
   </div>
   <div id="cve-result">
     <div class="lookup-placeholder">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:block;margin:0 auto .75rem;width:2rem;height:2rem;opacity:.4"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="32" height="32" style="display:block; margin:0 auto .75rem; opacity:.4"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
       Enter a CVE ID above to fetch vulnerability details, CVSS score, and threat intelligence.
     </div>
   </div>
@@ -37,7 +37,7 @@
   </div>
   <div id="ip-result">
     <div class="lookup-placeholder">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:block;margin:0 auto .75rem;width:2rem;height:2rem;opacity:.4"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="32" height="32" style="display:block; margin:0 auto .75rem; opacity:.4"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
       Enter an IPv4 address to check its abuse reputation and geolocation.
     </div>
   </div>
@@ -52,7 +52,7 @@
   </div>
   <div id="domain-result">
     <div class="lookup-placeholder">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:block;margin:0 auto .75rem;width:2rem;height:2rem;opacity:.4"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="32" height="32" style="display:block; margin:0 auto .75rem; opacity:.4"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
       Enter a domain name to look up threat reputation and registration data.
     </div>
   </div>
@@ -67,7 +67,7 @@
   </div>
   <div id="hash-result">
     <div class="lookup-placeholder">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:block;margin:0 auto .75rem;width:2rem;height:2rem;opacity:.4"><rect x="2" y="2" width="20" height="20" rx="2" ry="2"/><path d="M7 12h10M12 7v10"/></svg>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="32" height="32" style="display:block; margin:0 auto .75rem; opacity:.4"><rect x="2" y="2" width="20" height="20" rx="2" ry="2"/><path d="M7 12h10M12 7v10"/></svg>
       Enter an MD5, SHA1, or SHA256 hash to scan for malware detections via VirusTotal.
     </div>
   </div>
@@ -124,7 +124,7 @@
     el.innerHTML = '<div class="lookup-loading"><span class="suggestion-spinner"></span> Looking up...</div>';
   }
   function setError(el, msg) {
-    el.innerHTML = '<div class="lookup-error">' + esc(msg) + '</div>';
+    el.innerHTML = '<div class="lookup-error" role="alert">' + esc(msg) + '</div>';
   }
 
   // ── CVE Lookup ──────────────────────────────────────────────────────────────
@@ -405,6 +405,31 @@
               html += '</div>';
             });
             html += '</div>';
+          }
+          html += '</div>';
+        }
+
+        // MalShare enrichment
+        if (json.malshare && !json.malshare.skipped) {
+          var ms = json.malshare;
+          html += '<div class="lookup-result-card">';
+          html += '<div class="lookup-result-title">MalShare</div>';
+          if (!ms.found) {
+            html += '<div style="color:var(--text-muted);font-size:.82rem">Not found in MalShare database.</div>';
+          } else {
+            html += '<div class="lookup-result-grid">';
+            [['File Type', ms.fileType], ['MD5', ms.md5], ['SHA1', ms.sha1], ['SHA256', ms.sha256], ['SSDeep', ms.ssdeep]]
+              .forEach(function(f) {
+                if (!f[1]) return;
+                html += '<div class="lookup-kv"><span class="lookup-kv-key">' + esc(f[0]) + '</span>'
+                      + '<span class="lookup-kv-val" style="word-break:break-all">' + esc(f[1]) + '</span></div>';
+              });
+            html += '</div>';
+            if (ms.sources && ms.sources.length) {
+              html += '<div style="margin-top:.5rem"><div style="font-size:.78rem;font-weight:600;color:var(--text-muted);margin-bottom:.35rem">Sources (' + ms.sources.length + ')</div>';
+              ms.sources.forEach(function(src) { html += '<span class="ioc-tag">' + esc(src) + '</span> '; });
+              html += '</div>';
+            }
           }
           html += '</div>';
         }

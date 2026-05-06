@@ -6,24 +6,45 @@
  * Covers:
  *   - ThreatFox    (threatfox-api.abuse.ch) — IOC search for IPs, domains, hashes
  *   - MalwareBazaar (mb-api.abuse.ch)        — hash info + YARA rule search
- *   - URLhaus      (urlhaus-api.abuse.ch)    — malicious URL / host lookup (no key)
+ *   - URLhaus      (urlhaus-api.abuse.ch)    — malicious URL / host lookup
  *   - SSLBL        (sslbl.abuse.ch)          — SSL certificate blacklist (CSV, no key)
  *
- * API key is shared across MalwareBazaar and ThreatFox.
- * URLhaus and SSLBL do not require authentication.
+ * All API endpoints now require Auth-Key header (abuse.ch unified auth, 2024+).
+ * SSLBL CSV download does not require authentication.
  */
 
 const db = require('../db');
 
 const API_KEY = () => process.env.ABUSECH_API_KEY || '';
 
-// ── HTTP helper ───────────────────────────────────────────────────────────────
+// ── HTTP helpers ──────────────────────────────────────────────────────────────
+
+function authHeaders(extra = {}) {
+  const key = API_KEY();
+  return {
+    'User-Agent': 'FreeIntelhub/1.0',
+    ...(key ? { 'Auth-Key': key } : {}),
+    ...extra,
+  };
+}
 
 async function postJson(url, body) {
   const resp = await fetch(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'User-Agent': 'FreeIntelhub/1.0' },
+    headers: authHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify(body),
+    signal: AbortSignal.timeout(15000),
+  });
+  if (!resp.ok) throw new Error(`HTTP ${resp.status} from ${url}`);
+  return resp.json();
+}
+
+// MalwareBazaar requires form-encoded POST (not JSON)
+async function postForm(url, body) {
+  const resp = await fetch(url, {
+    method: 'POST',
+    headers: authHeaders({ 'Content-Type': 'application/x-www-form-urlencoded' }),
+    body: new URLSearchParams(body).toString(),
     signal: AbortSignal.timeout(15000),
   });
   if (!resp.ok) throw new Error(`HTTP ${resp.status} from ${url}`);
@@ -42,7 +63,6 @@ async function threatFoxLookup(term) {
     const data = await postJson('https://threatfox-api.abuse.ch/api/v1/', {
       query: 'search_ioc',
       search_term: term,
-      auth_key: API_KEY(),
     });
     if (data.query_status !== 'ok' || !Array.isArray(data.data)) return [];
     return data.data.map(ioc => ({
@@ -73,10 +93,9 @@ async function threatFoxLookup(term) {
 async function malwareBazaarHash(hash) {
   if (!API_KEY()) return null;
   try {
-    const data = await postJson('https://mb-api.abuse.ch/api/v1/', {
+    const data = await postForm('https://mb-api.abuse.ch/api/v1/', {
       query: 'get_info',
       hash,
-      api_key: API_KEY(),
     });
     if (data.query_status !== 'ok' || !data.data || !data.data.length) return null;
     const s = data.data[0];
@@ -106,17 +125,43 @@ async function malwareBazaarHash(hash) {
 }
 
 /**
+ * Search YARAify for YARA rules matching a keyword/signature.
+ * Returns array of { ruleName, ruleContent, author, description, tlp, dateAdded, tags }
+ * ruleContent is the actual YARA rule text.
+ */
+async function yaraifySearch(query, limit = 20) {
+  if (!API_KEY() || !query) return [];
+  try {
+    const data = await postJson('https://yaraify-api.abuse.ch/api/v1/', {
+      query: 'search_yara',
+      search_term: query,
+    });
+    if (data.query_status !== 'ok' || !Array.isArray(data.data)) return [];
+    return data.data.slice(0, limit).map(r => ({
+      ruleName:    r.rule_name    || '',
+      ruleContent: r.rule_content || '',
+      author:      r.author       || '',
+      description: r.description  || '',
+      tlp:         r.tlp          || '',
+      dateAdded:   r.date_added   ? r.date_added.slice(0, 10) : '',
+      tags:        Array.isArray(r.tags) ? r.tags : [],
+    }));
+  } catch (_) {
+    return [];
+  }
+}
+
+/**
  * Search MalwareBazaar by tag or malware name for YARA rules.
  * Returns array of sample objects each containing YARA rule data.
  */
 async function malwareBazaarTag(tag, limit = 20) {
   if (!API_KEY()) return [];
   try {
-    const data = await postJson('https://mb-api.abuse.ch/api/v1/', {
+    const data = await postForm('https://mb-api.abuse.ch/api/v1/', {
       query: 'get_taginfo',
       tag,
       limit,
-      api_key: API_KEY(),
     });
     if (data.query_status !== 'ok' || !Array.isArray(data.data)) return [];
     return data.data.map(s => ({
@@ -144,8 +189,8 @@ async function malwareBazaarTag(tag, limit = 20) {
  */
 async function urlhausHost(host) {
   try {
-    const data = await postJson('https://urlhaus-api.abuse.ch/v1/host/', { host });
-    if (!data || data.query_status === 'no_results') return null;
+    const data = await postForm('https://urlhaus-api.abuse.ch/v1/host/', { host });
+    if (!data || data.query_status === 'no_results' || data.query_status === 'no_result') return null;
     return {
       query_status: data.query_status,
       urlhaus_reference: data.urlhaus_reference,
@@ -236,6 +281,7 @@ module.exports = {
   threatFoxLookup,
   malwareBazaarHash,
   malwareBazaarTag,
+  yaraifySearch,
   urlhausHost,
   syncSslBlacklist,
   getRecentSslBlacklist,

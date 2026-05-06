@@ -21,7 +21,7 @@
   </div>
 <% } %>
 <% if (typeof error !== 'undefined' && error) { %>
-  <div class="alert alert-err">
+  <div class="alert alert-err" role="alert">
     <% if (error === 'invalid_email') { %>Please enter a valid email address.
     <% } else if (error === 'not_found') { %>Subscription not found. Please sign up again.
     <% } else if (error === 'invalid_token') { %>Invalid or expired verification link.
@@ -108,7 +108,7 @@
             <form action="/alerts/delete-rule" method="POST" class="rule-delete">
               <input type="hidden" name="token" value="<%= subscriber.token %>">
               <input type="hidden" name="rule_id" value="<%= r.id %>">
-              <button type="submit" class="btn-icon" title="Remove">&times;</button>
+              <button type="submit" class="btn-icon" title="Remove" aria-label="Remove alert rule">&times;</button>
             </form>
           </div>
         <% }); %>
@@ -142,7 +142,7 @@
             <form action="/alerts/delete-webhook" method="POST" class="rule-delete">
               <input type="hidden" name="token" value="<%= subscriber.token %>">
               <input type="hidden" name="webhook_id" value="<%= wh.id %>">
-              <button type="submit" class="btn-icon" title="Remove">&times;</button>
+              <button type="submit" class="btn-icon" title="Remove" aria-label="Remove webhook integration">&times;</button>
             </form>
           </div>
         <% }); %>

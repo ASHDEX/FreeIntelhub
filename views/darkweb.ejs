@@ -1,0 +1,244 @@
+<%- include('partials/head', { pageTitle: 'Dark Web Monitoring' }) %>
+
+<!-- ── Page header ───────────────────────────────────────────────────────── -->
+<div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:1rem;margin-bottom:1.5rem">
+  <div>
+    <h1 style="display:flex;align-items:center;gap:.6rem">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="22" height="22" aria-hidden="true" style="opacity:.8"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+      Dark Web Monitoring
+    </h1>
+    <p style="color:var(--text-muted);font-size:.9rem">
+      Ransomware leak sites, paste services, and threat actor forums via Tor —
+      sourced from <a href="https://github.com/fastfire/deepdarkCTI" target="_blank" rel="noopener noreferrer" style="color:var(--accent)">deepdarkCTI</a>
+    </p>
+  </div>
+  <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
+    <span id="tor-badge" style="display:inline-flex;align-items:center;gap:.35rem;font-size:.75rem;padding:.25rem .6rem;border-radius:99px;background:var(--bg-raised,#1e1e2e);border:1px solid var(--border,#333);opacity:.7">
+      <span id="tor-dot" style="width:7px;height:7px;border-radius:50%;background:#888;display:inline-block"></span>
+      <span id="tor-label">Tor …</span>
+    </span>
+    <button id="sync-btn" onclick="triggerSync(this)" class="btn btn-sm">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13" style="display:inline;margin-right:.3rem" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+      Sync Gangs
+    </button>
+    <button id="sync-forums-btn" onclick="triggerSyncForums(this)" class="btn btn-sm">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13" style="display:inline;margin-right:.3rem" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+      Sync Forums
+    </button>
+    <button id="scan-forums-run-btn" onclick="triggerScanForums(this)" class="btn btn-primary">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13" style="display:inline;margin-right:.3rem" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      Scan Forums
+    </button>
+    <button id="scan-btn" onclick="triggerScan(this)" class="btn btn-sm">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13" style="display:inline;margin-right:.3rem" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      Scan All
+    </button>
+  </div>
+</div>
+
+<!-- ── Stats row (mirrors feed page pattern) ─────────────────────────────── -->
+<section class="stats-row" style="margin-bottom:1.5rem">
+  <div class="stat-card">
+    <strong><%= totalHits %></strong>
+    <span>Total Hits</span>
+  </div>
+  <div class="stat-card">
+    <strong><%= ransomHits %></strong>
+    <span>Ransomware Hits</span>
+  </div>
+  <div class="stat-card">
+    <strong><%= forumHits %></strong>
+    <span>Forum Hits</span>
+  </div>
+  <div class="stat-card">
+    <strong><%= gangCount %></strong>
+    <span>Gangs Tracked</span>
+  </div>
+  <div class="stat-card">
+    <strong><%= forumCount %></strong>
+    <span>Forums Tracked</span>
+  </div>
+  <div class="stat-card">
+    <strong style="color:<%= onlineGangs > 0 ? 'var(--danger,#ef4444)' : 'inherit' %>"><%= onlineGangs %></strong>
+    <span>Gangs Online</span>
+  </div>
+  <div class="stat-card">
+    <strong style="font-size:.78rem;font-weight:500"><%= lastScan %></strong>
+    <span>Last Scan</span>
+  </div>
+</section>
+
+<!-- ── Setup notice (shown when no gangs synced yet) ─────────────────────── -->
+<% if (gangCount === 0) { %>
+<div class="dash-widget" style="padding:1rem 1.25rem;margin-bottom:1.5rem;display:flex;gap:.75rem;align-items:flex-start;border-left:3px solid var(--accent)">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18" style="flex-shrink:0;margin-top:.1rem;opacity:.7" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+  <div style="font-size:.85rem">
+    <strong>Setup required</strong> — Click <strong>Sync Gang List</strong> to load 543 ransomware group addresses from deepdarkCTI.
+    Then start Tor (<code style="font-family:var(--font-mono);background:var(--bg-raised,#1e1e2e);padding:.1em .4em;border-radius:4px">brew install tor &amp;&amp; brew services start tor</code> on macOS,
+    or <code style="font-family:var(--font-mono);background:var(--bg-raised,#1e1e2e);padding:.1em .4em;border-radius:4px">apt install tor &amp;&amp; systemctl start tor</code> on Ubuntu)
+    and click <strong>Scan Now</strong>. The app connects through Tor automatically — no torsocks wrapper needed.
+    Auto-scans every 4 hours once running.
+  </div>
+</div>
+<% } %>
+
+<!-- ── Category filter tabs ───────────────────────────────────────────────── -->
+<div class="feed-filter-chips" style="margin-bottom:1.25rem">
+  <a href="/darkweb" class="filter-chip<%= !category ? ' active' : '' %>">All <% if(totalHits > 0){%>(<%= totalHits %>)<% } %></a>
+  <a href="/darkweb?category=ransomware" class="filter-chip<%= category === 'ransomware' ? ' active' : '' %>">Ransomware</a>
+  <a href="/darkweb?category=paste"      class="filter-chip<%= category === 'paste'      ? ' active' : '' %>">Paste Sites</a>
+  <a href="/darkweb?category=forum"      class="filter-chip<%= category === 'forum'      ? ' active' : '' %>">Forums</a>
+  <a href="/darkweb?category=custom"     class="filter-chip<%= category === 'custom'     ? ' active' : '' %>">Custom</a>
+</div>
+
+<!-- ── Hit list ───────────────────────────────────────────────────────────── -->
+<% if (hits.length === 0) { %>
+  <div class="dash-widget" style="text-align:center;padding:3rem;color:var(--text-muted)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48" style="margin:0 auto 1rem;opacity:.35" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+    <p>No hits yet<% if(category){ %> in <strong><%= category %></strong><% } %>.</p>
+    <p style="font-size:.82rem;margin-top:.4rem">
+      <% if(gangCount === 0) { %>Sync the gang list first, then scan.<% } else { %>Click <strong>Scan Now</strong> to start.<% } %>
+    </p>
+  </div>
+<% } else { %>
+  <div class="article-list">
+    <% hits.forEach(function(h) { %>
+      <article class="article-card">
+        <div class="article-meta">
+          <span class="badge badge-source"><%= h.category %></span>
+          <span class="badge badge-category"
+            style="<%= (h.severity === 'high' || h.severity === 'critical') ? 'background:var(--danger,#ef4444);color:#fff;border-color:transparent' : '' %>">
+            <%= h.severity %>
+          </span>
+          <span style="font-size:.78rem;opacity:.55"><%= h.site_name %></span>
+          <time style="margin-left:auto;font-size:.78rem;opacity:.55">
+            <%= h.discovered_at ? new Date(h.discovered_at).toLocaleString('en-US', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' }) : '' %>
+          </time>
+        </div>
+        <h3 style="margin:.45rem 0 .3rem">
+          <% if (h.onion_url) { %>
+            <a href="<%= safeHref(h.onion_url) %>" target="_blank" rel="noopener noreferrer">
+              <%= h.title || h.site_name %>
+            </a>
+          <% } else { %>
+            <%= h.title || h.site_name %>
+          <% } %>
+        </h3>
+        <% if (h.content_snippet) { %>
+          <p class="summary" style="font-family:var(--font-mono);font-size:.78rem;white-space:pre-wrap;max-height:90px;overflow:hidden;opacity:.75">
+            <%= h.content_snippet %>
+          </p>
+        <% } %>
+        <div style="margin-top:.5rem;font-size:.72rem;opacity:.4;word-break:break-all">
+          <%= h.onion_url %>
+        </div>
+      </article>
+    <% }); %>
+  </div>
+
+  <% if (pages > 1) { %>
+    <%- include('partials/pagination', { page: page, pages: pages, baseUrl: baseUrl }) %>
+  <% } %>
+<% } %>
+
+<!-- ── Button handlers ────────────────────────────────────────────────────── -->
+<script nonce="<%= nonce %>">
+// Show Tor connection status on load
+(async () => {
+  try {
+    const r = await fetch('/api/darkweb/tor-status');
+    const d = await r.json();
+    const dot   = document.getElementById('tor-dot');
+    const label = document.getElementById('tor-label');
+    if (d.tor === 'connected') {
+      dot.style.background   = '#22c55e';
+      label.textContent      = 'Tor connected';
+      document.getElementById('tor-badge').style.opacity = '1';
+    } else {
+      dot.style.background   = '#ef4444';
+      label.textContent      = 'Tor unavailable';
+      document.getElementById('tor-badge').style.opacity = '1';
+    }
+  } catch (_) {
+    document.getElementById('tor-label').textContent = 'Tor unknown';
+  }
+})();
+
+async function triggerScan(btn) {
+  btn.disabled = true;
+  btn.textContent = 'Scanning…';
+  try {
+    const r = await fetch('/api/darkweb/scan', { method: 'POST' });
+    const d = await r.json();
+    if (d.found !== undefined) {
+      btn.textContent = `Found ${d.found} hit${d.found !== 1 ? 's' : ''}${d.errors ? ` (${d.errors} errors)` : ''}`;
+      setTimeout(() => location.reload(), 1800);
+    } else {
+      btn.textContent = d.error || 'Scan failed';
+      setTimeout(() => { btn.disabled = false; btn.textContent = 'Scan Now'; }, 3500);
+    }
+  } catch (_) {
+    btn.textContent = 'Scan failed';
+    setTimeout(() => { btn.disabled = false; btn.textContent = 'Scan Now'; }, 3500);
+  }
+}
+
+async function triggerScanForums(btn) {
+  btn.disabled = true;
+  btn.textContent = 'Scanning forums…';
+  try {
+    const r = await fetch('/api/darkweb/scan-forums', { method: 'POST' });
+    const d = await r.json();
+    if (d.found !== undefined) {
+      btn.textContent = `Found ${d.found} hit${d.found !== 1 ? 's' : ''}${d.errors ? ` (${d.errors} errors)` : ''}`;
+      setTimeout(() => location.reload(), 1800);
+    } else {
+      btn.textContent = d.error || 'Scan failed';
+      setTimeout(() => { btn.disabled = false; btn.textContent = 'Scan Forums'; }, 3500);
+    }
+  } catch (_) {
+    btn.textContent = 'Scan failed';
+    setTimeout(() => { btn.disabled = false; btn.textContent = 'Scan Forums'; }, 3500);
+  }
+}
+
+async function triggerSyncForums(btn) {
+  btn.disabled = true;
+  btn.textContent = 'Syncing…';
+  try {
+    const r = await fetch('/api/darkweb/sync-forums', { method: 'POST' });
+    const d = await r.json();
+    if (d.synced !== undefined) {
+      btn.textContent = d.skipped ? `${d.synced} forums (cached)` : `Synced ${d.synced} forums`;
+      setTimeout(() => location.reload(), 1500);
+    } else {
+      btn.textContent = d.error || 'Sync failed';
+      setTimeout(() => { btn.disabled = false; btn.textContent = 'Sync Forums'; }, 3500);
+    }
+  } catch (_) {
+    btn.textContent = 'Sync failed';
+    setTimeout(() => { btn.disabled = false; btn.textContent = 'Sync Forums'; }, 3500);
+  }
+}
+
+async function triggerSync(btn) {
+  btn.disabled = true;
+  btn.textContent = 'Syncing…';
+  try {
+    const r = await fetch('/api/darkweb/sync-gangs', { method: 'POST' });
+    const d = await r.json();
+    if (d.synced !== undefined) {
+      btn.textContent = d.skipped ? `${d.synced} gangs (cached)` : `Synced ${d.synced} gangs`;
+      setTimeout(() => location.reload(), 1500);
+    } else {
+      btn.textContent = d.error || 'Sync failed';
+      setTimeout(() => { btn.disabled = false; btn.textContent = 'Sync Gang List'; }, 3500);
+    }
+  } catch (_) {
+    btn.textContent = 'Sync failed';
+    setTimeout(() => { btn.disabled = false; btn.textContent = 'Sync Gang List'; }, 3500);
+  }
+}
+</script>
+
+<%- include('partials/footer') %>

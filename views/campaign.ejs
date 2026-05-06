@@ -1,5 +1,13 @@
 <%- include('partials/head', { pageTitle: campaign.name }) %>
 
+<nav class="breadcrumb" aria-label="Breadcrumb">
+  <a href="/" class="breadcrumb-item">Home</a>
+  <span class="breadcrumb-sep" aria-hidden="true">›</span>
+  <a href="/campaigns" class="breadcrumb-item">Campaigns</a>
+  <span class="breadcrumb-sep" aria-hidden="true">›</span>
+  <span class="breadcrumb-item breadcrumb-current" aria-current="page"><%= campaign.name %></span>
+</nav>
+
 <div class="page-header">
   <div class="entity-header">
     <div class="entity-header-title">
@@ -29,19 +37,19 @@
 <!-- AI Intelligence Brief -->
 <section class="activity-section">
   <h2 style="display:flex;align-items:center;gap:.5rem">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px;color:var(--accent)"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2z"/><path d="M12 8v4l3 3"/></svg>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15" style="color:var(--accent)"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2z"/><path d="M12 8v4l3 3"/></svg>
     AI Intelligence Brief
-    <span id="ai-brief-badge" style="display:none;font-size:.65rem;font-weight:600;padding:.1rem .4rem;border-radius:4px;background:var(--bg-elevated);color:var(--text-muted);border:1px solid var(--border)">cached</span>
+    <span class="hidden" id="ai-brief-badge" style="font-size:.65rem;font-weight:600;padding:.1rem .4rem;border-radius:4px;background:var(--bg-elevated);color:var(--text-muted);border:1px solid var(--border)">cached</span>
   </h2>
   <div id="ai-brief-card" class="ai-brief-card">
-    <div class="ai-brief-prompt"><button class="ai-brief-gen-btn" id="ai-brief-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;flex-shrink:0"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2z"/><path d="M12 8v4l3 3"/></svg> Additional Insights</button></div>
+    <div class="ai-brief-prompt"><button class="ai-brief-gen-btn" id="ai-brief-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14" style="flex-shrink:0"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2z"/><path d="M12 8v4l3 3"/></svg> Additional Insights</button></div>
   </div>
 </section>
 
 <!-- Related YARA Rules -->
-<section class="activity-section" id="yara-section" style="display:none">
+<section class="hidden activity-section" id="yara-section">
   <h2 style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px;color:#22c55e"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15" style="color:#22c55e"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>
     Related YARA Rules
     <span id="yara-count-badge" style="font-size:.65rem;font-weight:600;padding:.15rem .45rem;border-radius:4px;background:rgba(34,197,94,.1);color:#22c55e;border:1px solid rgba(34,197,94,.25)"></span>
     <a id="yara-view-all" href="/yara-rules" style="margin-left:auto;font-size:.75rem;color:var(--text-muted);text-decoration:none">View all on YARA Rules page →</a>
@@ -123,44 +131,18 @@
 
 
 <script nonce="<%= nonce %>">
-(function() {
-  function esc(s) { var d = document.createElement('div'); d.textContent = String(s || ''); return d.innerHTML; }
-  var name = <%- JSON.stringify(campaign.name) %>;
-  fetch('/api/yara-rules?q=' + encodeURIComponent(name))
-    .then(function(r) { return r.json(); })
-    .then(function(json) {
-      var results = json.results || [];
-      if (!results.length) return;
-      document.getElementById('yara-section').style.display = '';
-      document.getElementById('yara-count-badge').textContent = results.length + ' sample' + (results.length !== 1 ? 's' : '');
-      document.getElementById('yara-view-all').href = '/yara-rules?q=' + encodeURIComponent(name);
-      var html = '';
-      results.slice(0, 3).forEach(function(s) {
-        html += '<div style="padding:.75rem;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:.6rem">';
-        html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:.4rem;margin-bottom:.4rem">';
-        html += '<div><strong style="font-size:.88rem">' + esc(s.signature || s.sha256) + '</strong></div>';
-        if (s.first_seen) html += '<span style="font-size:.73rem;color:var(--text-muted)">' + esc(s.first_seen) + '</span>';
-        html += '</div>';
-        html += '<div style="font-family:var(--font-mono);font-size:.7rem;color:var(--text-muted);margin-bottom:.35rem;word-break:break-all">' + esc(s.sha256) + '</div>';
-        if (s.tags && s.tags.length) {
-          s.tags.slice(0, 6).forEach(function(t) { html += '<span class="ioc-tag">' + esc(t) + '</span> '; });
-        }
-        if (s.yara_rules && s.yara_rules.length) {
-          html += '<div style="margin-top:.5rem;font-size:.78rem;color:var(--text-muted)">';
-          html += s.yara_rules.length + ' YARA rule' + (s.yara_rules.length !== 1 ? 's' : '') + ': ';
-          html += s.yara_rules.slice(0, 3).map(function(yr) { return '<code style="font-size:.73rem">' + esc(yr.name) + '</code>'; }).join(', ');
-          if (s.yara_rules.length > 3) html += ' +' + (s.yara_rules.length - 3) + ' more';
-          html += '</div>';
-        }
-        html += '</div>';
-      });
-      if (results.length > 3) {
-        html += '<a href="/yara-rules?q=' + encodeURIComponent(name) + '" style="font-size:.8rem;color:var(--accent);text-decoration:none">View all ' + results.length + ' results →</a>';
-      }
-      document.getElementById('yara-results-wrap').innerHTML = html;
-    })
-    .catch(function() {});
-})();
+document.addEventListener('DOMContentLoaded', function() {
+  var primaryName = <%- JSON.stringify(campaign.name) %>;
+  var aliases = <%- JSON.stringify((campaign.aliases || []).slice(0, 2)) %>;
+  var terms = [primaryName].concat(aliases).filter(Boolean);
+  fetchYaraForEntity(terms, {
+    sectionId: 'yara-section',
+    wrapId: 'yara-results-wrap',
+    badgeId: 'yara-count-badge',
+    viewAllId: 'yara-view-all',
+    primaryName: primaryName
+  });
+});
 </script>
 
 <%- include('partials/footer') %>
