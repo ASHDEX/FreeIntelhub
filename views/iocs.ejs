@@ -5,7 +5,15 @@
     <h1>Indicators of Compromise</h1>
     <p><%= total %> article<%= total !== 1 ? 's' : '' %> containing extracted IOCs (CVEs, IPs, hashes, domains, URLs, emails)</p>
   </div>
-  <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+  <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
+    <button type="button" data-toggle="ioc-defang" class="btn btn-sm" aria-pressed="true" title="Toggle defanged display">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13" style="display:inline;margin-right:.3rem"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      <span data-defang-label>Defanged</span>
+    </button>
+    <button type="button" data-copy-all-iocs class="btn btn-sm" title="Copy all visible IOCs (defanged form follows toggle)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13" style="display:inline;margin-right:.3rem"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+      Copy all
+    </button>
     <a href="/export/iocs?format=json" class="btn btn-sm" download>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13" style="display:inline; margin-right:.3rem"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>JSON
     </a>
@@ -55,7 +63,7 @@
               <div class="ioc-group">
                 <span class="ioc-label">IPs:</span>
                 <% iocData.ipv4.slice(0, 5).forEach(function(ip) { %>
-                  <span class="badge badge-ioc-ip"><%= ip %></span>
+                  <span class="badge badge-ioc-ip" data-ioc data-copy-raw="<%= ip %>" title="Click to copy raw"><%= ip %></span>
                 <% }); %>
                 <% if (iocData.ipv4.length > 5) { %><span class="badge badge-ioc-more">+<%= iocData.ipv4.length - 5 %></span><% } %>
               </div>
@@ -73,7 +81,7 @@
               <div class="ioc-group">
                 <span class="ioc-label">Domains:</span>
                 <% iocData.domains.slice(0, 5).forEach(function(d) { %>
-                  <span class="badge badge-ioc-domain"><%= d %></span>
+                  <span class="badge badge-ioc-domain" data-ioc data-copy-raw="<%= d %>" title="Click to copy raw"><%= d %></span>
                 <% }); %>
                 <% if (iocData.domains.length > 5) { %><span class="badge badge-ioc-more">+<%= iocData.domains.length - 5 %></span><% } %>
               </div>

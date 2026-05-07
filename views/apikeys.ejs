@@ -45,6 +45,15 @@
               <div style="font-size:.72rem;color:var(--text-muted);margin-top:.2rem">
                 <%= k.requests_today %> requests today &middot; Created <%= new Date(k.created_at).toLocaleDateString() %>
               </div>
+              <% if (k.scopes) { %>
+                <div style="margin-top:.4rem;display:flex;flex-wrap:wrap;gap:.25rem">
+                  <% k.scopes.split(',').forEach(function(s) { %>
+                    <span class="badge" style="font-size:.65rem;padding:.1rem .4rem;border-radius:4px;background:rgba(96,165,250,.12);color:#60a5fa"><%= s %></span>
+                  <% }); %>
+                </div>
+              <% } else { %>
+                <div style="margin-top:.4rem"><span class="badge" style="font-size:.65rem;padding:.1rem .4rem;border-radius:4px;background:rgba(251,191,36,.1);color:#fbbf24">all-access (legacy)</span></div>
+              <% } %>
             </div>
             <form method="POST" action="/api-keys/delete" onsubmit="return confirm('Delete this API key?')">
               <input type="hidden" name="token" value="<%= token %>">
@@ -70,6 +79,16 @@
       <div>
         <label style="font-size:.8rem;color:var(--text-muted);display:block;margin-bottom:.3rem">Key Name *</label>
         <input type="text" name="name" required placeholder="e.g. SIEM Integration, Script" style="width:100%;background:var(--bg-elevated);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:.5rem .75rem;font-size:.85rem;box-sizing:border-box">
+      </div>
+      <div>
+        <label style="font-size:.8rem;color:var(--text-muted);display:block;margin-bottom:.4rem">Scopes <span style="font-size:.7rem">(leave all unchecked for legacy all-access)</span></label>
+        <div style="display:grid;gap:.3rem">
+          <% (typeof validScopes !== 'undefined' ? validScopes : []).forEach(function(scope) { %>
+            <label style="display:flex;align-items:center;gap:.4rem;font-size:.78rem;cursor:pointer">
+              <input type="checkbox" name="scopes" value="<%= scope %>"> <code style="font-family:var(--font-mono);color:var(--accent)"><%= scope %></code>
+            </label>
+          <% }); %>
+        </div>
       </div>
       <button type="submit" class="btn btn-primary">Generate Key</button>
     </form>

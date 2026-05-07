@@ -62,12 +62,13 @@
     <!-- Sticky Filter Tabs -->
     <div class="sticky top-0 z-30 bg-[#0c0e12]/80 backdrop-blur-md py-4 mb-8">
       <div class="flex items-center gap-1 p-1 bg-surface-container-low rounded-xl w-fit">
-        <% [['','All'],['open','Open'],['in-progress','In Progress'],['closed','Closed'],['false-positive','False Positive']].forEach(function(tab) { 
+        <% [['','All','all'],['open','Open','open'],['in-progress','In Progress','in-progress'],['closed','Closed','closed'],['false-positive','False Positive','false-positive']].forEach(function(tab) {
             var isActive = statusFilter === tab[0];
             var classes = isActive ? 'bg-surface-container-high text-primary' : 'text-on-surface-variant hover:text-on-surface transition-colors';
+            var count = (typeof statusCounts !== 'undefined' && statusCounts) ? (statusCounts[tab[2]] || 0) : null;
         %>
           <a href="/cases<%= tab[0] ? '?status=' + tab[0] : '' %>" class="px-5 py-2 rounded-lg font-bold font-label text-xs <%= classes %>">
-            <%= tab[1] %>
+            <%= tab[1] %><% if (count !== null) { %> <span style="opacity:.7;font-weight:500">(<%= count %>)</span><% } %>
           </a>
         <% }); %>
       </div>

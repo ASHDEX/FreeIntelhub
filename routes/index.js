@@ -291,7 +291,7 @@ const stmts = {
   suggestSoftware: db.prepare(`SELECT name FROM malware_software WHERE name LIKE ? ORDER BY name LIMIT 3`),
   suggestCampaigns: db.prepare(`SELECT name FROM campaigns WHERE name LIKE ? ORDER BY name LIMIT 3`),
   // checkApiKey — API key validation and rate counting
-  apiKeyByHash:    db.prepare(`SELECT id, key_hash, requests_today, last_reset FROM api_keys WHERE key_hash = ?`),
+  apiKeyByHash:    db.prepare(`SELECT id, key_hash, requests_today, last_reset, scopes FROM api_keys WHERE key_hash = ?`),
   apiKeyResetCount: db.prepare(`UPDATE api_keys SET requests_today = 1, last_reset = ? WHERE id = ?`),
   apiKeyIncrCount:  db.prepare(`UPDATE api_keys SET requests_today = requests_today + 1 WHERE id = ?`),
   // Search source list
@@ -1008,6 +1008,23 @@ router.get('/api/iocs', (req, res) => {
   });
 });
 
+// GET /api/reputation/:ioc — On-demand reputation lookup.
+// Auto-detects IPv4 / domain / hash. Cached server-side for 1h to absorb
+// repeat clicks. Returns { ok:false, error:'not-configured' } when the
+// relevant API key isn't set, so the UI can render a "configure provider"
+// state instead of a hard error.
+const { lookupReputation } = require('../services/reputationLookup');
+router.get('/api/reputation/:ioc', async (req, res) => {
+  const ioc = (req.params.ioc || '').trim();
+  if (!ioc || ioc.length > 256) return res.status(400).json({ ok: false, error: 'invalid-ioc' });
+  try {
+    const result = await lookupReputation(ioc);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ ok: false, error: 'lookup-failed', detail: err.message });
+  }
+});
+
 // GET /api/mitre — Articles by MITRE ATT&CK technique
 router.get('/api/mitre', (req, res) => {
   const technique = (req.query.technique || '').trim();
@@ -1212,16 +1229,21 @@ router.get('/api/suggest', (req, res) => {
 });
 
 // CVE ticker API (JSON) — returns recently published CVEs newest-first
+const { getCveEnrichment } = require('../services/cveEnrichment');
 router.get('/api/cves', async (req, res) => {
   try {
     const cves = await getTickerCVEs();
-    res.json(cves);
+    // Attach EPSS / KEV when known — tiny SQLite hits
+    res.json(cves.map(c => {
+      const e = getCveEnrichment(c.id || c.cve);
+      return e ? { ...c, epss: e.epss, epss_percentile: e.epss_percentile, on_kev: !!e.on_kev, kev_known_ransomware: !!e.kev_known_ransomware } : c;
+    }));
   } catch (_) {
     res.json([]);
   }
 });
 
-// Direct CVE lookup API (JSON) — basic NVD only
+// Direct CVE lookup API (JSON) — basic NVD + EPSS + KEV
 router.get('/api/cve/:id', async (req, res) => {
   const id = (req.params.id || '').trim();
   if (!CVE_ID_REGEX.test(id)) {
@@ -1230,7 +1252,8 @@ router.get('/api/cve/:id', async (req, res) => {
   try {
     const cve = await lookupCVE(id);
     if (!cve) return res.status(404).json({ error: 'CVE not found in NVD.' });
-    res.json({ data: cve });
+    const enrichment = getCveEnrichment(id);
+    res.json({ data: cve, enrichment });
   } catch (err) {
     res.status(502).json({ error: 'Failed to fetch from NVD. Try again later.' });
   }
@@ -1245,8 +1268,9 @@ router.get('/api/vuln/:id', async (req, res) => {
   try {
     const result = await fullCVELookup(id);
     if (!result) return res.status(404).json({ error: 'CVE not found across any source.' });
-    // Enrich with threat intelligence data
+    // Enrich with threat intelligence + EPSS/KEV data
     result.threatIntel = lookupThreatIntel(id);
+    result.enrichment = getCveEnrichment(id);
     res.json({ data: result });
   } catch (err) {
     console.error('Vuln lookup error:', err.message);
@@ -2659,14 +2683,16 @@ router.post('/api/darkweb/sync-forums', requireAuth('analyst'), async (req, res)
 // API Key Management
 // =============================================
 
+const VALID_API_SCOPES = ['read:articles', 'read:iocs', 'read:cves', 'read:entities', 'write:cases'];
+
 router.get('/api-keys', (req, res) => {
   const token = req.query.token || '';
   let keys = [];
   if (token) {
     const sub = db.prepare(`SELECT id FROM subscribers WHERE token = ?`).get(hashToken(token));
-    if (sub) keys = db.prepare(`SELECT id, name, key_prefix, requests_today, created_at FROM api_keys WHERE subscriber_id = ?`).all(sub.id);
+    if (sub) keys = db.prepare(`SELECT id, name, key_prefix, scopes, requests_today, created_at FROM api_keys WHERE subscriber_id = ?`).all(sub.id);
   }
-  res.render('apikeys', { pageTitle: 'API Keys', keys, token });
+  res.render('apikeys', { pageTitle: 'API Keys', keys, token, validScopes: VALID_API_SCOPES });
 });
 
 router.post('/api-keys', (req, res) => {
@@ -2674,12 +2700,31 @@ router.post('/api-keys', (req, res) => {
   if (!token || !name) return res.status(400).send('Token and name required');
   const sub = db.prepare(`SELECT id FROM subscribers WHERE token = ?`).get(hashToken(token));
   if (!sub) return res.status(403).send('Invalid subscriber token');
+
+  // Normalize scopes — accept either a CSV string or an array of values from
+  // the form (HTML <input name="scopes" value="read:iocs"> ×N).
+  let scopesRaw = req.body.scopes;
+  if (!scopesRaw) scopesRaw = '';
+  if (Array.isArray(scopesRaw)) scopesRaw = scopesRaw.join(',');
+  const scopes = String(scopesRaw)
+    .split(',')
+    .map(s => s.trim())
+    .filter(s => VALID_API_SCOPES.includes(s));
+  const scopesCsv = scopes.length ? scopes.join(',') : null;
+
   const rawKey = 'fih_' + crypto.randomBytes(24).toString('hex');
   const keyHash = crypto.createHash('sha256').update(rawKey).digest('hex');
   const keyPrefix = rawKey.slice(0, 12) + '...';
-  db.prepare(`INSERT INTO api_keys (name, key_hash, key_prefix, subscriber_id) VALUES (?, ?, ?, ?)`).run(String(name).slice(0, 50), keyHash, keyPrefix, sub.id);
+  db.prepare(`INSERT INTO api_keys (name, key_hash, key_prefix, subscriber_id, scopes) VALUES (?, ?, ?, ?, ?)`).run(
+    String(name).slice(0, 50), keyHash, keyPrefix, sub.id, scopesCsv
+  );
+  audit.record({
+    actor: `subscriber:${sub.id}`, action: 'api_key.create',
+    target_type: 'api_key', target_id: keyPrefix,
+    detail: scopesCsv || 'all-scopes', ip: audit.clientIp(req),
+  });
   res.render('apikeys', {
-    pageTitle: 'API Keys', keys: [], token,
+    pageTitle: 'API Keys', keys: [], token, validScopes: VALID_API_SCOPES,
     newKey: rawKey, message: 'Save this key — it will not be shown again.'
   });
 });
@@ -2693,12 +2738,43 @@ router.post('/api-keys/delete', (req, res) => {
 });
 
 // API key middleware for /api routes (optional — checked if X-API-Key header present)
+//
+// Scope model (column api_keys.scopes is a CSV):
+//   read:articles  → /api/articles*, /api/sources, /api/vendors, /api/categories, /api/sectors, /api/trending, /api/heatmap, /api/suggest
+//   read:iocs      → /api/iocs, /api/reputation/*, /api/stix/*, /export/iocs
+//   read:cves      → /api/cves, /api/cve/*, /api/vuln/*
+//   read:entities  → /api/threat-groups, /api/software, /api/campaigns, /api/mitre, /api/ai-context/*
+//   write:cases    → POST /cases/*
+// NULL/empty scopes = legacy "all access".
+const SCOPE_PATH_MAP = [
+  { scope: 'read:articles', test: (p) => p.startsWith('/api/articles') || p === '/api/sources' || p === '/api/vendors' || p === '/api/categories' || p === '/api/sectors' || p === '/api/trending' || p === '/api/heatmap' || p === '/api/suggest' },
+  { scope: 'read:iocs',     test: (p) => p === '/api/iocs' || p.startsWith('/api/reputation/') || p.startsWith('/api/stix/') || p === '/export/iocs' },
+  { scope: 'read:cves',     test: (p) => p === '/api/cves' || p.startsWith('/api/cve/') || p.startsWith('/api/vuln/') },
+  { scope: 'read:entities', test: (p) => p === '/api/threat-groups' || p === '/api/software' || p === '/api/campaigns' || p === '/api/mitre' || p.startsWith('/api/ai-context/') },
+  { scope: 'write:cases',   test: (p, m) => m !== 'GET' && p.startsWith('/cases') },
+];
+function requiredScopeFor(req) {
+  for (const m of SCOPE_PATH_MAP) {
+    if (m.test(req.path, req.method)) return m.scope;
+  }
+  return null;
+}
+
 function checkApiKey(req, res, next) {
   const keyHeader = req.headers['x-api-key'];
   if (!keyHeader) return next(); // Allow browser access without key
   const keyHash = crypto.createHash('sha256').update(keyHeader).digest('hex');
   const apiKey = stmts.apiKeyByHash.get(keyHash);
   if (!apiKey) return res.status(401).json({ error: 'Invalid API key' });
+
+  // Scope check — only enforced when the key has explicit scopes set
+  if (apiKey.scopes) {
+    const granted = apiKey.scopes.split(',').map(s => s.trim()).filter(Boolean);
+    const needed = requiredScopeFor(req);
+    if (needed && !granted.includes(needed)) {
+      return res.status(403).json({ error: 'API key missing required scope', required: needed, granted });
+    }
+  }
 
   // Rate limit: 1000 req/day per key
   const today = new Date().toISOString().slice(0, 10);
@@ -2709,6 +2785,8 @@ function checkApiKey(req, res, next) {
   } else {
     stmts.apiKeyIncrCount.run(apiKey.id);
   }
+  // Stash for downstream auditing
+  req.apiKeyId = apiKey.id;
   next();
 }
 
@@ -2746,20 +2824,25 @@ router.get('/login', (req, res) => {
   res.render('login', { pageTitle: 'Login', error: null, next: safeNext });
 });
 
+const audit = require('../services/auditLog');
 router.post('/login', loginLimiter, async (req, res) => {
   if (!bcrypt) return res.redirect('/');
   const { username, password, next } = req.body || {};
   const safeNext = (typeof next === 'string' && next.startsWith('/') && !next.startsWith('//')) ? next : '/dashboard';
   const user = db.prepare(`SELECT * FROM users WHERE username = ?`).get(username);
   if (!user || !(await bcrypt.compare(password, user.password_hash))) {
+    audit.record({ actor: username || 'anon', action: 'login.failed', ip: audit.clientIp(req), detail: 'invalid credentials' });
     return res.render('login', { pageTitle: 'Login', error: 'Invalid username or password', next: safeNext });
   }
   db.prepare(`UPDATE users SET last_login = datetime('now') WHERE id = ?`).run(user.id);
   req.session.user = { id: user.id, username: user.username, role: user.role };
+  audit.record({ actor: user.username, action: 'login.success', target_type: 'user', target_id: user.id, ip: audit.clientIp(req) });
   res.redirect(safeNext);
 });
 
 router.post('/logout', (req, res) => {
+  const u = req.session && req.session.user;
+  if (u) audit.record({ actor: u.username, action: 'logout', target_type: 'user', target_id: u.id, ip: audit.clientIp(req) });
   if (req.session) req.session.destroy(() => {});
   res.redirect('/');
 });
@@ -2769,6 +2852,26 @@ router.get('/admin', requireAuth('admin'), (req, res) => {
   const customFeeds = db.prepare(`SELECT * FROM custom_feeds ORDER BY created_at DESC`).all();
   const apiKeyCount = db.prepare(`SELECT COUNT(*) as count FROM api_keys`).get();
   res.render('admin', { pageTitle: 'Admin Panel', users, customFeeds, apiKeyCount: apiKeyCount.count, currentUser: req.session && req.session.user });
+});
+
+router.get('/admin/audit', requireAuth('admin'), (req, res) => {
+  const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+  const limit = 100;
+  const offset = (page - 1) * limit;
+  const entries = audit.getRecent(limit, offset);
+  const total = audit.getTotal();
+  res.render('admin-audit', {
+    pageTitle: 'Audit Log',
+    entries, total, page,
+    pages: Math.max(1, Math.ceil(total / limit)),
+    currentUser: req.session && req.session.user,
+  });
+});
+
+router.get('/api/admin/audit', requireAuth('admin'), (req, res) => {
+  const limit = Math.min(500, parseInt(req.query.limit, 10) || 100);
+  const offset = parseInt(req.query.offset, 10) || 0;
+  res.json({ entries: audit.getRecent(limit, offset), total: audit.getTotal() });
 });
 
 router.post('/admin/users', requireAuth('admin'), async (req, res) => {
@@ -2824,7 +2927,14 @@ router.get('/cases', (req, res) => {
   const cases = (status && validStatuses.includes(status))
     ? db.prepare(`SELECT c.*, COUNT(ca.article_id) as article_count FROM cases c LEFT JOIN case_articles ca ON ca.case_id = c.id WHERE c.status = ? GROUP BY c.id ORDER BY c.updated_at DESC`).all(status)
     : db.prepare(`SELECT c.*, COUNT(ca.article_id) as article_count FROM cases c LEFT JOIN case_articles ca ON ca.case_id = c.id GROUP BY c.id ORDER BY c.updated_at DESC`).all();
-  res.render('cases', { pageTitle: 'Cases', cases, statusFilter: status });
+  // Tab counts — single bounded GROUP BY scan, cheap.
+  const counts = { all: 0, open: 0, 'in-progress': 0, closed: 0, 'false-positive': 0 };
+  const rows = db.prepare(`SELECT status, COUNT(*) c FROM cases GROUP BY status`).all();
+  for (const r of rows) {
+    counts.all += r.c;
+    if (counts.hasOwnProperty(r.status)) counts[r.status] = r.c;
+  }
+  res.render('cases', { pageTitle: 'Cases', cases, statusFilter: status, statusCounts: counts });
 });
 
 router.post('/cases', requireAuth('analyst'), (req, res) => {
@@ -2854,6 +2964,53 @@ router.get('/cases/:id', (req, res) => {
   res.render('case', { pageTitle: `Case: ${c.title}`, case: c, articles, notes, allCases, safeHref });
 });
 
+// STIX 2.1 bundle export for a single Case — includes every IOC across all
+// articles attached to the case. Available to analysts (the case is auth-gated).
+const { buildBundle, flattenStoredIocs, buildIndicator } = require('../services/stixExporter');
+router.get('/cases/:id/stix', requireAuth('analyst'), (req, res) => {
+  const caseId = parseInt(req.params.id, 10);
+  if (!caseId) return res.status(400).json({ error: 'invalid case id' });
+  const c = db.prepare(`SELECT * FROM cases WHERE id = ?`).get(caseId);
+  if (!c) return res.status(404).json({ error: 'case not found' });
+
+  const rows = db.prepare(`
+    SELECT a.id, a.title, a.link, a.source, a.published_at, a.iocs
+    FROM articles a JOIN case_articles ca ON ca.article_id = a.id
+    WHERE ca.case_id = ? AND a.iocs IS NOT NULL
+  `).all(caseId);
+
+  const flat = [];
+  for (const row of rows) {
+    const iocs = flattenStoredIocs(row.iocs, {
+      source: row.source,
+      source_url: row.link,
+      valid_from: row.published_at,
+      origin: 'rss',
+    });
+    flat.push(...iocs);
+  }
+
+  const bundle = buildBundle(flat, {
+    name: `Case ${caseId}: ${c.title}`,
+    description: c.description || `STIX 2.1 bundle exported from FreeIntelHub case #${caseId}`,
+  });
+  res.setHeader('Content-Type', 'application/json');
+  res.setHeader('Content-Disposition', `attachment; filename="case-${caseId}-stix.json"`);
+  res.json(bundle);
+});
+
+// STIX 2.1 single-indicator export — useful for one-off sharing.
+// Example: /api/stix/indicator?type=ipv4&value=1.2.3.4
+router.get('/api/stix/indicator', (req, res) => {
+  const { type, value } = req.query;
+  if (!type || !value) return res.status(400).json({ error: 'type and value required' });
+  const allowed = new Set(['ipv4','ipv6','domain','url','email','md5','sha1','sha256','hash','cve']);
+  if (!allowed.has(type)) return res.status(400).json({ error: 'unsupported type' });
+  if (typeof value !== 'string' || value.length > 1024) return res.status(400).json({ error: 'invalid value' });
+  const indicator = buildIndicator({ type, value });
+  res.json(indicator);
+});
+
 router.post('/cases/:id/status', requireAuth('analyst'), (req, res) => {
   const caseId = parseInt(req.params.id, 10);
   const { status } = req.body || {};
@@ -2861,6 +3018,11 @@ router.post('/cases/:id/status', requireAuth('analyst'), (req, res) => {
   if (!caseId || !valid.includes(status)) return res.redirect('/cases');
   const closedAt = (status === 'closed' || status === 'false-positive') ? `datetime('now')` : 'NULL';
   db.prepare(`UPDATE cases SET status = ?, updated_at = datetime('now'), closed_at = ${closedAt} WHERE id = ?`).run(status, caseId);
+  audit.record({
+    actor: req.session?.user?.username || 'anon',
+    action: 'case.status_change', target_type: 'case', target_id: caseId,
+    detail: `→ ${status}`, ip: audit.clientIp(req),
+  });
   res.redirect(`/cases/${caseId}`);
 });
 

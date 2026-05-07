@@ -11,6 +11,7 @@ const { startNewsletterCron } = require('./services/newsletter');
 const { cleanupOldArticles } = require('./services/articleCleanup');
 const { cleanupStorage } = require('./services/storageCleanup');
 const { optimize: dbOptimize, vacuum: dbVacuum } = require('./services/dbMaintenance');
+const cveEnrichment = require('./services/cveEnrichment');
 const { seedEntities, backfillEntities } = require('./services/entityExtractor');
 const darkweb = require('./services/darkweb');
 
@@ -174,6 +175,10 @@ app.listen(PORT, BIND_HOST, () => {
   // SQLite maintenance: optimize on startup, VACUUM weekly
   setTimeout(dbOptimize, 20 * 1000);
   setInterval(dbVacuum, 7 * CLEANUP_INTERVAL);
+
+  // CVE enrichment: EPSS + CISA KEV. Sync once after 60s, then daily.
+  setTimeout(() => cveEnrichment.syncAll(), 60 * 1000);
+  setInterval(() => cveEnrichment.syncAll(), CLEANUP_INTERVAL);
 
   // Dark web monitoring — disabled by default since most hosts (Hostinger
   // included) cannot run a Tor daemon. Set DW_ENABLED=true on a host that has

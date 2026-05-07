@@ -1,0 +1,60 @@
+<%- include('partials/head', { pageTitle: 'Audit Log' }) %>
+
+<div class="page-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem">
+  <div>
+    <h1>Audit Log</h1>
+    <p><%= total %> recorded event<%= total === 1 ? '' : 's' %> &middot; logins, case edits, admin actions</p>
+  </div>
+  <a href="/admin" class="btn btn-sm">&larr; Back to Admin</a>
+</div>
+
+<% if (entries.length === 0) { %>
+  <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:2rem;text-align:center;color:var(--text-muted)">
+    <p style="margin:0">No events recorded yet.</p>
+  </div>
+<% } else { %>
+<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden">
+  <table style="width:100%;border-collapse:collapse;font-size:.85rem">
+    <thead style="background:var(--bg-elevated);text-align:left">
+      <tr>
+        <th style="padding:.6rem .8rem;font-weight:600;color:var(--text-muted)">When</th>
+        <th style="padding:.6rem .8rem;font-weight:600;color:var(--text-muted)">Actor</th>
+        <th style="padding:.6rem .8rem;font-weight:600;color:var(--text-muted)">Action</th>
+        <th style="padding:.6rem .8rem;font-weight:600;color:var(--text-muted)">Target</th>
+        <th style="padding:.6rem .8rem;font-weight:600;color:var(--text-muted)">Detail</th>
+        <th style="padding:.6rem .8rem;font-weight:600;color:var(--text-muted)">IP</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% entries.forEach(function(e) { %>
+        <%
+          var actionClass = '';
+          if (e.action === 'login.failed') actionClass = 'background:rgba(239,68,68,.1);color:#ef4444';
+          else if (e.action === 'login.success') actionClass = 'background:rgba(34,197,94,.1);color:#22c55e';
+          else if (String(e.action).indexOf('case.') === 0) actionClass = 'background:rgba(96,165,250,.1);color:#60a5fa';
+          else if (String(e.action).indexOf('admin.') === 0) actionClass = 'background:rgba(168,85,247,.1);color:#a855f7';
+        %>
+        <tr style="border-top:1px solid var(--border)">
+          <td style="padding:.55rem .8rem;color:var(--text-muted);white-space:nowrap;font-family:monospace;font-size:.78rem"><%= e.created_at %></td>
+          <td style="padding:.55rem .8rem;font-weight:500"><%= e.actor || '—' %></td>
+          <td style="padding:.55rem .8rem"><span class="badge" style="font-size:.7rem;padding:.15rem .5rem;border-radius:4px;<%= actionClass %>"><%= e.action %></span></td>
+          <td style="padding:.55rem .8rem;color:var(--text-muted)"><%= e.target_type ? e.target_type + (e.target_id ? '#' + e.target_id : '') : '—' %></td>
+          <td style="padding:.55rem .8rem;color:var(--text-muted);max-width:280px;overflow:hidden;text-overflow:ellipsis"><%= e.detail || '' %></td>
+          <td style="padding:.55rem .8rem;font-family:monospace;font-size:.78rem;color:var(--text-muted)"><%= e.ip || '—' %></td>
+        </tr>
+      <% }); %>
+    </tbody>
+  </table>
+</div>
+
+<% if (pages > 1) { %>
+  <div style="display:flex;justify-content:center;gap:.4rem;margin-top:1rem">
+    <% if (page > 1) { %><a href="?page=<%= page-1 %>" class="btn btn-sm">&larr; Prev</a><% } %>
+    <span style="display:flex;align-items:center;padding:0 .8rem;color:var(--text-muted);font-size:.85rem">Page <%= page %> of <%= pages %></span>
+    <% if (page < pages) { %><a href="?page=<%= page+1 %>" class="btn btn-sm">Next &rarr;</a><% } %>
+  </div>
+<% } %>
+
+<% } %>
+
+<%- include('partials/footer') %>

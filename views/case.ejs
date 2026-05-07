@@ -22,15 +22,21 @@
         <p style="margin:0;color:var(--text-muted);font-size:.875rem"><%= case.description %></p>
       <% } %>
     </div>
-    <!-- Status change form -->
-    <form method="POST" action="/cases/<%= case.id %>/status" style="display:flex;gap:.4rem;align-items:center;flex-shrink:0">
-      <select name="status" style="background:var(--bg-elevated);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:.35rem .6rem;font-size:.8rem">
-        <% ['open','in-progress','closed','false-positive'].forEach(function(s) { %>
-          <option value="<%= s %>" <%= case.status === s ? 'selected' : '' %>><%= s %></option>
-        <% }); %>
-      </select>
-      <button type="submit" class="btn btn-sm btn-primary">Update</button>
-    </form>
+    <!-- Status change + STIX export -->
+    <div style="display:flex;gap:.4rem;align-items:center;flex-shrink:0;flex-wrap:wrap">
+      <a href="/cases/<%= case.id %>/stix" class="btn btn-sm" download title="Download STIX 2.1 bundle for this case">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13" style="display:inline;margin-right:.3rem"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        STIX 2.1
+      </a>
+      <form method="POST" action="/cases/<%= case.id %>/status" style="display:flex;gap:.4rem;align-items:center">
+        <select name="status" style="background:var(--bg-elevated);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:.35rem .6rem;font-size:.8rem">
+          <% ['open','in-progress','closed','false-positive'].forEach(function(s) { %>
+            <option value="<%= s %>" <%= case.status === s ? 'selected' : '' %>><%= s %></option>
+          <% }); %>
+        </select>
+        <button type="submit" class="btn btn-sm btn-primary">Update</button>
+      </form>
+    </div>
   </div>
 </div>
 

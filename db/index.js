@@ -449,4 +449,54 @@ db.exec(`
   )
 `);
 
+// ── CVE enrichment (EPSS score + CISA KEV catalog) ───────────────────────────
+db.exec(`
+  CREATE TABLE IF NOT EXISTS cve_enrichment (
+    cve_id TEXT PRIMARY KEY,
+    epss REAL,
+    epss_percentile REAL,
+    epss_updated_at TEXT,
+    on_kev INTEGER DEFAULT 0,
+    kev_added_at TEXT,
+    kev_due_date TEXT,
+    kev_known_ransomware INTEGER DEFAULT 0,
+    last_synced_at TEXT DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_cve_enrichment_kev  ON cve_enrichment(on_kev) WHERE on_kev = 1;
+  CREATE INDEX IF NOT EXISTS idx_cve_enrichment_epss ON cve_enrichment(epss DESC);
+`);
+
+// ── Audit log (logins, case edits, API key use, admin actions) ───────────────
+db.exec(`
+  CREATE TABLE IF NOT EXISTS audit_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    actor TEXT,
+    action TEXT NOT NULL,
+    target_type TEXT,
+    target_id TEXT,
+    detail TEXT,
+    ip TEXT,
+    created_at TEXT DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_audit_log_created ON audit_log(created_at DESC);
+  CREATE INDEX IF NOT EXISTS idx_audit_log_actor   ON audit_log(actor, created_at DESC);
+`);
+
+// ── Saved searches (per-user persisted filter combos) ────────────────────────
+db.exec(`
+  CREATE TABLE IF NOT EXISTS saved_searches (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    owner TEXT NOT NULL,
+    name TEXT NOT NULL,
+    path TEXT NOT NULL,
+    query TEXT NOT NULL,
+    created_at TEXT DEFAULT (datetime('now')),
+    UNIQUE(owner, name)
+  );
+  CREATE INDEX IF NOT EXISTS idx_saved_owner ON saved_searches(owner);
+`);
+
+// API-key scopes (CSV; NULL = legacy "all access")
+addColumn('api_keys', 'scopes', 'TEXT');
+
 module.exports = db;
