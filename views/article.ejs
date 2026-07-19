@@ -1,0 +1,63 @@
+<%- include('partials/head', { pageTitle: article.title, pageDescription: article.summary || undefined }) %>
+
+<div class="article-detail">
+  <a href="javascript:history.back()" class="article-back-link">&larr; Back to feed</a>
+
+  <div class="article-detail-head">
+    <div class="article-detail-top-row">
+      <% if (article.category) { %><span class="badge badge-category"><%= article.category %></span><% } %>
+      <span class="badge badge-source"><%= article.source %></span>
+    </div>
+    <h1 class="article-detail-title"><%= article.title %></h1>
+    <div class="article-detail-meta">
+      <span><%= article.source %></span>
+      <% if (article.published_at) { %>
+        <span>&bull;</span>
+        <time datetime="<%= article.published_at %>"><%= new Date(article.published_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) %></time>
+      <% } %>
+      <% if (article.vendor) { %>
+        <span>&bull;</span>
+        <a href="/vendor/<%= encodeURIComponent(article.vendor) %>"><%= article.vendor %></a>
+      <% } %>
+    </div>
+  </div>
+
+  <% if (article.summary) { %>
+    <div class="article-detail-body">
+      <p><%= article.summary %></p>
+    </div>
+  <% } %>
+
+  <% if (mitreList.length > 0 || iocTotal > 0) { %>
+    <div class="article-indicators article-detail-indicators">
+      <% mitreList.forEach(function(m) { %>
+        <a href="/mitre?technique=<%= encodeURIComponent(m.id) %>" class="badge badge-mitre" title="<%= m.name %> (<%= m.tactic %>)"><%= m.id %></a>
+      <% }); %>
+      <% if (iocTotal > 0) { %>
+        <a href="/iocs" class="badge badge-ioc"><%= iocTotal %> IOC<%= iocTotal > 1 ? 's' : '' %></a>
+      <% } %>
+    </div>
+  <% } %>
+
+  <div class="article-detail-source-box">
+    <span class="article-detail-source-label">Read the full story</span>
+    <a href="<%= safeHref(article.link) %>" target="_blank" rel="noopener noreferrer" class="article-detail-source-link"><%= article.source %> &rarr;</a>
+  </div>
+
+  <% if (similar && similar.length > 0) { %>
+    <div class="section-header">
+      <h2>Related Coverage</h2>
+    </div>
+    <div class="article-detail-related">
+      <% similar.forEach(function(a) { %>
+        <a href="/article/<%= a.id %>" class="article-detail-related-row">
+          <% if (a.category) { %><span class="badge badge-category"><%= a.category %></span><% } %>
+          <span class="article-detail-related-title"><%= a.title %></span>
+          <span class="article-detail-related-meta"><%= a.source %><% if (a.published_at) { %> &middot; <%= new Date(a.published_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) %><% } %></span>
+        </a>
+      <% }); %>
+    </div>
+  <% } %>
+</div>
+
+<%- include('partials/footer') %>

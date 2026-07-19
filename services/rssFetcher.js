@@ -8,8 +8,10 @@ const { detectMitreTechniques } = require('./mitreMapper');
 const { extractIOCs } = require('./iocExtractor');
 const { extractEntities, linkArticle } = require('./entityExtractor');
 const { upsertIp } = require('./geoipEnricher');
+const { settleWithConcurrency } = require('./concurrency');
 
 const parser = new RSSParser({ timeout: 10000 });
+const DEFAULT_FETCH_CONCURRENCY = 8;
 
 // DMCA-safe summary: max 2 sentences or 160 chars, whichever is shorter
 function makeSafeSummary(text) {
@@ -33,6 +35,9 @@ function generateDedupHash(title) {
 }
 
 const getArticleByLink = db.prepare(`SELECT * FROM articles WHERE link = ?`);
+const getCustomFeeds = db.prepare(`
+  SELECT name, url, category FROM custom_feeds WHERE enabled = 1 ORDER BY name
+`);
 
 const upsertHealth = db.prepare(`
   INSERT INTO feed_health (source, url, last_status, last_checked_at, success_count, fail_count)
@@ -69,7 +74,7 @@ async function fetchFeed(feed) {
         link: item.link || '',
         summary,
         source: feed.name,
-        category,
+        category: feed.category || category,
         vendor,
         sector,
         mitre_techniques: mitre ? JSON.stringify(mitre) : null,
@@ -129,8 +134,10 @@ async function fetchFeed(feed) {
 }
 
 async function fetchAllFeeds() {
-  console.log('[RSS] Fetching all feeds...');
-  const results = await Promise.allSettled(feeds.map(fetchFeed));
+  const activeFeeds = getActiveFeeds();
+  const concurrency = getFetchConcurrency();
+  console.log(`[RSS] Fetching ${activeFeeds.length} feed(s) with concurrency ${concurrency}...`);
+  const results = await settleWithConcurrency(activeFeeds, concurrency, fetchFeed);
 
   // Collect all newly inserted articles across feeds
   const allNew = [];
@@ -153,4 +160,29 @@ async function fetchAllFeeds() {
   }
 }
 
-module.exports = { fetchAllFeeds };
+function getFetchConcurrency() {
+  const raw = parseInt(process.env.RSS_FETCH_CONCURRENCY, 10);
+  if (!Number.isFinite(raw) || raw <= 0) return DEFAULT_FETCH_CONCURRENCY;
+  return Math.min(raw, 25);
+}
+
+function getActiveFeeds() {
+  const merged = [];
+  const seen = new Set();
+  function add(feed) {
+    if (!feed || !feed.name || !feed.url) return;
+    const key = `${feed.name}\n${feed.url}`.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    merged.push(feed);
+  }
+  feeds.forEach(add);
+  try {
+    getCustomFeeds.all().forEach(add);
+  } catch (err) {
+    console.error(`[RSS] Failed to load custom feeds: ${err.message}`);
+  }
+  return merged;
+}
+
+module.exports = { fetchAllFeeds, getActiveFeeds, getFetchConcurrency };

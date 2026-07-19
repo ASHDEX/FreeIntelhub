@@ -149,6 +149,12 @@ if (session) {
 // Routes
 app.use('/', routes);
 
+// 404 — unmatched routes
+app.use((req, res) => {
+  if (req.path.startsWith('/api/')) return res.status(404).json({ error: 'Not found' });
+  res.status(404).render('notfound');
+});
+
 // Start server
 app.listen(PORT, BIND_HOST, () => {
   console.log(`FreeIntelHub running on http://${BIND_HOST}:${PORT}`);

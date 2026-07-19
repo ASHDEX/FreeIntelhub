@@ -130,6 +130,10 @@
     <!-- Browse -->
     <div class="sidebar-section">
       <span class="sidebar-section-label">Browse</span>
+      <a href="/directory" class="sidebar-link<%= currentPath === '/directory' ? ' active' : '' %>">
+        <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+        <span class="sidebar-label">Directory</span>
+      </a>
       <a href="/sources" class="sidebar-link<%= currentPath === '/sources' || currentPath.startsWith('/source/') ? ' active' : '' %>">
         <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 11a9 9 0 0 1 9 9"/><path d="M4 4a16 16 0 0 1 16 16"/><circle cx="5" cy="19" r="1"/></svg>
         <span class="sidebar-label">Sources</span>

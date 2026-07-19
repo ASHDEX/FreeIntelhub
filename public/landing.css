@@ -577,3 +577,31 @@ a { text-decoration: none; color: inherit; }
 @media (prefers-reduced-motion: reduce) {
   .bg-glow-center, .bg-orb-tl, .bg-orb-br, .bg-orb-mid, .badge-pulse { animation: none !important; }
 }
+
+/* === 404 page === */
+.notfound-page {
+  min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 0.75rem; text-align: center; padding: 2rem; position: relative;
+}
+.notfound-logo {
+  position: absolute; top: 2rem; left: 2rem; font-size: 1.1rem; font-weight: 700;
+  color: #fff; text-decoration: none; font-family: 'Space Grotesk', sans-serif;
+}
+.notfound-logo span { color: #22d3ee; }
+.notfound-code {
+  font-family: 'JetBrains Mono', monospace; font-size: 4.5rem; font-weight: 700;
+  color: rgba(255,255,255,0.12); line-height: 1;
+}
+.notfound-title {
+  font-size: 1.4rem; font-weight: 700; color: #fff; margin: 0;
+  font-family: 'Space Grotesk', sans-serif; letter-spacing: -0.02em;
+}
+.notfound-sub {
+  font-size: 0.9rem; color: rgba(255,255,255,0.45); max-width: 380px;
+  margin: 0 0 1rem; line-height: 1.6;
+}
+.notfound-btn {
+  padding: 0.7rem 1.6rem; background: linear-gradient(135deg,#22d3ee,#818cf8);
+  color: #060610; font-weight: 700; font-size: 0.88rem; border-radius: 10px; text-decoration: none;
+}
+.notfound-btn:hover { color: #060610; }

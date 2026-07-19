@@ -63,7 +63,10 @@
             <% } %>
           </div>
         <% } %>
-        <p class="read-more"><a href="<%= safeHref(a.link) %>" target="_blank" rel="noopener noreferrer"><%= a.source %> &rarr;</a></p>
+        <p class="read-more">
+          <a href="<%= safeHref(a.link) %>" target="_blank" rel="noopener noreferrer"><%= a.source %> &rarr;</a>
+          <a href="/article/<%= a.id %>" class="read-more-details">Details</a>
+        </p>
       </article>
     <% }); %>
   </div>

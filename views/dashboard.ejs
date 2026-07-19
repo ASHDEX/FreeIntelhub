@@ -4,11 +4,6 @@
   var critCount = highRiskArticles.filter(function(a){ return a.riskScore >= 75; }).length;
   var highCount = highRiskArticles.filter(function(a){ return a.riskScore >= 50 && a.riskScore < 75; }).length;
   var medCount  = highRiskArticles.filter(function(a){ return a.riskScore >= 25 && a.riskScore < 50; }).length;
-  var totalRisk = highRiskArticles.length || 1;
-  var critPct   = Math.round((critCount / totalRisk) * 100);
-  var highPct   = Math.round((highCount / totalRisk) * 100);
-  var medPct    = Math.round((medCount  / totalRisk) * 100);
-  var lowPct    = Math.max(0, 100 - critPct - highPct - medPct);
 
   var _healthy  = feedHealth ? feedHealth.healthy || 0 : 0;
   var _total    = feedHealth ? feedHealth.total   || 0 : 0;
@@ -19,212 +14,161 @@
   var avgRisk = highRiskArticles.length > 0
     ? Math.round(highRiskArticles.reduce(function(s,a){return s+a.riskScore;},0) / highRiskArticles.length)
     : 0;
-  
+
   var actMax = 1;
   activity7d.forEach(function(d){ if(d.count > actMax) actMax = d.count; });
+
+  var catMax = 1;
+  categoryDist.forEach(function(c){ if(c.count > catMax) catMax = c.count; });
 %>
 
-<link rel="stylesheet" href="/tailwind.css">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Manrope:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<div class="page-title-bar">
+  <div>
+    <h1>Dashboard</h1>
+    <p>A live snapshot of everything FreeIntelHub is tracking right now.</p>
+  </div>
+</div>
 
-<div class="dash-container">
-  <div class="max-w-7xl mx-auto space-y-8">
-    
-    <!-- TopAppBar -->
-    <header class="flex items-center justify-between pb-4 w-full border-b border-outline-variant/10">
-      <div class="flex flex-col">
-        <h1 class="font-headline font-bold text-2xl tracking-tight text-[#81ecff]">Threat Intelligence Dashboard</h1>
-        <p class="text-sm text-on-surface-variant font-medium">Real-time overview &middot; <span id="dash-ts"></span></p>
-      </div>
-    </header>
-    <script nonce="<%= nonce %>">document.getElementById('dash-ts').textContent = new Date().toLocaleTimeString();</script>
+<div class="dash-stat-grid">
+  <div class="stat-card">
+    <span class="stat-card-label">Total Intel</span>
+    <span class="stat-card-value"><%= totalCount.toLocaleString() %></span>
+  </div>
+  <div class="stat-card">
+    <span class="stat-card-label">Last 24h</span>
+    <span class="stat-card-value">+<%= articles24h.toLocaleString() %></span>
+  </div>
+  <div class="stat-card">
+    <span class="stat-card-label">Avg Risk</span>
+    <span class="stat-card-value" style="color:<%= avgRisk >= 75 ? 'var(--red)' : avgRisk >= 50 ? 'var(--amber)' : avgRisk >= 25 ? 'var(--purple)' : 'var(--accent)' %>"><%= avgRisk %></span>
+  </div>
+  <div class="stat-card">
+    <span class="stat-card-label">CVEs in Feed</span>
+    <span class="stat-card-value"><%= cveCount %></span>
+  </div>
+  <div class="stat-card">
+    <span class="stat-card-label">Active Actors</span>
+    <span class="stat-card-value"><%= threatGroups7d %></span>
+  </div>
+  <div class="stat-card">
+    <span class="stat-card-label">Feed Health</span>
+    <span class="stat-card-value" style="color:var(--accent)"><%= _hPct %>%</span>
+  </div>
+</div>
 
-    <!-- Metric Cards Grid -->
-    <section class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-      <div class="glass-card p-4 rounded-xl flex flex-col justify-between">
-        <span class="material-symbols-outlined text-primary text-xl mb-3">analytics</span>
-        <div>
-          <p class="text-[11px] font-label uppercase tracking-widest text-on-surface-variant">Total Intel</p>
-          <p class="text-xl font-headline font-bold text-on-surface"><%= totalCount.toLocaleString() %></p>
+<div class="dash-chart-row">
+  <div class="dash-panel">
+    <h3 class="panel-title">Articles per day &mdash; last 7 days</h3>
+    <div class="dash-bar-chart">
+      <% activity7d.forEach(function(d) { %>
+        <div class="dash-bar-col">
+          <div class="dash-bar-fill" style="height: <%= Math.max(4, Math.round((d.count / actMax) * 120)) %>px" title="<%= d.count %> articles"></div>
+          <span class="dash-bar-label"><%= d.label %></span>
         </div>
-      </div>
-      <div class="glass-card p-4 rounded-xl flex flex-col justify-between">
-        <span class="material-symbols-outlined text-secondary text-xl mb-3">update</span>
-        <div>
-          <p class="text-[11px] font-label uppercase tracking-widest text-on-surface-variant">Last 24h</p>
-          <p class="text-xl font-headline font-bold text-on-surface">+<%= articles24h.toLocaleString() %></p>
+      <% }); %>
+    </div>
+  </div>
+  <div class="dash-panel">
+    <h3 class="panel-title">Intel by category</h3>
+    <div class="dash-hbar-list">
+      <% categoryDist.slice(0, 6).forEach(function(c) { %>
+        <div class="dash-hbar-row">
+          <span class="dash-hbar-label"><%= c.category %></span>
+          <div class="dash-hbar-track"><div class="dash-hbar-fill" style="width: <%= Math.round((c.count / catMax) * 100) %>%"></div></div>
+          <span class="dash-hbar-value"><%= c.count %></span>
         </div>
-      </div>
-      <div class="glass-card p-4 rounded-xl flex flex-col justify-between">
-        <span class="material-symbols-outlined text-error text-xl mb-3">warning</span>
-        <div>
-          <p class="text-[11px] font-label uppercase tracking-widest text-on-surface-variant">Avg Risk</p>
-          <p class="text-xl font-headline font-bold" style="color:<%= avgRisk >= 75 ? '#ff716c' : avgRisk >= 50 ? '#ff725e' : avgRisk >= 25 ? '#ffe792' : '#81ecff' %>"><%= avgRisk %></p>
-        </div>
-      </div>
-      <div class="glass-card p-4 rounded-xl flex flex-col justify-between">
-        <span class="material-symbols-outlined text-tertiary text-xl mb-3">bug_report</span>
-        <div>
-          <p class="text-[11px] font-label uppercase tracking-widest text-on-surface-variant">CVEs in Feed</p>
-          <p class="text-xl font-headline font-bold text-on-surface"><%= cveCount %></p>
-        </div>
-      </div>
-      <div class="glass-card p-4 rounded-xl flex flex-col justify-between">
-        <span class="material-symbols-outlined text-primary-fixed-dim text-xl mb-3">group_work</span>
-        <div>
-          <p class="text-[11px] font-label uppercase tracking-widest text-on-surface-variant">Actors</p>
-          <p class="text-xl font-headline font-bold text-on-surface"><%= threatGroups7d %> Active</p>
-        </div>
-      </div>
-      <div class="glass-card p-4 rounded-xl flex flex-col justify-between">
-        <span class="material-symbols-outlined text-primary text-xl mb-3">health_metrics</span>
-        <div>
-          <p class="text-[11px] font-label uppercase tracking-widest text-on-surface-variant">Feed Health</p>
-          <p class="text-xl font-headline font-bold text-primary"><%= _hPct %>%</p>
-        </div>
-      </div>
-    </section>
+      <% }); %>
+    </div>
+  </div>
+</div>
 
-    <!-- Bento Grid Layout -->
-    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-      <!-- MAIN CHARTS COLUMN -->
-      <div class="lg:col-span-7 space-y-6">
-        
-        <!-- Threat Level Distribution -->
-        <section class="glass-card p-6 rounded-xl">
-          <div class="flex justify-between items-end mb-6">
-            <div>
-              <h2 class="font-headline font-bold text-lg uppercase tracking-wider text-on-surface">Threat Level Distribution</h2>
-              <p class="text-xs text-on-surface-variant"><%= highRiskArticles.length %> high-risk articles analysed</p>
-            </div>
-          </div>
-          <div class="h-4 w-full bg-surface-container-highest rounded-full flex overflow-hidden">
-            <% if (critPct > 0) { %><div class="h-full bg-error" style="width: <%= critPct %>%"></div><% } %>
-            <% if (highPct > 0) { %><div class="h-full bg-secondary" style="width: <%= highPct %>%"></div><% } %>
-            <% if (medPct > 0) { %><div class="h-full bg-tertiary" style="width: <%= medPct %>%"></div><% } %>
-            <% if (lowPct > 0) { %><div class="h-full bg-primary" style="width: <%= lowPct %>%"></div><% } %>
-          </div>
-          <div class="mt-4 grid grid-cols-4 gap-2 text-center">
-            <div><p class="text-[11px] font-label uppercase text-error">Critical</p><p class="text-sm font-bold"><%= critPct %>%</p></div>
-            <div><p class="text-[11px] font-label uppercase text-secondary">High</p><p class="text-sm font-bold"><%= highPct %>%</p></div>
-            <div><p class="text-[11px] font-label uppercase text-tertiary">Medium</p><p class="text-sm font-bold"><%= medPct %>%</p></div>
-            <div><p class="text-[11px] font-label uppercase text-primary">Low</p><p class="text-sm font-bold"><%= lowPct %>%</p></div>
-          </div>
-        </section>
-
-        <!-- Donut Charts using original Chart.js -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <section class="glass-card p-6 rounded-xl flex flex-col items-center relative">
-            <h3 class="font-label text-xs uppercase tracking-widest text-on-surface-variant mb-6 w-full text-center">Severity Breakdown</h3>
-            <div class="relative w-[180px] h-[180px]">
-              <canvas id="severity-chart"></canvas>
-            </div>
-            <div class="absolute inset-0 top-[40px] flex flex-col items-center justify-center pointer-events-none">
-              <span class="text-2xl font-headline font-bold text-on-surface"><%= highRiskArticles.length %></span>
-              <span class="text-[11px] uppercase tracking-tighter text-on-surface-variant">TOTAL</span>
-            </div>
-          </section>
-          
-          <section class="glass-card p-6 rounded-xl flex flex-col items-center relative">
-            <h3 class="font-label text-xs uppercase tracking-widest text-on-surface-variant mb-6 w-full text-center">Intel by Category</h3>
-            <div class="relative w-[180px] h-[180px]">
-              <canvas id="category-chart"></canvas>
-            </div>
-            <div class="absolute inset-0 top-[40px] flex flex-col items-center justify-center pointer-events-none">
-              <span class="text-2xl font-headline font-bold text-on-surface"><%= categoryDist.length %></span>
-              <span class="text-[11px] uppercase tracking-tighter text-on-surface-variant">TYPES</span>
-            </div>
-          </section>
-        </div>
-
+<div class="dash-chart-row">
+  <div class="dash-panel dash-panel-donut">
+    <h3 class="panel-title">Severity breakdown</h3>
+    <div class="dash-donut-wrap">
+      <canvas id="severity-chart" width="160" height="160"></canvas>
+      <div class="dash-donut-center">
+        <span class="dash-donut-value"><%= highRiskArticles.length %></span>
+        <span class="dash-donut-label">Total</span>
       </div>
-
-      <!-- FEEDS COLUMN -->
-      <div class="lg:col-span-5 space-y-6">
-        
-        <!-- High-Risk Articles -->
-        <section class="glass-card p-6 rounded-xl h-[330px] overflow-hidden flex flex-col">
-          <h2 class="font-headline font-bold text-lg uppercase tracking-wider text-on-surface mb-6">High-Risk Articles</h2>
-          <div class="space-y-5 overflow-y-auto pr-2 scrollbar-hide flex-1">
-            <% if (highRiskArticles.length > 0) { %>
-              <% highRiskArticles.slice(0,4).forEach(function(a) { 
-                var _rs = a.riskScore >= 75 ? 'Critical' : a.riskScore >= 50 ? 'High' : 'Medium';
-                var _clsbg = a.riskScore >= 75 ? 'bg-error/20 text-error border-error/30 neon-glow-error' : a.riskScore >= 50 ? 'bg-secondary/20 text-secondary border-secondary/30' : 'bg-tertiary/20 text-tertiary border-tertiary/30';
-                var _ageMs = a.published_at ? (Date.now() - new Date(a.published_at).getTime()) : Infinity;
-                var _ageMins = Math.floor(_ageMs / 60000);
-                var _rel = _ageMins < 60 ? _ageMins + 'm ago' : _ageMins < 1440 ? Math.floor(_ageMins/60) + 'h ago' : Math.floor(_ageMins/1440) + 'd ago';
-              %>
-                <div class="group">
-                  <div class="flex justify-between items-start mb-1">
-                    <span class="<%= _clsbg %> text-[11px] font-bold px-2 py-0.5 rounded uppercase border"><%= _rs %></span>
-                    <span class="text-[11px] text-on-surface-variant"><%= _rel %></span>
-                  </div>
-                  <a href="<%= safeHref(a.link) %>" target="_blank" rel="noopener noreferrer" class="text-sm font-bold text-on-surface group-hover:text-primary transition-colors block leading-tight"><%= a.title %></a>
-                </div>
-              <% }); %>
-            <% } else { %>
-              <p class="text-on-surface-variant text-sm">No high-risk articles detected.</p>
-            <% } %>
-          </div>
-          <a href="/iocs" class="mt-4 text-center block w-full py-2 text-[11px] font-label uppercase tracking-widest text-primary border border-primary/20 rounded-lg hover:bg-primary/5 transition-all">View Feed</a>
-        </section>
-
-        <!-- Latest CVEs -->
-        <section class="glass-card p-6 rounded-xl">
-          <h2 class="font-headline font-bold text-lg uppercase tracking-wider text-on-surface mb-6">Latest CVEs</h2>
-          <div class="space-y-3">
-            <% if (latestCves.length > 0) { %>
-              <% latestCves.slice(0,3).forEach(function(cve) { 
-                var _dot = cve.severity === 'CRITICAL' ? 'bg-error' : cve.severity === 'HIGH' ? 'bg-secondary' : cve.severity === 'MEDIUM' ? 'bg-tertiary' : 'bg-on-surface-variant';
-              %>
-                <div class="p-3 bg-surface-container-low rounded-xl border border-outline-variant/10 hover:border-outline-variant/30 transition-colors">
-                  <div class="flex items-center justify-between mb-1">
-                    <a href="<%= safeHref(cve.link) %>" target="_blank" rel="noopener noreferrer" class="text-xs font-headline font-bold text-[#81ecff] hover:underline"><%= cve.id %></a>
-                    <span class="w-2 h-2 rounded-full <%= _dot %>"></span>
-                  </div>
-                  <p class="text-[11px] text-on-surface-variant leading-snug line-clamp-2" title="<%= cve.description %>"><%= cve.description %></p>
-                </div>
-              <% }); %>
-            <% } else { %>
-              <p class="text-on-surface-variant text-sm">CVE feed loading...</p>
-            <% } %>
-          </div>
-        </section>
-
+    </div>
+  </div>
+  <div class="dash-panel dash-panel-donut">
+    <h3 class="panel-title">Intel by category</h3>
+    <div class="dash-donut-wrap">
+      <canvas id="category-chart" width="160" height="160"></canvas>
+      <div class="dash-donut-center">
+        <span class="dash-donut-value"><%= categoryDist.length %></span>
+        <span class="dash-donut-label">Types</span>
       </div>
     </div>
   </div>
 </div>
 
-<!-- Recent Malware Samples (MalShare) -->
-<div class="max-w-7xl mx-auto px-4 pb-6">
-  <section class="glass-card p-6 rounded-xl" id="malshare-widget">
-    <div class="flex items-center justify-between mb-4">
-      <div>
-        <h2 class="font-headline font-bold text-lg uppercase tracking-wider text-on-surface">Recent Malware Samples</h2>
-        <p class="text-xs text-on-surface-variant">Last 24h &middot; <span id="malshare-ts">loading&hellip;</span></p>
-      </div>
-      <a href="https://malshare.com" target="_blank" rel="noopener noreferrer"
-         class="text-[11px] font-label uppercase tracking-widest text-primary border border-primary/20 rounded-lg px-3 py-1.5 hover:bg-primary/5 transition-all">
-        View all
+<div class="section-header">
+  <h2>High-Risk Articles</h2>
+  <a href="/iocs">View feed &rarr;</a>
+</div>
+<div class="dash-activity-list">
+  <% if (highRiskArticles.length > 0) { %>
+    <% highRiskArticles.slice(0, 6).forEach(function(a) {
+      var _rs = a.riskScore >= 75 ? 'Critical' : a.riskScore >= 50 ? 'High' : 'Medium';
+      var _dotColor = a.riskScore >= 75 ? 'var(--red)' : a.riskScore >= 50 ? 'var(--amber)' : 'var(--purple)';
+      var _ageMs = a.published_at ? (Date.now() - new Date(a.published_at).getTime()) : Infinity;
+      var _ageMins = Math.floor(_ageMs / 60000);
+      var _rel = _ageMins < 60 ? _ageMins + 'm ago' : _ageMins < 1440 ? Math.floor(_ageMins/60) + 'h ago' : Math.floor(_ageMins/1440) + 'd ago';
+    %>
+      <a href="/article/<%= a.id %>" class="dash-activity-row">
+        <span class="dash-activity-dot" style="background:<%= _dotColor %>"></span>
+        <span class="dash-activity-text"><span class="dash-activity-sev" style="color:<%= _dotColor %>"><%= _rs %></span> &middot; <%= a.title %></span>
+        <span class="dash-activity-time"><%= _rel %></span>
       </a>
-    </div>
-    <div id="malshare-list" class="space-y-2">
-      <p class="text-on-surface-variant text-sm">Loading samples&hellip;</p>
-    </div>
-  </section>
+    <% }); %>
+  <% } else { %>
+    <p class="empty">No high-risk articles detected.</p>
+  <% } %>
+</div>
+
+<div class="section-header">
+  <h2>Latest CVEs</h2>
+</div>
+<div class="dash-cve-grid">
+  <% if (latestCves.length > 0) { %>
+    <% latestCves.slice(0, 4).forEach(function(cve) {
+      var _cveColor = cve.severity === 'CRITICAL' ? 'var(--red)' : cve.severity === 'HIGH' ? 'var(--amber)' : cve.severity === 'MEDIUM' ? 'var(--purple)' : 'var(--text-muted)';
+    %>
+      <a href="<%= safeHref(cve.link) %>" target="_blank" rel="noopener noreferrer" class="dash-cve-card" style="border-left-color:<%= _cveColor %>">
+        <div class="dash-cve-top">
+          <span class="dash-cve-id"><%= cve.id %></span>
+          <span class="dash-cve-dot" style="background:<%= _cveColor %>"></span>
+        </div>
+        <p class="dash-cve-desc"><%= cve.description %></p>
+      </a>
+    <% }); %>
+  <% } else { %>
+    <p class="empty">CVE feed loading&hellip;</p>
+  <% } %>
+</div>
+
+<div class="section-header">
+  <h2>Recent Malware Samples</h2>
+  <a href="https://malshare.com" target="_blank" rel="noopener noreferrer">View all &rarr;</a>
+</div>
+<p class="dash-malshare-ts">Last 24h &middot; <span id="malshare-ts">loading&hellip;</span></p>
+<div id="malshare-list" class="dash-malshare-list">
+  <p class="empty">Loading samples&hellip;</p>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
 <script nonce="<%= nonce %>">
 (function(){
-  // Stitch Colors
-  var cCrit = '#ff716c', cHigh = '#ff725e', cMed = '#ffe792', cLow = '#81ecff', cBg = '#0c0e12';
+  var style = getComputedStyle(document.documentElement);
+  var cCrit = style.getPropertyValue('--red').trim() || '#ef4444';
+  var cHigh = style.getPropertyValue('--amber').trim() || '#fbbf24';
+  var cMed  = style.getPropertyValue('--purple').trim() || '#a78bfa';
+  var cLow  = style.getPropertyValue('--accent').trim() || '#22d3ee';
+  var cBg   = style.getPropertyValue('--bg-card').trim() || '#111113';
 
-  // Severity donut
   var sevCtx = document.getElementById('severity-chart');
   if (sevCtx) {
     new Chart(sevCtx, {
@@ -242,10 +186,9 @@
     });
   }
 
-  // Category donut
   var catCtx = document.getElementById('category-chart');
   if (catCtx) {
-    var catColors = ['#81ecff','#00d4ec','#00e3fd','#ff725e','#eb0000','#ffe792','#efc900','#ffd709'];
+    var catColors = [cLow, '#818cf8', cMed, cHigh, cCrit, '#4ade80', '#f472b6', '#38bdf8'];
     var catData = <%- JSON.stringify(categoryDist.slice(0,8).map(function(c){ return c.count; })) %>;
     var catLabels = <%- JSON.stringify(categoryDist.slice(0,8).map(function(c){ return c.category; })) %>;
     new Chart(catCtx, {
@@ -278,32 +221,32 @@
     .then(function(r) { return r.json(); })
     .then(function(json) {
       if (!json.samples || json.samples.length === 0) {
-        list.innerHTML = '<p class="text-on-surface-variant text-sm">MalShare feed unavailable — check MALSHARE_API_KEY.</p>';
+        list.innerHTML = '<p class="empty">MalShare feed unavailable &mdash; check MALSHARE_API_KEY.</p>';
         return;
       }
-      if (tsEl) tsEl.textContent = new Date(json.ts).toLocaleTimeString() + ' \u00b7 ' + json.count + ' samples';
+      if (tsEl) tsEl.textContent = new Date(json.ts).toLocaleTimeString() + ' · ' + json.count + ' samples';
       var html = '';
       json.samples.slice(0, 10).forEach(function(s, i) {
-        var sha256Short = s.sha256 ? s.sha256.slice(0, 16) + '\u2026' : 'N/A';
+        var sha256Short = s.sha256 ? s.sha256.slice(0, 16) + '…' : 'N/A';
         var sourceDomain = '';
         if (s.source) {
           try { sourceDomain = new URL(s.source).hostname; } catch(_) { sourceDomain = s.source.slice(0, 40); }
         }
         var ageHours = Math.round((i / Math.max(json.count - 1, 1)) * 24);
         var ageLabel = ageHours === 0 ? '<1h ago' : ageHours + 'h ago';
-        html += '<div class="flex items-center gap-3 p-2 bg-surface-container-low rounded-lg border border-outline-variant/10 hover:border-outline-variant/30 transition-colors">';
+        html += '<div class="dash-malshare-row">';
         if (s.type) {
-          html += '<span class="text-[10px] font-bold px-2 py-0.5 rounded bg-primary/10 text-primary border border-primary/20 uppercase shrink-0">' + esc(s.type) + '</span>';
+          html += '<span class="badge badge-category">' + esc(s.type) + '</span>';
         }
-        html += '<span class="font-mono text-xs text-on-surface flex-1 truncate" title="' + esc(s.sha256 || '') + '">' + esc(sha256Short) + '</span>';
-        if (sourceDomain) html += '<span class="text-[11px] text-on-surface-variant shrink-0">' + esc(sourceDomain) + '</span>';
-        html += '<span class="text-[11px] text-on-surface-variant shrink-0 ml-2">' + esc(ageLabel) + '</span>';
+        html += '<span class="dash-malshare-hash" title="' + esc(s.sha256 || '') + '">' + esc(sha256Short) + '</span>';
+        if (sourceDomain) html += '<span class="dash-malshare-source">' + esc(sourceDomain) + '</span>';
+        html += '<span class="dash-malshare-age">' + esc(ageLabel) + '</span>';
         html += '</div>';
       });
       list.innerHTML = html;
     })
     .catch(function() {
-      list.innerHTML = '<p class="text-on-surface-variant text-sm">Could not load MalShare feed.</p>';
+      list.innerHTML = '<p class="empty">Could not load MalShare feed.</p>';
     });
 })();
 </script>

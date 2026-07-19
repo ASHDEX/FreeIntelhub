@@ -11,6 +11,7 @@ const { generateRSS } = require('../services/feedGenerator');
 const { lookupThreatIntel } = require('../services/threatIntel');
 const { hashToken, encryptWebhookUrl } = require('../services/crypto');
 const { getAiContext } = require('../services/aiContext');
+const { buildBundle, flattenStoredIocs, buildIndicator } = require('../services/stixExporter');
 
 const threatmapConfig = require('../config/threatmap.json');
 const countryCentroids = require('../data/country-centroids.json');
@@ -568,6 +569,17 @@ router.get('/vendors', (req, res) => {
   res.render('vendors', { vendors, pageTitle: 'Vendors' });
 });
 
+// Directory — unified Vendors / Sources / Sectors browser
+router.get('/directory', (req, res) => {
+  const tab = ['vendors', 'sources', 'sectors'].includes(req.query.tab) ? req.query.tab : 'vendors';
+  const entries = {
+    vendors: stmts.vendorCounts.all().map(r => ({ name: r.vendor, count: r.count, href: `/vendor/${encodeURIComponent(r.vendor)}` })),
+    sources: stmts.sourceCounts.all().map(r => ({ name: r.source, count: r.count, href: `/source/${encodeURIComponent(r.source)}` })),
+    sectors: stmts.sectorCounts.all().map(r => ({ name: r.sector, count: r.count, href: `/sector/${encodeURIComponent(r.sector)}` })),
+  };
+  res.render('directory', { pageTitle: 'Directory', tab, entries: entries[tab] });
+});
+
 // Categories index
 router.get('/categories', (req, res) => {
   const categories = stmts.categoryCounts.all();
@@ -615,6 +627,34 @@ router.get('/iocs', (req, res) => {
     pageTitle: 'IOC Feed',
     articles, page, pages, total,
     baseUrl: '/iocs',
+  });
+});
+
+// Article detail page
+router.get('/article/:id', (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const row = id ? stmts.articleById.get(id) : null;
+  if (!row) return res.status(404).render('error', { pageTitle: 'Article Not Found', message: 'This article does not exist or has been removed.' });
+
+  const article = enrichArticle(row);
+  const mitreList = Array.isArray(article.mitre_techniques) ? article.mitre_techniques : [];
+  let iocTotal = 0;
+  if (article.iocs) {
+    Object.values(article.iocs).forEach(v => { if (Array.isArray(v)) iocTotal += v.length; });
+  }
+
+  let similar = [];
+  if (row.dedup_hash) {
+    similar = stmts.findSimilar.all(row.dedup_hash, id);
+  }
+  if (similar.length === 0 && article.category) {
+    similar = stmts.articlesByCategory.all(article.category, 3, 0).filter(a => a.id !== id);
+  }
+
+  res.render('article', {
+    pageTitle: article.title,
+    article, mitreList, iocTotal,
+    similar: similar.slice(0, 3),
   });
 });
 
@@ -2109,15 +2149,15 @@ router.get('/export/iocs', (req, res) => {
 
   const iocList = [];
   for (const row of rows) {
-    let iocData;
-    try { iocData = JSON.parse(row.iocs); } catch (_) { continue; }
-    const types = ['ips', 'domains', 'urls', 'hashes', 'emails', 'cves'];
-    for (const type of types) {
-      if (!Array.isArray(iocData[type])) continue;
-      for (const value of iocData[type]) {
-        iocList.push({ type: type.replace(/s$/, ''), value, source: row.source, article_title: row.title, article_url: row.link, published_at: row.published_at, origin: row.origin });
-      }
-    }
+    iocList.push(...flattenStoredIocs(row.iocs, {
+      source: row.source,
+      source_url: row.link,
+      article_title: row.title,
+      article_url: row.link,
+      published_at: row.published_at,
+      valid_from: row.published_at,
+      origin: row.origin,
+    }));
   }
 
   if (format === 'csv') {
@@ -2130,30 +2170,9 @@ router.get('/export/iocs', (req, res) => {
   }
 
   if (format === 'stix') {
-    const now = new Date().toISOString();
-    function escStix(s) { return String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'"); }
-    const indicators = iocList.map((ioc, idx) => {
-      let pattern = '';
-      const sv = escStix(ioc.value);
-      if (ioc.type === 'ip') pattern = `[ipv4-addr:value = '${sv}']`;
-      else if (ioc.type === 'domain') pattern = `[domain-name:value = '${sv}']`;
-      else if (ioc.type === 'url') pattern = `[url:value = '${sv}']`;
-      else if (ioc.type === 'hash') pattern = `[file:hashes.MD5 = '${sv}']`;
-      else if (ioc.type === 'email') pattern = `[email-addr:value = '${sv}']`;
-      else if (ioc.type === 'cve') pattern = `[vulnerability:name = '${sv}']`;
-      else pattern = `[artifact:payload_bin = '${sv}']`;
-      const id = `indicator--${Buffer.from(ioc.value).toString('hex').padEnd(32, '0').slice(0, 8)}-${idx.toString().padStart(4, '0')}-0000-0000-000000000000`;
-      return {
-        type: 'indicator', spec_version: '2.1', id,
-        created: now, modified: now, name: ioc.value, pattern,
-        pattern_type: 'stix', valid_from: ioc.published_at || now,
-        labels: [ioc.type, ioc.origin],
-        external_references: [{ source_name: ioc.source, url: ioc.article_url || '' }]
-      };
-    });
     res.setHeader('Content-Type', 'application/json');
     res.setHeader('Content-Disposition', 'attachment; filename="freeintelhub-iocs.stix.json"');
-    return res.json({ type: 'bundle', id: `bundle--fih-${Date.now()}`, spec_version: '2.1', objects: indicators });
+    return res.json(buildBundle(iocList, { name: 'FreeIntelHub IOC Export' }));
   }
 
   // Default: JSON
@@ -2966,7 +2985,6 @@ router.get('/cases/:id', (req, res) => {
 
 // STIX 2.1 bundle export for a single Case — includes every IOC across all
 // articles attached to the case. Available to analysts (the case is auth-gated).
-const { buildBundle, flattenStoredIocs, buildIndicator } = require('../services/stixExporter');
 router.get('/cases/:id/stix', requireAuth('analyst'), (req, res) => {
   const caseId = parseInt(req.params.id, 10);
   if (!caseId) return res.status(400).json({ error: 'invalid case id' });

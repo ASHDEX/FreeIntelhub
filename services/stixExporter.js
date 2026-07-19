@@ -110,8 +110,8 @@ function buildBundle(iocs, meta = {}) {
 }
 
 /**
- * Convenience: turn the iocs JSON we store on `articles.iocs` (with keys
- * cves/ipv4/hashes/domains/urls/emails) into a flat list.
+ * Convenience: turn the iocs JSON we store on `articles.iocs` into a flat list.
+ * Supports current extractor keys plus the older `ips`/`hashes` shape.
  */
 function flattenStoredIocs(iocsJson, ctx = {}) {
   if (!iocsJson) return [];
@@ -120,9 +120,15 @@ function flattenStoredIocs(iocsJson, ctx = {}) {
     try { parsed = JSON.parse(iocsJson); } catch (_) { return []; }
   }
   const out = [];
+  const seen = new Set();
   const map = {
     cves: 'cve',
     ipv4: 'ipv4',
+    ipv6: 'ipv6',
+    ips: 'ipv4',
+    md5: 'md5',
+    sha1: 'sha1',
+    sha256: 'sha256',
     hashes: 'hash',
     domains: 'domain',
     urls: 'url',
@@ -131,7 +137,12 @@ function flattenStoredIocs(iocsJson, ctx = {}) {
   for (const [key, type] of Object.entries(map)) {
     const arr = Array.isArray(parsed[key]) ? parsed[key] : [];
     for (const value of arr) {
-      out.push({ type, value, ...ctx });
+      const normalizedValue = String(value || '').trim();
+      if (!normalizedValue) continue;
+      const dedupeKey = `${type}:${normalizedValue.toLowerCase()}`;
+      if (seen.has(dedupeKey)) continue;
+      seen.add(dedupeKey);
+      out.push({ type, value: normalizedValue, ...ctx });
     }
   }
   return out;
